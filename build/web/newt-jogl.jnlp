@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<jnlp codebase="file:///C:\Users\Benjamin\PROGRAMMING\Personal\GithubRepos\DNADesign\DNADesign\build/web"
+      href="newt-jogl.jnlp">
+  <information>
+    <title>NEWT - New Windowing Toolkit (JOGL)</title>
+    <vendor>Sun Microsystems, Inc.</vendor>
+    <homepage href="http://jogl.dev.java.net/"/>
+    <description>NEWT - A NativeWindow Interface implementation - JOGL</description>
+    <description kind="short">NEWT - A NativeWindow Interface implementation - JOGL</description>
+    <offline-allowed/>
+  </information>
+  <security>
+      <all-permissions/>
+  </security>
+    <resources>
+      <jar href="newt.ogl.jar" main="true"/>
+      <extension name="newt" href="file:///C:\Users\Benjamin\PROGRAMMING\Personal\GithubRepos\DNADesign\DNADesign\build/web/newt.jnlp" />
+      <extension name="jogl-core" href="file:///C:\Users\Benjamin\PROGRAMMING\Personal\GithubRepos\DNADesign\DNADesign\build/web/jogl-core.jnlp" />
+    </resources>
+  <component-desc />
+</jnlp>

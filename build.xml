@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project name="BulletHell.makejar" basedir="./build/" default="default">
+<project name="DnaDesign.makejar" basedir="./build/" default="default">
 	<!-- make sure outjar / outjar2 are both only filenames, no paths. -->
-	<property name="DeploymentName" value="BulletHell" />
-	<property name="p5Main" value="BulletHell.BulletHell_Lite" />
+	<property name="DeploymentName" value="DnaDesign" />
+	<property name="p5Main" value="DnaDesign.GUI.DNADesign_Lite" />
 
 	<property name="DSSEngine_path" value="C:/Users/Benjamin/PROGRAMMING/Personal/GithubRepos/DanmakuSimpleScript-Engine---Simulator/DSSEngine" />
 	<property name="DSS_anttasks_path" value="${DSSEngine_path}/DSS-anttasks.jar" />
@@ -38,16 +38,16 @@
 		Deployments*/**/*.class,
 		DNA*/**/*.class,
 		processing*/**/*.class,
-		TaiGameCore*/**/*.class,
+		TaiGameCore/*.class,
 		TaiScript*/**/*.class,
 		com/iabcinc/**/*.class,
 		com/jcraft/**/*.class,
 		ddf/**/*.class,
 		javazoom/**/*.class,
-		edu/**/*.class" />
+		edu/**/*.class," />
 	<property name="onlineIncludes" value="
 		${onlineIncludes_Core},
-		BulletHell*/**/*.class,
+		DnaDesign*/**/*.class,
 		" />
 	
 	<!--Def the tasks. -->
@@ -160,7 +160,8 @@
 		</copy>
 		<!-- replace the {CLASSNAME} with our applet -->
 		<srchreplace srcfile="${basedir}/web_template.html" destfile="${basedir}/web_template2.html" srch="{CLASSNAME}" rep="${p5Main}" />
-		<srchreplace srcfile="${basedir}/myjnlp.jnlp" destfile="${basedir}/web/myjnlp.jnlp" srch="{CLASSNAME}" rep="${p5Main}" />
+		<srchreplace srcfile="${basedir}/myjnlp.jnlp" destfile="${basedir}/web/myjnlp2.jnlp" srch="{CLASSNAME}" rep="${p5Main}" />
+		<srchreplace srcfile="${basedir}/web/myjnlp2.jnlp" destfile="${basedir}/web/myjnlp.jnlp" srch="{CLASSLIBJAR}" rep="${webjar}" deletesrch="true" />
 		<srchreplace srcfile="${basedir}/web_template2.html" destfile="${basedir}/web_template3.html" srch="{APPLETWIDTH}" rep="640" deletesrch="true" />
 		<srchreplace srcfile="${basedir}/web_template3.html" destfile="${basedir}/web_template4.html" srch="{APPLETHEIGHT}" rep="480" deletesrch="true" />
 		<srchreplace srcfile="${basedir}/web_template4.html" destfile="${basedir}/web_templatefinal.html" srch="{DESTINATION_URL_DIR}" rep="${deploypath}" deletesrch="true" />
