@@ -5,15 +5,105 @@ public class CodonCode {
 	 * Returns which amino acid is being encoded at [i,i+2]
 	 */
 	public char decodeAmino(int[] out, int i){
-		int result = out[i]*64+out[i+1]*8+out[i+2];
+		int result = pow8(out,i);
 		return forwardTable[result];
+	}
+	/**
+	 * Mutates the codons [i,i+2] and [j,j+2] to different codons, both of the original amino acid, but
+	 * with complementarity reduced. 
+	 */
+	public void mutateToFixComplement(int[] is, int i, int j) {
+		final int pow8i = pow8(is,i);
+		final int pow8j = pow8(is,j);
+		int allowableComplement = 0;
+		if (getComplementNum(pow8i,pow8j) <= allowableComplement){
+			return; //Nothing to change!
+		}
+		char aminoI = forwardTable[pow8i];
+		char aminoJ = forwardTable[pow8j];
+		int[] possibleI = reverseTable[aminoI];
+		int[] possibleJ = reverseTable[aminoJ];
+		if (possibleI.length*possibleJ.length==1){
+			//throw new RuntimeException("Amino "+amino+" has just one codon!");
+			return; //Unfortunately, this is all we can do...
+		}
+		boolean fixed = false;
+		int bestScore = 50;
+		int bestI = -1, bestJ = -1;
+		int rOffI = (int) (Math.random()*possibleI.length);
+		int rOffj = (int) (Math.random()*possibleJ.length);
+		biggloop: for(int tryPossibleIr = 0; tryPossibleIr < possibleI.length; tryPossibleIr++){
+			for(int tryPossibleJr = 0; tryPossibleJr < possibleJ.length; tryPossibleJr++){
+				int tryPossibleI = (tryPossibleIr + rOffI)%possibleI.length;
+				int tryPossibleJ = (tryPossibleIr + rOffj)%possibleJ.length;
+				/*
+				if (possibleI[tryPossibleI] == pow8i && possibleJ[tryPossibleJ] == pow8j){
+					if (Math.random()<.5){
+						tryPossibleI = (tryPossibleI+1)%possibleI.length;
+					} else {
+						tryPossibleJ = (tryPossibleJ+1)%possibleJ.length;
+					}
+				}
+				*/
+				int newI = possibleI[tryPossibleI];
+				int newJ = possibleJ[tryPossibleJ];
+				int score = getComplementNum(newI, newJ);
+				if (score <= allowableComplement){
+					bestI = newI;
+					bestJ = newJ;
+					fixed = true;
+					break biggloop;
+				}
+				if (score <= bestScore){
+					bestScore = score;
+					bestI = newI;
+					bestJ = newJ;
+				}
+			}
+		}
+		if (!fixed){
+			//System.out.println(bestScore);
+			//System.err.println("Couldn't fix "+aminoI+" "+aminoJ);
+		}
+
+		is[i] = (bestI>>6)&7;
+		is[i+1] = (bestI>>3)&7;
+		is[i+2] = (bestI)&7;
+
+		is[j] = (bestJ>>6)&7;
+		is[j+1] = (bestJ>>3)&7;
+		is[j+2] = (bestJ)&7;
+	}
+	public static void main(String[] args){
+		CodonCode c = new CodonCode();
+		System.out.println(getComplementNum(c.reverseTable['A'][0],c.reverseTable['M'][0]));
+	}
+	private static final int getComplementNum(int pow81, int pow82){
+		int comp = 0;
+		for(int offset = -2; offset <= 2; offset++){
+			int subComp = 0;
+			for(int y = 0; y < 3; y++){
+				int ny = 2-y+offset;
+				if (ny < 0 || ny >= 3){
+					continue;
+				}
+				if (((pow81>>(y*3))&7) == 5 - ((pow82>>(ny*3))&7)){
+					subComp++;
+				}
+			}
+			comp = Math.max(comp,subComp);
+		}
+		return comp;
+	}
+	private static final int pow8(int[] domain, int codonStart){
+		return domain[codonStart]*64+domain[codonStart+1]*8+domain[codonStart+2];
 	}
 	/**
 	 * Mutates the codon at [i,i+2] to a different codon of the same amino acid.
 	 */
 	public void mutateToOther(int[] out, int i){
 		//Code duplicated from decodeAmino
-		int pow8 = out[i]*64+out[i+1]*8+out[i+2];
+		int pow8 = pow8(out,i);
 		char amino = forwardTable[pow8];
 		
 		//k.

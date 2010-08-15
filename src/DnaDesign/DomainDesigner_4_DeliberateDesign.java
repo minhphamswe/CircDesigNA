@@ -15,8 +15,8 @@ import java.util.Scanner;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 
-public class DomainDesigner_3_MultidomainDesign {
-	public static class DomainDesigner_3_MultidomainDesign_Client implements DDSeqDesigner{
+public class DomainDesigner_4_DeliberateDesign {
+	public static class DomainDesigner_4_DeliberateDesign_Client implements DDSeqDesigner{
 		private boolean waitOnStart = true;
 		private boolean finished = false;
 		private Runnable runOnStart = new Runnable(){
@@ -94,15 +94,15 @@ public class DomainDesigner_3_MultidomainDesign {
 				}.start();
 			}
 		};
-		DomainDesigner_3_MultidomainDesign r;
+		DomainDesigner_4_DeliberateDesign r;
 		{
-			r = new DomainDesigner_3_MultidomainDesign();
+			r = new DomainDesigner_4_DeliberateDesign();
 		}
 		private List<String> inputStrands;
 		private TreeMap<Integer, String> lock;
 		private TreeMap<Integer, String> initial;
 		private CodonCode cc;
-		public DomainDesigner_3_MultidomainDesign_Client(List<String> inputStrands, TreeMap<Integer, String> lock, TreeMap<Integer, String> initial, CodonCode cc){
+		public DomainDesigner_4_DeliberateDesign_Client(List<String> inputStrands, TreeMap<Integer, String> lock, TreeMap<Integer, String> initial, CodonCode cc){
 			this.inputStrands = inputStrands;
 			this.lock = lock;
 			this.initial = initial;
@@ -277,7 +277,7 @@ public class DomainDesigner_3_MultidomainDesign {
 	}
 
 	public static DDSeqDesigner makeDesigner(List<String> inputStrands, TreeMap<Integer, String> lock, TreeMap<Integer, String> initial, CodonCode cc){
-		return new DomainDesigner_3_MultidomainDesign_Client (inputStrands, lock, initial, cc);
+		return new DomainDesigner_4_DeliberateDesign_Client (inputStrands, lock, initial, cc);
 	}
 
 	//Accessible to client:
@@ -297,6 +297,7 @@ public class DomainDesigner_3_MultidomainDesign {
 	 * and mutate them. Recommended, otherwise you're merely randomly mutating.
 	 */
 	private boolean ENABLE_MARKINGS = true;
+	private static final int DNAMARKER_DONTMUTATE = -1;
 	
 	/**
 	 * Use the evaluator only to remove ss, don't care about dimers and so forth.
@@ -316,7 +317,7 @@ public class DomainDesigner_3_MultidomainDesign {
 	
 	int MinHairpinLoopSize = 2; //Smallest a hairpin loop can be. Used in selfcrosstalk
 	int MAX_MUTATION_DOMAINS = 999;
-	int MAX_MUTATIONS_LIMIT = 9999; // maximum number of simultaneous mutations
+	int MAX_MUTATIONS_LIMIT = 9999; // maximunotm number of simultaneous mutations
 
 	/**
 	 * Matching (complementarity) Strengths. Negative means repulsion.
@@ -369,12 +370,13 @@ public class DomainDesigner_3_MultidomainDesign {
 		File out = new File("C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\SSSscores\\xmer.txt");
 		//File out = new File("C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\SSSscores\\xmer-pair.txt");
 		PrintWriter o = new PrintWriter(new FileWriter(out));
-		DomainDesigner_3_MultidomainDesign ed = new DomainDesigner_3_MultidomainDesign();
+		DomainDesigner_4_DeliberateDesign ed = new DomainDesigner_4_DeliberateDesign();
 		for(int i = 0; i < numSamples; i++){
 			int merlen = (int)(Math.random()*1000) + 8;
 			int[][] domain = new int[2][merlen];
 			Arrays.fill(domain[0],1);
 			int[][] domainMarkings = new int[2][merlen];
+			deepFill(domainMarkings, DNAMARKER_DONTMUTATE);
 			ds.setDomains(0);
 			ds2.setDomains(1);
 			for(int count = 0; count < 1; count++){
@@ -408,7 +410,7 @@ public class DomainDesigner_3_MultidomainDesign {
 		int[][] domain = new int[1][seq.length()];
 		int[][] domainMarkings = new int[1][seq.length()];
 		int count = 0;
-		DomainDesigner_3_MultidomainDesign ed = new DomainDesigner_3_MultidomainDesign();
+		DomainDesigner_4_DeliberateDesign ed = new DomainDesigner_4_DeliberateDesign();
 		for(char d : seq.toCharArray()){
 			domain[0][count++]= ed.getLockedBase(d);
 		}
@@ -453,7 +455,6 @@ public class DomainDesigner_3_MultidomainDesign {
 		
 		TreeMap<Integer, String> initial = new TreeMap<Integer, String>();
 		
-		//String t7RnaPolymerase = "ATGGGGAGCTCGCATCACCATCAC";
 		String t7RnaPolymerase = "ATGGGGAGCTCGCATCACCATCACCATCACGGATCCAACACGATTAACATCGCTAAGAACGACTTCTCTGACATCGAACTGGCTGCTATCCCGTTCAACACTCTGGCTGACCATTACGGTGAGCGTTTAGCTCGCGAACAGTTGGCCCTTGAGCATGAGTCTTACGAGATGGGTGAAGCACGCTTCCGCAAGATGTTTGAGCGTCAACTTAAAGCTGGTGAGGTTGCGGATAACGCTGCCGCCAAGCCTCTCATCACTACCCTACTCCCTAAGATGATTGCACGCATCAACGACTGGTTTGAGGAAGTGAAAGCTAAGCGCGGCAAGCGCCCGACAGCCTTCCAGTTCCTGCAAGAAATCAAGCCGGAAGCCGTAGCGTACATCACCATTAAGACCACTCTGGCTTGCCTAACCAGTGCTGACAATACAACCGTTCAGGCTGTAGCAAGCGCAATCGGTCGGGCCATTGAGGACGAGGCTCGCTTCGGTCGTATCCGTGACCTTGAAGCTAAGCACTTCAAGAAAAACGTTGAGGAACAACTCAACAAGCGCGTAGGGCACGTCTACAAGAAAGCATTTATGCAAGTTGTCGAGGCTGACATGCTCTCTAAGGGTCTACTCGGTGGCGAGGCGTGGTCTTCGTGGCATAAGGAAGACTCTATTCATGTAGGAGTACGCTGCATCGAGATGCTCATTGAGTCAACCGGAATGGTTAGCTTACACCGCCAAAATGCTGGCGTAGTAGGTCAAGACTCTGAGACTATCGAACTCGCACCTGAATACGCTGAGGCTATCGCAACCCGTGCAGGTGCGCTGGCTGGCATCTCTCCGATGTTCCAACCTTGCGTAGTTCCTCCTAAGCCGTGGACTGGCATTACTGGTGGTGGCTATTGGGCTAACGGTCGTCGTCCTCTGGCGCTGGTGCGTACTCACAGTAAGAAAGCACTGATGCGCTACGAAGACGTTTACATGCCTGAGGTGTACAAAGCGATTAACATTGCGCAAAACACCGCATGGAAAATCAACAAGAAAGTCCTAGCGGTCGCCAACGTAATCACCAAGTGGAAGCATTGTCCGGTCGAGGACATCCCTGCGATTGAGCGTGAAGAACTCCCGATGAAACCGGAAGACATCGACATGAATCCTGAGGCTCTCACCGCGTGGAAACGTGCTGCCGCTGCTGTGTACCGCAAGGACAAGGCTCGCAAGTCTCGCCGTATCAGCCTTGAGTTCATGCTTGAGCAAGCCAATAAGTTTGCTAACCATAAGGCCATCTGGTTCCCTTACAACATGGACTGGCGCGGTCGTGTTTACGCTGTGTCAATGTTCAACCCGCAAGGTAACGATATGACCAAAGGACTGCTTACGCTGGCGAAAGGTAAACCAATCGGTAAGGAAGGTTACTACTGGCTGAAAATCCACGGTGCAAACTGTGCGGGTGTCGATAAGGTTCCGTTCCCTGAGCGCATCAAGTTCATTGAGGAAAACCACGAGAACATCATGGCTTGCGCTAAGTCTCCACTGGAGAACACTTGGTGGGCTGAGCAAGATTCTCCGTTCTGCTTCCTTGCGTTCTGCTTTGAGTACGCTGGGGTACAGCACCACGGCCTGAGCTATAACTGCTCCCTTCCGCTGGCGTTTGACGGGTCTTGCTCTGGCATCCAGCACTTCTCCGCGATGCTCCGAGATGAGGTAGGTGGTCGCGCGGTTAACTTGCTTCCTAGTGAAACCGTTCAGGACATCTACGGGATTGTTGCTAAGAAAGTCAACGAGATTCTACAAGCAGACGCAATCAATGGGACCGATAACGAAGTAGTTACCGTGACCGATGAGAACACTGGTGAAATCTCTGAGAAAGTCAAGCTGGGCACTAAGGCACTGGCTGGTCAATGGCTGGCTTACGGTGTTACTCGCAGTGTGACTAAGCGTTCAGTCATGACGCTGGCTTACGGGTCCAAAGAGTTCGGCTTCCGTCAACAAGTGCTGGAAGATACCATTCAGCCAGCTATTGATTCCGGCAAGGGTCTGATGTTCACTCAGCCGAATCAGGCTGCTGGATACATGGCTAAGCTGATTTGGGAATCTGTGAGCGTGACGGTGGTAGCTGCGGTTGAAGCAATGAACTGGCTTAAGTCTGCTGCTAAGCTGCTGGCTGCTGAGGTCAAAGATAAGAAGACTGGAGAGATTCTTCGCAAGCGTTGCGCTGTGCATTGGGTAACTCCTGATGGTTTCCCTGTGTGGCAGGAATACAAGAAGCCTATTCAGACGCGCTTGAACCTGATGTTCCTCGGTCAGTTCCGCTTACAGCCTACCATTAACACCAACAAAGATAGCGAGATTGATGCACACAAACAGGAGTCTGGTATCGCTCCTAACTTTGTACACAGCCAAGACGGTAGCCACCTTCGTAAGACTGTAGTGTGGGCACACGAGAAGTACGGAATCGAATCTTTTGCACTGATTCACGACTCCTTCGGTACCATTCCGGCTGACGCTGCGAACCTGTTCAAAGCAGTGCGCGAAACTATGGTTGACACATATGAGTCTTGTGATGTACTGGCTGATTTCTACGACCAGTTCGCTGACCAGTTGCACGAGTCTCAATTGGACAAAATGCCAGCACTTCCGGCTAAAGGTAACTTGAACCTCCGTGACATCTTAGAGTCGGACTTCGCGTTCGCGTAA"; 
 		if (args.length > 0 && args[0].length()>0){
 			t7RnaPolymerase = args[0].toUpperCase().replaceAll("\\s+","");
@@ -526,12 +527,9 @@ public class DomainDesigner_3_MultidomainDesign {
 		DDSeqDesigner dsd = makeDesigner(strands, lock, initial, cc);
 
 		dsd.resume();
-		int waitTime = Integer.MAX_VALUE;
-		while(!dsd.isFinished() && waitTime > 0){
-			Thread.sleep(100);
-			waitTime-=100;
-		}
-		dsd.pause();
+		Scanner in = new Scanner(System.in);
+		in.nextLine();
+		in.close();
 		Thread.sleep(10);
 		System.out.println(dsd.getResult());
 
@@ -547,7 +545,7 @@ public class DomainDesigner_3_MultidomainDesign {
 		rule_init = 7; // 1 = polyN, 2 = poly-H, 3 = poly-Y, 4 = poly-T
 		rule_targetworst = 0; // target worst domains for mutation
 		rule_gatc_avail = 15; // all flags set (bases available)
-		rule_SeqRulesAreAbsolute = 1;
+		rule_SeqRulesAreAbsolute = 0;
 	}
 
 	private abstract static class ScorePenalty{
@@ -636,6 +634,9 @@ public class DomainDesigner_3_MultidomainDesign {
 		}
 
 		public int getPriority() {
+			if (rule_SeqRulesAreAbsolute==1){
+				return 0;
+			}
 			return 2;
 		}
 
@@ -723,20 +724,18 @@ public class DomainDesigner_3_MultidomainDesign {
 
 		// Initial display (Randomized start)
 		displayDomains(domain);
-		
+		/*
 		//Is this a valid start position?
 		for(i = 0; i < num_domain; i++){
 			if (!isValidSequenceSetup(i,seqToSynthesize,domain)){
 				throw new RuntimeException("Assertion error: Start setup invalidated rules.");
 			}
 		}
+		*/
 
 		//List all score calculations.
 		ArrayList<ScorePenalty> allScores = new ArrayList<ScorePenalty>();
-		if (!(rule_SeqRulesAreAbsolute==1)){
-			//Add a penalty score instead.
-			allScores.add(new ValidSequenceScore(seqToSynthesize));
-		}
+		allScores.add(new ValidSequenceScore(seqToSynthesize));
 		for(i = 0; i < seqToSynthesize.size(); i++){
 			DomainSequence ds = seqToSynthesize.get(i);
 			//Secondary structure avoidance.
@@ -765,7 +764,7 @@ public class DomainDesigner_3_MultidomainDesign {
 
 		//Initial score.
 		float current_score = 0;
-		deepFill(domain_markings,0);
+		deepFill(domain_markings,DNAMARKER_DONTMUTATE);
 		for(ScorePenalty q : allScores){
 			current_score += q.getScore(domain, domain_markings);
 		}
@@ -790,13 +789,15 @@ public class DomainDesigner_3_MultidomainDesign {
 
 		//Make a back buffer for domain reverts
 		int[][] old_domains = new int[num_domain][];
+		int[][] old_domains_markings = new int[num_domain][];
 		for(k = 0; k < num_domain; k++){
 			old_domains[k] = new int[domain_length[k]];
+			old_domains_markings[k] = new int[domain_length[k]];
 		}
 		//Blah blah blah, various temporaries. See usage below.
 		int num_mut_attempts = 0, mut_domain, num_domains_mut, min_mutations, max_mutations;
 		double worstPenaltyScore = -1, deltaScore = 0;
-		double[] bestWorstPenaltyScore = new double[]{Double.MAX_VALUE, Double.MAX_VALUE};
+		double[] bestWorstPenaltyScore = new double[]{Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE};
 		boolean revert_mutation = false, newPointReached = false;
 		ScorePenalty worstPenalty = null;
 		boolean[] domain_mutated = new boolean[num_domain];
@@ -815,9 +816,6 @@ public class DomainDesigner_3_MultidomainDesign {
 			Arrays.fill(domain_mutated,false);
 			int times = 0;
 			for(k = 0; k < num_domains_mut; k++){
-				if (times++>100){
-					System.out.println(times);
-				}
 				min_mutations = 3;
 				if (/*int_urn(0, 4)==0 || */worstPenalty==null){
 					mut_domain = int_urn(0, mutableDomains.length-1);
@@ -864,18 +862,10 @@ public class DomainDesigner_3_MultidomainDesign {
 				mut_domains[k] = mut_domain;
 				//Backup
 				System.arraycopy(domain[mut_domain],0,old_domains[mut_domain],0,domain_length[mut_domain]);
+				System.arraycopy(domain_markings[mut_domain],0,old_domains_markings[mut_domain],0,domain_length[mut_domain]);
 				//Mutate
-				if (!mutateUntilValid(mut_domain, domain, domain_length, seqToSynthesize, domain_markings, cc, min_mutations, max_mutations)){
-					/*
-					if (MARKINGS_ENABLESTRICT){
-						//Ok, allow any mutations now:
-						Arrays.fill(domain_markings[mut_domain],1);
-					}
-					*/
-					k--;
-				} else {
-					domain_mutated[mut_domain] = true;
-				}
+				mutateUntilValid(mut_domain, domain, domain_length, seqToSynthesize, domain_markings, cc, min_mutations, max_mutations);
+				domain_mutated[mut_domain] = true;
 			}
 
 			//Short circuiting constraint evaluation: If score was improved, keep, otherwise, break.
@@ -884,10 +874,10 @@ public class DomainDesigner_3_MultidomainDesign {
 			//Reset markers.
 			for(k = 0; k < num_domains_mut; k++){
 				mut_domain = mut_domains[k];
-				Arrays.fill(domain_markings[mut_domain], 0);
+				Arrays.fill(domain_markings[mut_domain], DNAMARKER_DONTMUTATE);
 			}
 			int priority;
-			priorityLoop: for(priority = 1; priority <= 2; priority++){
+			priorityLoop: for(priority = 0; priority <= 2; priority++){
 
 				if (DEBUG_PENALTIES){
 					resetDebugPenalty(); //Yes, this is a bit wasteful. So sue me.
@@ -966,7 +956,7 @@ public class DomainDesigner_3_MultidomainDesign {
 					break priorityLoop;
 				} else{
 					//Keep the mutations
-					bestWorstPenaltyScore[priority-1] = worstPenaltyScore;
+					bestWorstPenaltyScore[priority] = worstPenaltyScore;
 				}
 			}
 			 
@@ -976,15 +966,26 @@ public class DomainDesigner_3_MultidomainDesign {
 			if (revert_mutation){
 				timesSameCount++;
 				//Revert
+				/*
+				if (ENABLE_MARKINGS){
+					for(int[] row : domain_markings){
+						for(int q : row){
+							System.out.printf("%4d",q);
+						}
+						System.out.println();
+					}
+				}
+				*/
 				for(k = 0; k < num_domains_mut; k++){
 					mut_domain = mut_domains[k];
 					for(ScorePenalty s : scoredElements[mut_domain]){
 						s.revert();
 					}
 					//Have to go back to old sequences..
-					Arrays.fill(domain_markings[mut_domain], 0);
+					System.arraycopy(old_domains_markings[mut_domain],0,domain_markings[mut_domain], 0, domain[mut_domain].length);
 					System.arraycopy(old_domains[mut_domain], 0, domain[mut_domain], 0, domain[mut_domain].length);
 				}				
+				/*
 				for(k = 0; k < num_domains_mut; k++){
 					mut_domain = mut_domains[k];
 					for(ScorePenalty s : scoredElements[mut_domain]){
@@ -994,6 +995,7 @@ public class DomainDesigner_3_MultidomainDesign {
 						}
 					}
 				}
+				*/
 			} else {
 				timesSameCount = 0;
 				//Dedicate
@@ -1011,6 +1013,7 @@ public class DomainDesigner_3_MultidomainDesign {
 				best_score = current_score;
 				displayDomains(domain, false); //Updates public domains
 
+		
 				if (DEBUG_PENALTIES && newPointReached){
 					printDebugPenalties();
 					System.out.println();
@@ -1072,9 +1075,15 @@ public class DomainDesigner_3_MultidomainDesign {
 		} else {
 			domain[0] = A; //Arbitrary.
 		}
+		int lessATthanGC = 0;
 		for(int i = 1; i < domain.length; i++){
+			if (domain[i-1]%10==T || domain[i-1]%10==A){
+				lessATthanGC --;
+			} else {
+				lessATthanGC ++;
+			}
 			int newBase = (((domain[i-1]%10))%2); //Ensure alternating
-			if (Math.abs(getLessATthanGC(domain,i)+extraGC)>0){
+			if (Math.abs(lessATthanGC+extraGC)>0){
 				newBase = newBase==0?T:A;
 			} else { 
 				newBase = newBase==0?G:C;
@@ -1125,26 +1134,22 @@ public class DomainDesigner_3_MultidomainDesign {
 		int[] mut_old = mut_old_domain;
 		int[] mut_new = domain[mut_domain];
 
-		//How many mutations will we try now?
-		int num_mut = Math.min(len,max_mutations);
 		//Count the ones
+		int oneC = 0;
 		if (ENABLE_MARKINGS){
-			int oneC = 0;
 			for(int q : domain_markings[mut_domain]){
-				if (q==1){
+				if (q!=-1){
 					oneC++;
 				}
 			}
-			num_mut = Math.min(num_mut,oneC);
 		}
-		num_mut = int_urn(1,num_mut);
-		num_mut = Math.max(num_mut,min_mutations);
 		
 		//System.out.println(num_mut+" "+min_mutations);
 		
 
-		for (int k = 0; k < num_mut; k++) {
+		for (int k = 0; k < len; k++) {
 			if (cc==null){ //no codon table: single base modifications
+				if (true) throw new RuntimeException("Not yet implemented");
 				// Attempt a mutation
 				int j = int_urn(0, len-1); // select a base to mutate
 
@@ -1196,36 +1201,35 @@ public class DomainDesigner_3_MultidomainDesign {
 			} else { //Codon table: 3 mutation points = 1 amino swap.
 				
 				// Attempt a mutation
-				int j = int_urn(0, len-1); // select a base to mutate
+				int j = k; // select this base
 				//Round to codon
 				j -= j%3;
 
+				boolean mutate = false;
+				int whichMutate = -1;
 				if (ENABLE_MARKINGS){
 					//Is this a codon we shouldn't target ?
-					for(int jb = j; jb < j+3; jb++){
-						if (domain_markings[mut_domain][jb] == 0 /*&& domain_markings[mut_domain][otherJ] == 0*/ && !(!MARKINGS_ENABLESTRICT && int_urn(1,1000)==1)){
-							k--;
-							continue;
+					checkLoop: for(int jb = j; jb < j+3; jb++){
+						if (domain_markings[mut_domain][jb] != DNAMARKER_DONTMUTATE){
+							whichMutate = domain_markings[mut_domain][jb];
+							whichMutate -= whichMutate%3; //round to codon
+							mutate = true;
+							break checkLoop;
 						}
 					}
 				}
 				
-				//Mutate codon!
-				cc.mutateToOther(domain[mut_domain], j);
+				if (mutate){
+					//Mutate codon!
+					cc.mutateToFixComplement(domain[mut_domain], j, whichMutate);
+				} else {
+					//If we were randomly selecting, would need to decrement k.
+				}
 
 				//+3.
 				k+=2;
 			}
 			        
-		}
-
-		if (rule_SeqRulesAreAbsolute==1){
-			if (!isValidSequenceSetup(mut_domain,seqToSynthesize,domain)){
-				//displayDomains(mutateSequence,domain);
-				//Revert
-				System.arraycopy(mut_old_domain,0,domain[mut_domain],0,len);
-				return false;
-			}
 		}
 		return true;
 	}
@@ -1362,11 +1366,11 @@ public class DomainDesigner_3_MultidomainDesign {
 					k = 0;
 				if ((k < 100)&&(k > 3)){
 					//System.out.println("4G");
-					seq.mark(q, -4, domain, domain_markings);
+					//seq.mark(q, -4, domain, domain_markings);
 					sumResult += 1;
 					k = 0;
 				} else if (k > 103) { 
-					seq.mark(q, -4, domain, domain_markings);
+					//seq.mark(q, -4, domain, domain_markings);
 					//System.out.println("4C");
 					sumResult += 1;
 					k = 0;
@@ -1386,7 +1390,7 @@ public class DomainDesigner_3_MultidomainDesign {
 					k = 0;
 				if (k > 5){
 					//System.out.println("6AT");
-					seq.mark(q, -6, domain, domain_markings);
+					//seq.mark(q, -6, domain, domain_markings);
 					sumResult += 1;
 					k = 0;
 				}
@@ -1401,7 +1405,7 @@ public class DomainDesigner_3_MultidomainDesign {
 					k = 0;
 				if (k > 5){
 					//System.out.println("6GC");
-					seq.mark(q, -6, domain, domain_markings);
+					//seq.mark(q, -6, domain, domain_markings);
 					sumResult += 1;
 					k = 0;
 				}
@@ -1697,6 +1701,7 @@ public class DomainDesigner_3_MultidomainDesign {
 				in.nextLine(); //Read off "dg" line
 				for(int k = 0; k < len; k++){
 					char[] arr = in.nextLine().toCharArray();
+					//System.out.println(new String(arr));
 					int regions = 0;
 					int z, end;
 					for(z = 0; z < arr.length && regions < 4; z++){
@@ -1713,7 +1718,7 @@ public class DomainDesigner_3_MultidomainDesign {
 					int num = new Integer(new String(arr,z,end-z));
 					//System.out.println(num);
 					if (num > 0){
-						seq.mark(num-1, domain, domain_markings);
+						seq.mark(num-1, domain, domain_markings, k);
 					}
 					//Thread.sleep(100);
 				}
@@ -1883,6 +1888,7 @@ public class DomainDesigner_3_MultidomainDesign {
 			} 
 		}
 
+		/*
 		if (DEBUG_selfCrosstalkMethod){
 			for(i = 0; i < len1; i++){
 				for(j = 0; j < len1; j++){
@@ -1893,6 +1899,7 @@ public class DomainDesigner_3_MultidomainDesign {
 				System.out.println();
 			}
 		}
+		*/
 		int x = bestScoreX;
 		int y = bestScoreY;
 		do {
@@ -1908,17 +1915,12 @@ public class DomainDesigner_3_MultidomainDesign {
 				if (DEBUG_selfCrosstalkMethod)System.out.println(x+"-"+(x-(SDmatrix[x][y]-1))+" "+(ty)+"-"+(ty+SDmatrix[x][y]-1));
 				for(int z = -SDmatrix[x][y]+1; z <= 0; z++){
 					int nx = x + z;
+					int ny = ty - z;
 					//Store nx
-					seq.mark(nx,domain,domain_markings);
+					seq.mark(nx,domain,domain_markings,ny);
 					if (DEBUG_selfCrosstalkMethod)System.out.print(DisplayBase(seq.base(nx, domain)));
-				}
-				if (DEBUG_selfCrosstalkMethod)System.out.println();
-				for(int z = 0; z < SDmatrix[x][y]; z++){
-					int ny = ty + z;
-					//Store ny
-					seq.mark(ny,domain,domain_markings);
-					
-					if (DEBUG_selfCrosstalkMethod)System.out.print(DisplayBase(seq.base(ny, domain)));
+					seq.mark(ny,domain,domain_markings,nx);
+					if (DEBUG_selfCrosstalkMethod)System.out.print("="+DisplayBase(seq.base(ny, domain))+",");
 				}
 				if (DEBUG_selfCrosstalkMethod)System.out.println();
 

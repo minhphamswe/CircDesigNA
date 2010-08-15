@@ -28,10 +28,11 @@ public class DomainSequence {
 			domainList[k] = freeList.get(k);
 		}
 	}
-	public void setDomains(String seq){
-		domainList = DomainDesigner_SharedUtils.utilReadSequence(seq);
+	public void setDomains(String subStrand, DomainStructureData dsd) {
+		domainList = DomainDesigner_SharedUtils.utilReadSequence(subStrand,dsd);
 		numDomains = domainList.length;
 	}
+	
 	public int length(int[][] domain){
 		int length = 0, seq;
 		for(int i = 0; i < numDomains; i++){
@@ -54,6 +55,9 @@ public class DomainSequence {
 		}
 	}
 	public void mark(int i, int[][] domain, int[][] domain_markings) {
+		mark(i,domain,domain_markings,1);
+	}
+	public void mark(int i, int[][] domain, int[][] domain_markings, int markerValue) {
 		if(domain_markings==null) return;
 		int q = i, r = 0;
 		int[] d;
@@ -62,10 +66,10 @@ public class DomainSequence {
 			d = domain[dNum];
 			if (q < d.length){
 				if ((domainList[r]&DNA_COMPLEMENT_FLAG)!=0){
-					domain_markings[dNum][d.length-1-q] = 1;
+					domain_markings[dNum][d.length-1-q] = markerValue;
 					return;
 				} else{
-					domain_markings[dNum][q] = 1;
+					domain_markings[dNum][q] = markerValue;
 					return;
 				}
 			}

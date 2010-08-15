@@ -5,6 +5,8 @@ import static DnaDesign.DomainDesigner_ByRandomPartialMutations.DNA_SEQ_FLAGSINV
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Scanner;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.Map.Entry;
@@ -16,9 +18,61 @@ public class DomainStructureData {
 	public DomainStructure[] structures;
 	public int[] domains;
 	public static final int DEFAULT_TO_LENGTH = 8;
+	/**
+	 * Invertible.
+	 */
+	public Map<String, Integer> nameMap = new TreeMap();
+	public String getDomainName(int domain){
+		String postpend = ((domain & DNA_COMPLEMENT_FLAG)!=0?"*":"");
+		for(Entry<String, Integer> q : nameMap.entrySet()){
+			if (q.getValue()==(domain & DNA_SEQ_FLAGSINVERSE)){
+				return q.getKey()+postpend;
+			}
+		}
+		return ""+(domain & DNA_SEQ_FLAGSINVERSE)+postpend;
+	}
+	private Map<Integer, String> domainConstraints = new TreeMap();
 	
-	private static final Pattern regexp = Pattern.compile("(\\d+\\*?)(<(.*?)>)?|}");
+	private static final Pattern regexp = Pattern.compile("(\\w+\\*?)(<?(.*?)>?)?|}");
+	
+	/** 
+	 * Pass in whole block, please
+	 **/
+	public static void readDomainDefs(String domainDefsBlock, DomainStructureData out){
+		out.nameMap.clear();
+		out.domainConstraints.clear();
+		ArrayList<Integer> domainLengths = new ArrayList();
+		Scanner in = new Scanner(domainDefsBlock);
+		int k = -1;
+		while(in.hasNextLine()){
+			String[] line = in.nextLine().split("\\s+");
+			if (line.length<2){
+				continue;
+			}
+			k++;
+			domainLengths.add(-1);//initialize length
+			out.nameMap.put(line[0],k);
+			int seqIndex = 1;
+			if (line[1].matches("\\d+")){
+				//We have length map (optional)
+				seqIndex = 2;
+				domainLengths.set(k,new Integer(line[1]));
+			}
+			//Sequence constraints...
+			if (line.length>seqIndex){
+				//Ok! load the constraint. Default to "unconstrained".
+				out.domainConstraints.put(k,line[seqIndex]);
+				domainLengths.set(k,line[seqIndex].replaceAll("[\\[\\]]","").length());
+			}
+		}
+		out.domainLengths = new int[domainLengths.size()];
+		for(k = 0; k < domainLengths.size(); k++){
+			out.domainLengths[k] = domainLengths.get(k);
+		}
+	}
 	public static void readStructure(String dnaString, DomainStructureData out){
+		out.domains = null;
+		out.structures = null;
 		Matcher m = regexp.matcher(dnaString);
 		int whichDomain = 0, seqId = 0;
 		LinkedList<Integer> parens = new LinkedList();
@@ -26,7 +80,7 @@ public class DomainStructureData {
 		TreeMap<Integer, Integer> lockMap = new TreeMap();
 		TreeMap<Integer,DomainStructure> out2 = new TreeMap();
 		TreeMap<Integer, Integer> whichDomainsInOrder = new TreeMap();
-		int highestDomainUsed = 0;
+		int highestDomainUsed = -1;
 		while(m.find()){
 			try {
 				if (m.group(0).equals("}")){
@@ -40,10 +94,11 @@ public class DomainStructureData {
 					if (domainName.endsWith("*")){
 						domainNameL --;
 					}
-					int numberDomain = new Integer(domainName.substring(0,domainNameL));
+					int numberDomain = out.lookupDomainName(domainName.substring(0,domainNameL));
 					int numberDomain2 = numberDomain;
 					if (numberDomain2 < 0){
-						throw new RuntimeException("Invalid domain ID: "+numberDomain2);
+						//TODO: Domain targetted exceptions?
+						throw new RuntimeException("Invalid domain: "+domainName);
 					}
 					if (domainName.endsWith("*")){
 						numberDomain2 |= DNA_COMPLEMENT_FLAG;
@@ -105,17 +160,17 @@ public class DomainStructureData {
 				seqId++;
 			}
 		}
-		if (highestDomainUsed==0){
+		if (highestDomainUsed<0){
 			throw new RuntimeException("Empty strand; no domains");
 		}
 		//Debug
 		int numDomains = whichDomain--;
-		out.domainLengths = new int[highestDomainUsed+1];
-		Arrays.fill(out.domainLengths,-1);
-		out.domains = new int[numDomains];
+		out.domainLengths = expandToLength(out.domainLengths, highestDomainUsed+1,-1);
 		for(Entry<Integer, Integer> q : lengthMap.entrySet()){
 			out.domainLengths[q.getKey()] = q.getValue();
 		}
+		//This is dependent on the input sequence. Not on Domain Definitions.
+		out.domains = new int[numDomains];
 		for(Entry<Integer, Integer> q : whichDomainsInOrder.entrySet()){
 			out.domains[q.getKey()] = q.getValue();
 		}
@@ -128,7 +183,22 @@ public class DomainStructureData {
 			}
 		}
 	}
+	private static int[] expandToLength(int[] old, int newSize, int fillValue){
+		int[] newOld = new int[newSize];
+		Arrays.fill(newOld,fillValue);
+		if (old!=null){
+			System.arraycopy(old,0,newOld,0,Math.min(old.length,newOld.length));
+		}
+		return newOld;
+	}
 	
+	private int lookupDomainName(String substring) {
+		if (!nameMap.containsKey(substring)){
+			return -1;
+		}
+		return nameMap.get(substring);
+	}
+
 	public static class DomainStructure {
 		public DomainStructure (int ... sequencePartsInvolved){
 			this.sequencePartsInvolved = sequencePartsInvolved;
@@ -179,7 +249,6 @@ public class DomainStructureData {
 							for(int p : q.sequencePartsInvolved){
 								innerCurveCircumference += domainLengths[domains[p] & DNA_SEQ_FLAGSINVERSE];
 							}
-
 						}
 					}
 				}

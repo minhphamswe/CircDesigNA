@@ -1,7 +1,5 @@
 package DnaDesign;
 
-import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
@@ -11,8 +9,8 @@ import DnaDesign.DomainStructureData.HairpinStem;
 import DnaDesign.DomainStructureData.SingleStranded;
 
 public class DomainDesigner_SharedUtils {
-	public static void utilJunctionSplitter(List<DomainSequence> out, String toJunctionize){
-		int[] bases = DomainDesigner_SharedUtils.utilReadSequence(toJunctionize);
+	public static void utilJunctionSplitter(List<DomainSequence> out, String toJunctionize, DomainStructureData dsd){
+		int[] bases = DomainDesigner_SharedUtils.utilReadSequence(toJunctionize,dsd);
 		for(int b = 0; b < bases.length; b++){
 			int nexB = b+1;
 			if (nexB < bases.length){
@@ -24,7 +22,7 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 
-	public static int[] utilReadSequence(String toJunctionize) {
+	public static int[] utilReadSequence(String toJunctionize, DomainStructureData dsd) {
 		toJunctionize = toJunctionize.replaceAll("<(.*?)>","").replaceAll("[\\[}]","|").replaceAll("\\s+","").replaceAll("[|]+","|");
 		toJunctionize = toJunctionize.replaceAll("[|]+","|");
 		if (toJunctionize.endsWith("|")){
@@ -37,16 +35,10 @@ public class DomainDesigner_SharedUtils {
 		int[] bases = new int[commands.length];
 		for(int i = 0; i < bases.length; i++){
 			if (commands[i].charAt(commands[i].length()-1)=='*'){
-				bases[i] = -1 + Integer.decode(commands[i].substring(0,commands[i].length()-1));
-				if (bases[i] < 0 ){
-					throw new IllegalArgumentException("Domains are 1 indexed. Domain "+commands[i]+" does not exist.");
-				}
+				bases[i] = dsd.nameMap.get(commands[i].substring(0,commands[i].length()-1));
 				bases[i] |= DomainDesigner_ByRandomPartialMutations.DNA_COMPLEMENT_FLAG;
 			} else {
-				bases[i] = -1 + Integer.decode(commands[i]);
-				if (bases[i] < 0 ){
-					throw new IllegalArgumentException("Domains are 1 indexed. Domain "+commands[i]+" does not exist.");
-				}
+				bases[i] = dsd.nameMap.get(commands[i]);
 			}
 		}
 		return bases;
@@ -86,7 +78,7 @@ public class DomainDesigner_SharedUtils {
 		//For now, we just add them all.
 		if (ds instanceof SingleStranded){
 			for(int k : ds.sequencePartsInvolved){
-				freeList.add((dsd.domains[k])-1);
+				freeList.add((dsd.domains[k]));
 			}
 		}
 		if (ds instanceof HairpinStem){
