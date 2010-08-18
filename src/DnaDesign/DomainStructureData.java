@@ -32,6 +32,21 @@ public class DomainStructureData {
 		return ""+(domain & DNA_SEQ_FLAGSINVERSE)+postpend;
 	}
 	private Map<Integer, String> domainConstraints = new TreeMap();
+	/**
+	 * Returns the constraint for the NONCOMPLEMENTED version of this domain.
+	 * You must handle complementation yourself in handling the constraints!
+	 */
+	public String getConstraint(int domain){
+		domain &= DNA_SEQ_FLAGSINVERSE;
+		if (domainConstraints.containsKey(domain)){
+			return domainConstraints.get(domain);
+		}
+		StringBuffer wT = new StringBuffer();
+		for(int k = 0; k < domainLengths[domain]; k++){
+			wT.append("-");
+		}
+		return wT.toString();
+	}
 	
 	private static final Pattern regexp = Pattern.compile("(\\w+\\*?)(<?(.*?)>?)?|}");
 	
@@ -60,9 +75,36 @@ public class DomainStructureData {
 			}
 			//Sequence constraints...
 			if (line.length>seqIndex){
+				//Regions of characters enclosed in square bracket will be lowercased, meaning "lock".
+				StringBuffer parseBracketLowerCase = new StringBuffer();
+				boolean inBracket = false;
+				for(int e = 0; e < line[seqIndex].length(); e++){
+					char kc = line[seqIndex].charAt(e);
+					if (kc=='['){
+						inBracket = true;
+						continue;
+					}
+					if (kc==']'){
+						if (!inBracket){
+							//Oops, stack underflow.
+							throw new RuntimeException("Stack Underflow of constraint bracket: "+line[seqIndex]);
+						}
+						inBracket = false;
+						continue;
+					}
+					if (inBracket){
+						kc = Character.toLowerCase(kc);
+					}
+					parseBracketLowerCase.append(kc);
+				}
+				line[seqIndex] = parseBracketLowerCase.toString();
 				//Ok! load the constraint. Default to "unconstrained".
-				out.domainConstraints.put(k,line[seqIndex]);
-				domainLengths.set(k,line[seqIndex].replaceAll("[\\[\\]]","").length());
+				if (line[seqIndex].equalsIgnoreCase("TBD")){
+					//Lol, silly format.
+				} else {
+					out.domainConstraints.put(k,line[seqIndex]);
+					domainLengths.set(k,line[seqIndex].length());
+				}
 			}
 		}
 		out.domainLengths = new int[domainLengths.size()];
@@ -209,6 +251,16 @@ public class DomainStructureData {
 		public float random0 = (float)Math.random();
 		public void addSubStructure(DomainStructure q) {
 			subStructure.add(q);
+		}
+		public int countDomainsRecursively() {
+			int ret = 0;
+			if (this instanceof SingleStranded){
+				ret += ((SingleStranded)this).sequencePartsInvolved.length;
+			}
+			for(DomainStructure q : subStructure){
+				ret += q.countDomainsRecursively();
+			}
+			return ret;
 		}
 	}
 	public static class HairpinStem extends DomainStructure {

@@ -38,7 +38,6 @@ public class DomainDesigner_5_RandomDesigner2 {
 					}
 					DomainDesigner_SharedUtils.utilVanillaTargetFinder(dsd, MustBeVanilla);
 
-
 					num_domain = Math.max(num_domain,dsd.domainLengths.length-1);
 
 					for(int i = 0; i < dsd.domainLengths.length; i++){
@@ -217,7 +216,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 							continue splitLoop;
 						}
 					}
-					sb.append(subStrand.replaceAll("\\s+",""));
+					sb.append("["+subStrand.replaceAll("\\s+","").replace("[","")+"}");
 					sb.append(lR);
 					singleStrands.add(ds);
 					for(boolean withSeperator : new boolean[]{true,false}){
@@ -320,7 +319,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 	/**
 	 * Use the evaluator only to remove ss, don't care about dimers and so forth.
 	 */
-	private boolean designSSonly = true;
+	private boolean designSSonly = false;
 	
 	/**
 	 * Take the evaluators word as absolute, and never mutate bases that
