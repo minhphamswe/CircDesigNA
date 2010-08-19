@@ -48,12 +48,11 @@ public class DomainStructureData {
 		return wT.toString();
 	}
 	
-	private static final Pattern regexp = Pattern.compile("(\\w+\\*?)(<?(.*?)>?)?|}");
-	
 	/** 
 	 * Pass in whole block, please
 	 **/
 	public static void readDomainDefs(String domainDefsBlock, DomainStructureData out){
+		out.structures = null;
 		out.nameMap.clear();
 		out.domainConstraints.clear();
 		ArrayList<Integer> domainLengths = new ArrayList();
@@ -87,13 +86,18 @@ public class DomainStructureData {
 					if (kc==']'){
 						if (!inBracket){
 							//Oops, stack underflow.
-							throw new RuntimeException("Stack Underflow of constraint bracket: "+line[seqIndex]);
+							throw new RuntimeException("Stack Underflow of nonconstraint bracket: "+line[seqIndex]);
 						}
 						inBracket = false;
 						continue;
 					}
-					if (inBracket){
+					if (Character.toLowerCase(kc)=='u'){
+						kc = 'T'; // rna / dna treated equally.
+					}
+					if (!inBracket){ //Things in brackets are allowed to change.
 						kc = Character.toLowerCase(kc);
+					} else {
+						kc = Character.toUpperCase(kc);
 					}
 					parseBracketLowerCase.append(kc);
 				}
@@ -112,89 +116,78 @@ public class DomainStructureData {
 			out.domainLengths[k] = domainLengths.get(k);
 		}
 	}
+	
+	//Tested and verified. Group 1 : Domain, with comp flag, Group 2: Structural flag
+	private static final Pattern regexp = Pattern.compile("(\\w+\\*?)(.*?)($|[\\|\\}\\[]+)");
+	
 	public static void readStructure(String dnaString, DomainStructureData out){
 		out.domains = null;
 		out.structures = null;
 		Matcher m = regexp.matcher(dnaString);
 		int whichDomain = 0, seqId = 0;
 		LinkedList<Integer> parens = new LinkedList();
-		TreeMap<Integer, Integer> lengthMap = new TreeMap();
 		TreeMap<Integer, Integer> lockMap = new TreeMap();
 		TreeMap<Integer,DomainStructure> out2 = new TreeMap();
 		TreeMap<Integer, Integer> whichDomainsInOrder = new TreeMap();
 		int highestDomainUsed = -1;
 		while(m.find()){
 			try {
-				if (m.group(0).equals("}")){
-					//3- end. 
-					whichDomain --; //No domain!
-					out2.put(seqId,new ThreePFivePOpenJunc());
-				} else {
-					String domainName = m.group(1);
-					//Decode which domain
-					int domainNameL = domainName.length();
-					if (domainName.endsWith("*")){
-						domainNameL --;
+				String domainName = m.group(1);
+				//Decode which domain
+				int domainNameL = domainName.length();
+				if (domainName.endsWith("*")){
+					domainNameL --;
+				}
+				int numberDomain = out.lookupDomainName(domainName.substring(0,domainNameL));
+				int numberDomain2 = numberDomain;
+				if (numberDomain2 < 0){
+					//TODO: Domain targetted exceptions?
+					throw new RuntimeException("Invalid domain: "+domainName);
+				}
+				if (domainName.endsWith("*")){
+					numberDomain2 |= DNA_COMPLEMENT_FLAG;
+				}
+				highestDomainUsed = Math.max(highestDomainUsed,numberDomain);
+				whichDomainsInOrder.put(whichDomain,numberDomain2);
+
+				String match = m.group(2);
+				if (match==null){
+					match = "";
+				}
+				String struct = match;
+				if (struct.length()==0 || struct.contains(".")){
+					out2.put(seqId,new SingleStranded(whichDomain));
+				} else if (struct.contains("(")){
+					out2.put(seqId,new SingleStranded(whichDomain));
+					parens.add(seqId);
+				} else if (struct.contains(")")){
+					if (parens.isEmpty()){
+						throw new RuntimeException("Empty Stack: "+m.group(0));
 					}
-					int numberDomain = out.lookupDomainName(domainName.substring(0,domainNameL));
-					int numberDomain2 = numberDomain;
-					if (numberDomain2 < 0){
-						//TODO: Domain targetted exceptions?
-						throw new RuntimeException("Invalid domain: "+domainName);
+					int mP = parens.removeLast();
+					DomainStructure remove = out2.remove(mP);
+					if (!(remove instanceof SingleStranded)){
+						throw new RuntimeException("?huh?");
 					}
-					if (domainName.endsWith("*")){
-						numberDomain2 |= DNA_COMPLEMENT_FLAG;
+					//Replace with a hairpinStem.
+					HairpinStem create = new HairpinStem(remove.sequencePartsInvolved[0],whichDomain);
+					SortedMap<Integer, DomainStructure> subMap = out2.subMap(mP, seqId);
+					ArrayList<Integer> holder = new ArrayList();
+					for(DomainStructure q : subMap.values()){
+						create.addSubStructure(q);
 					}
-					highestDomainUsed = Math.max(highestDomainUsed,numberDomain);
-					whichDomainsInOrder.put(whichDomain,numberDomain2);
-					
-					String match = m.group(3);
-					if (match==null){
-						match = "";
+					for(int q : subMap.keySet()){
+						holder.add(q);
 					}
-					String lenStr = match.replaceAll("[^0-9]|\\s+", "");
-					int length = lenStr.length()==0?-1:Integer.decode(lenStr);
-					String struct = match.replaceAll("[0-9]|\\s+","");
-					if (struct.length()==0 || struct.contains(".")){
-						out2.put(seqId,new SingleStranded(whichDomain));
-					} else if (struct.contains("(")){
-						out2.put(seqId,new SingleStranded(whichDomain));
-						parens.add(seqId);
-					} else if (struct.contains(")")){
-						if (parens.isEmpty()){
-							throw new RuntimeException("Empty Stack: "+m.group(0));
-						}
-						int mP = parens.removeLast();
-						DomainStructure remove = out2.remove(mP);
-						if (!(remove instanceof SingleStranded)){
-							throw new RuntimeException("?huh?");
-						}
-						//Replace with a hairpinStem.
-						HairpinStem create = new HairpinStem(remove.sequencePartsInvolved[0],whichDomain);
-						SortedMap<Integer, DomainStructure> subMap = out2.subMap(mP, seqId);
-						ArrayList<Integer> holder = new ArrayList();
-						for(DomainStructure q : subMap.values()){
-							create.addSubStructure(q);
-						}
-						for(int q : subMap.keySet()){
-							holder.add(q);
-						}
-						for(int p : holder){
-							out2.remove(p);
-						}
-						out2.put(seqId, create);
+					for(int p : holder){
+						out2.remove(p);
 					}
-					if (length >= 0){
-						if (length==0){
-							throw new RuntimeException("Domain of length 0: "+numberDomain);
-						}
-						if (lengthMap.containsKey(numberDomain)){
-							int was  = lengthMap.get(numberDomain);
-							if (was!=length){
-								throw new RuntimeException("Differing lengths for same domain: "+numberDomain);
-							}
-						}
-						lengthMap.put(numberDomain,length);
+					out2.put(seqId, create);
+				}
+				if (m.group(3)!=null){
+					if (m.group(3).contains("}")){
+						//3- end. 
+						out2.put(++seqId,new ThreePFivePOpenJunc());
 					}
 				}
 			} finally {
@@ -207,10 +200,6 @@ public class DomainStructureData {
 		}
 		//Debug
 		int numDomains = whichDomain--;
-		out.domainLengths = expandToLength(out.domainLengths, highestDomainUsed+1,-1);
-		for(Entry<Integer, Integer> q : lengthMap.entrySet()){
-			out.domainLengths[q.getKey()] = q.getValue();
-		}
 		//This is dependent on the input sequence. Not on Domain Definitions.
 		out.domains = new int[numDomains];
 		for(Entry<Integer, Integer> q : whichDomainsInOrder.entrySet()){
@@ -252,13 +241,17 @@ public class DomainStructureData {
 		public void addSubStructure(DomainStructure q) {
 			subStructure.add(q);
 		}
-		public int countDomainsRecursively() {
+		/**
+		 * +1 for each domain, +1 for each 3' end.
+		 */
+		public int countLabeledElements() {
 			int ret = 0;
-			if (this instanceof SingleStranded){
-				ret += ((SingleStranded)this).sequencePartsInvolved.length;
-			}
+			ret += this.sequencePartsInvolved.length;
 			for(DomainStructure q : subStructure){
-				ret += q.countDomainsRecursively();
+				ret += q.countLabeledElements();
+			}
+			if (this instanceof ThreePFivePOpenJunc){
+				ret++;
 			}
 			return ret;
 		}
@@ -293,10 +286,10 @@ public class DomainStructureData {
 				if (subStructure.size()==1 && (subStructure.get(0) instanceof HairpinStem)){
 					innerCurveCircumference = 0; //Just continue the stem
 				} else {
-					innerCurveCircumference = 3; //The "opening" of the hairpin takes up some of the ring
+					innerCurveCircumference = 0; //The "opening" of the hairpin takes up some of the ring
 					loop:for(DomainStructure q : subStructure){
 						if (q instanceof HairpinStem){
-							innerCurveCircumference += 4; //3 for hairpin space
+							innerCurveCircumference += 2f; //3 for hairpin space
 						} else if (q instanceof SingleStranded){
 							for(int p : q.sequencePartsInvolved){
 								innerCurveCircumference += domainLengths[domains[p] & DNA_SEQ_FLAGSINVERSE];

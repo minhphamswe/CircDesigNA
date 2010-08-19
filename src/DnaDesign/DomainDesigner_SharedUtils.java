@@ -23,7 +23,7 @@ public class DomainDesigner_SharedUtils {
 	}
 
 	public static int[] utilReadSequence(String toJunctionize, DomainStructureData dsd) {
-		toJunctionize = toJunctionize.replaceAll("<(.*?)>","").replaceAll("[\\[}]","|").replaceAll("\\s+","").replaceAll("[|]+","|");
+		toJunctionize = toJunctionize.replaceAll("[\\[}]","|").replaceAll("\\s+","");
 		toJunctionize = toJunctionize.replaceAll("[|]+","|");
 		if (toJunctionize.endsWith("|")){
 			toJunctionize = toJunctionize.substring(0,toJunctionize.length()-1);
@@ -34,6 +34,7 @@ public class DomainDesigner_SharedUtils {
 		String[] commands = toJunctionize.split("[|]");
 		int[] bases = new int[commands.length];
 		for(int i = 0; i < bases.length; i++){
+			commands[i] = commands[i].replaceAll("[^\\w|*]","");
 			if (commands[i].charAt(commands[i].length()-1)=='*'){
 				bases[i] = dsd.nameMap.get(commands[i].substring(0,commands[i].length()-1));
 				bases[i] |= DomainDesigner_ByRandomPartialMutations.DNA_COMPLEMENT_FLAG;
