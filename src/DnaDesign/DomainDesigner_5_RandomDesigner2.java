@@ -61,6 +61,9 @@ public class DomainDesigner_5_RandomDesigner2 {
 				if (initial==null){
 					initial = new TreeMap<Integer, String>();
 				}
+				if (cc == null){
+					cc = new TreeMap<Integer, CodonCode>();
+				}
 				for(int k = 0; k < domain_length.length; k++){
 					Integer got = domain_length_t.get(k);
 					if (got==null){
@@ -70,6 +73,9 @@ public class DomainDesigner_5_RandomDesigner2 {
 					
 					//Constraints are "initial sequences".
 					initial.put(k,dsd.getConstraint(k));
+					if (dsd.maintainAminos(k)){
+						cc.put(k, new CodonCode());
+					}
 				}
 				
 				/**
@@ -116,10 +122,10 @@ public class DomainDesigner_5_RandomDesigner2 {
 		}
 		private List<String> inputStrands;
 		private String domainDefsBlock;
-		private TreeMap<Integer, String> lock;
-		private TreeMap<Integer, String> initial;
-		private CodonCode cc;
-		public DomainDesigner_5_RandomDesigner2_Client(List<String> inputStrands, String domainDefsBlock, TreeMap<Integer, String> lock, TreeMap<Integer, String> initial, CodonCode cc){
+		private Map<Integer, String> lock;
+		private Map<Integer, String> initial;
+		private Map<Integer, CodonCode> cc;
+		public DomainDesigner_5_RandomDesigner2_Client(List<String> inputStrands, String domainDefsBlock, Map<Integer, String> lock, Map<Integer, String> initial, Map<Integer,CodonCode> cc){
 			this.inputStrands = inputStrands;
 			this.domainDefsBlock = domainDefsBlock;
 			this.lock = lock;
@@ -300,9 +306,11 @@ public class DomainDesigner_5_RandomDesigner2 {
 	public static DDSeqDesigner makeDesigner(List<String> inputStrands, String domainDefsBlock){
 		return new DomainDesigner_5_RandomDesigner2_Client (inputStrands, domainDefsBlock, null, null, null);
 	}
+	/*
 	public static DDSeqDesigner makeDesigner(List<String> inputStrands, TreeMap<Integer, String> lock, TreeMap<Integer, String> initial, CodonCode cc){
 		return new DomainDesigner_5_RandomDesigner2_Client (inputStrands, "", lock, initial, cc);
 	}
+	*/
 
 	//Accessible to client:
 	private double best_score;
@@ -549,6 +557,8 @@ public class DomainDesigner_5_RandomDesigner2 {
 		//strands.add("[4<8>|7*<4(>|5<8(>|6<8(>|7<(>|4*|1*<8>|7*<)>|6*<)>|5*<)>|7<)>");
 		//strands.add("[6<8>|7<4(>|1<8(>|4<8(>|7*<(>|6*|5*<8>|7<)>|4*<)>|1*<)>|7*<)>|2*<8>|3*<8>");
 		
+		//TODO
+		/*
 		DDSeqDesigner dsd = makeDesigner(strands, lock, initial, cc);
 
 		dsd.resume();
@@ -559,6 +569,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 		System.out.println(dsd.getResult());
 
 		System.exit(0);
+		*/
 	}
 
 	int rule_4g, rule_6at, rule_ccend, rule_init, rule_lockold, rule_targetworst, rule_gatc_avail, rule_SeqRulesAreAbsolute;
@@ -701,7 +712,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 	 * containing complementary sequences will be ignored (i.e, 1|4*|5 will not be tested against 1|4|5).
 	 * @param initial 
 	 */
-	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, TreeMap<Integer, String> initial, List<DomainSequence> seqToSynthesize, CodonCode cc) {
+	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> seqToSynthesize, Map<Integer, CodonCode> cc) {
 		//SANITY OF INPUT:
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(seqToSynthesize);
 		//System.out.println(seqToSynthesize.size());
@@ -711,10 +722,14 @@ public class DomainDesigner_5_RandomDesigner2 {
 		int i,j,k;
 		int[][] domain = new int[num_domain][];
 		int[][] domain_markings = new int[num_domain][];
+		CodonCode[] ccs = new CodonCode[num_domain];
 		for(i = 0; i < num_domain; i++){
 			int[] cDomain = new int[domain_length[i]];
 			domain[i] = cDomain; //initialize to 0s
 			domain_markings[i] = new int[domain_length[i]];
+			if (cc!=null){
+				ccs[i] = cc.get(i);
+			}
 		}
 
 		//Initial domains, introducing constraints.
@@ -745,12 +760,13 @@ public class DomainDesigner_5_RandomDesigner2 {
 		//Unconstrained initialization.
 		for(i = 0; i < num_domain; i++){
 			if (rule_ccend==1){
-				if (domain[i][0]<10)domain[i][0] = GCLC;
-				if (domain[i][domain[i].length-1]<10)domain[i][domain[i].length-1] = GCLC;
+				if (domain[i][0]==0)domain[i][0] = GCLC;
+				if (domain[i][domain[i].length-1]==0)domain[i][domain[i].length-1] = GCLC;
 			}
 			//Will initialize unconstrained portion of domain
 			pickInitialSequence(domain[i]);
 		}
+		
 		//At this point, no domain should have any bases other than ((x%10)%5)>1.
 		
 		//Locked domains feature.
@@ -922,7 +938,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 				System.arraycopy(domain[mut_domain],0,old_domains[mut_domain],0,domain_length[mut_domain]);
 				System.arraycopy(domain_markings[mut_domain],0,old_domains_markings[mut_domain],0,domain_length[mut_domain]);
 				//Mutate
-				mutateUntilValid(mut_domain, domain, domain_length, seqToSynthesize, domain_markings, cc, min_mutations, max_mutations);
+				mutateUntilValid(mut_domain, domain, domain_length, seqToSynthesize, domain_markings, ccs[mut_domain], min_mutations, max_mutations);
 				domain_mutated[mut_domain] = true;
 			}
 
@@ -1155,8 +1171,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 			} else { 
 				newBase = newBase==0?G:C;
 			}
-			if (domain[i]<10){
-				//Not locked
+			if (domain[i]==0){
 				domain[i] = newBase;
 				
 				if (isGC(domain[i])){
@@ -2070,7 +2085,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 		case 'c':
 			return CL;
 		default:
-			return A; //In practice, pickInitialSequences will erase this anyway.
+			return 0; //In practice, pickInitialSequences will erase this anyway.
 		}
 	}
 	private boolean isGC(int otherJ) {

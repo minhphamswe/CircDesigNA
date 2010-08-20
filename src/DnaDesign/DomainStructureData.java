@@ -32,6 +32,8 @@ public class DomainStructureData {
 		return ""+(domain & DNA_SEQ_FLAGSINVERSE)+postpend;
 	}
 	private Map<Integer, String> domainConstraints = new TreeMap();
+	private static final int FLAG_CONSERVEAMINOS = 2;
+	private Map<Integer, Integer> otherRuleFlags = new TreeMap();
 	/**
 	 * Returns the constraint for the NONCOMPLEMENTED version of this domain.
 	 * You must handle complementation yourself in handling the constraints!
@@ -55,6 +57,7 @@ public class DomainStructureData {
 		out.structures = null;
 		out.nameMap.clear();
 		out.domainConstraints.clear();
+		out.otherRuleFlags.clear();
 		ArrayList<Integer> domainLengths = new ArrayList();
 		Scanner in = new Scanner(domainDefsBlock);
 		int k = -1;
@@ -65,12 +68,17 @@ public class DomainStructureData {
 			}
 			k++;
 			domainLengths.add(-1);//initialize length
-			out.nameMap.put(line[0],k);
+			String domainID = line[0];
+			if (domainID.length()==0){
+				throw new RuntimeException("'Empty' Domain ID: on line "+k);
+			}
+			out.nameMap.put(domainID,k);
 			int seqIndex = 1;
+			int seqLen = -1;
 			if (line[1].matches("\\d+")){
 				//We have length map (optional)
 				seqIndex = 2;
-				domainLengths.set(k,new Integer(line[1]));
+				domainLengths.set(k,seqLen = new Integer(line[1]));
 			}
 			//Sequence constraints...
 			if (line.length>seqIndex){
@@ -107,7 +115,20 @@ public class DomainStructureData {
 					//Lol, silly format.
 				} else {
 					out.domainConstraints.put(k,line[seqIndex]);
-					domainLengths.set(k,line[seqIndex].length());
+					domainLengths.set(k,seqLen = line[seqIndex].length());
+				}
+				if (seqLen==-1){
+					throw new RuntimeException("Assertion error - no length for domain '"+domainID+"'");
+				}
+				//Do we have a protein flag?
+				seqIndex++;
+				if (line.length>seqIndex){
+					if (line[seqIndex].toLowerCase().contains("p")){
+						out.otherRuleFlags.put(k,FLAG_CONSERVEAMINOS);
+						if (seqLen%3!=0){
+							throw new RuntimeException("Domain "+domainID+" not a valid protein sequence - length not a multiple of 3");
+						}
+					}
 				}
 			}
 		}
@@ -289,7 +310,7 @@ public class DomainStructureData {
 					innerCurveCircumference = 0; //The "opening" of the hairpin takes up some of the ring
 					loop:for(DomainStructure q : subStructure){
 						if (q instanceof HairpinStem){
-							innerCurveCircumference += 2f; //3 for hairpin space
+							innerCurveCircumference += 2; 
 						} else if (q instanceof SingleStranded){
 							for(int p : q.sequencePartsInvolved){
 								innerCurveCircumference += domainLengths[domains[p] & DNA_SEQ_FLAGSINVERSE];
@@ -344,5 +365,13 @@ public class DomainStructureData {
 	}	
 	public int getDomainLength(int i) {
 		return domainLengths[domains[i]&DNA_SEQ_FLAGSINVERSE];
+	}
+
+	boolean maintainAminos(int k) {
+		Integer integer = otherRuleFlags.get(k);
+		if (integer==null){
+			return false;
+		}
+		return (integer & FLAG_CONSERVEAMINOS)!=0;
 	}
 }
