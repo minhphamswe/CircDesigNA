@@ -2,6 +2,8 @@ package DnaDesign;
 
 import java.util.ArrayList;
 
+import DnaDesign.DomainStructureData.DomainStructure;
+
 
 public class DomainSequence {
 	public static final int DNA_COMPLEMENT_FLAG = 0x8000;
@@ -12,16 +14,49 @@ public class DomainSequence {
 	 */
 	protected int[] domainList = new int[2];
 	protected int numDomains = 0;
-	public void setDomains(int a) {
+	private String moleculeName;
+	public String getMoleculeName(){
+		return moleculeName;
+	}
+	private void setFromDSD(DomainStructureData dsd){
+		if (dsd==null){
+			this.moleculeName = "???";
+			return;
+		}
+		this.moleculeName = dsd.moleculeName;
+	}
+	public void appendMoleculeNames(DomainSequence seq) {
+		ArrayList<String> current = new ArrayList();
+		for(String q : moleculeName.split(",")){
+			current.add(q.trim());
+		}
+		for(String q : seq.getMoleculeName().split(",")){
+			if (!current.contains(q)){
+				current.add(q);
+			}
+		}
+		StringBuffer sb = new StringBuffer();
+		for(int i = 0; i < current.size(); i++){
+			sb.append(current.get(i));
+			if (i+1 < current.size()){
+				sb.append(",");
+			}
+		}
+		moleculeName = sb.toString();
+	}
+	public void setDomains(int a, DomainStructureData dsd) {
+		setFromDSD(dsd);
 		numDomains = 1;
 		domainList[0] = a;
 	}
-	public void setDomains(int a, int b) {
+	public void setDomains(int a, int b, DomainStructureData dsd) {
+		setFromDSD(dsd);
 		numDomains = 2;
 		domainList[0] = a;
 		domainList[1] = b;
 	}
-	public void setDomains(ArrayList<Integer> freeList) {
+	public void setDomains(ArrayList<Integer> freeList, DomainStructureData dsd) {
+		setFromDSD(dsd);
 		domainList = new int[freeList.size()];
 		numDomains = freeList.size();
 		for(int k = 0 ; k < numDomains; k++){
@@ -29,10 +64,20 @@ public class DomainSequence {
 		}
 	}
 	public void setDomains(String subStrand, DomainStructureData dsd) {
+		setFromDSD(dsd);
 		domainList = DomainDesigner_SharedUtils.utilReadSequence(subStrand,dsd);
 		numDomains = domainList.length;
 	}
-	
+	public void setDomains(DomainStructure ds,DomainStructureData dsd) {
+		setFromDSD(dsd);
+		domainList = new int[ds.sequencePartsInvolved.length];
+		for(int i = 0; i < domainList.length; i++){
+			int k = ds.sequencePartsInvolved[i];
+			domainList[i] = dsd.domains[k];
+		}
+		numDomains = domainList.length;
+	}
+	//GETTERS
 	public int length(int[][] domain){
 		int length = 0, seq;
 		for(int i = 0; i < numDomains; i++){
@@ -83,10 +128,10 @@ public class DomainSequence {
 		for(r = 0; r < numDomains; r++){
 			d = domain[domainList[r] & DNA_SEQ_FLAGSINVERSE];
 			if (q < d.length){
-				if ((domainList[r]&DNA_COMPLEMENT_FLAG)!=0){
-					return 5-(d[d.length-1-q]%10);
+				if ((domainList[r] & DNA_COMPLEMENT_FLAG)!=0){
+					return DnaDefinition.complement(d[d.length-1-q]);
 				} else{
-					return d[q]%10;
+					return DnaDefinition.noFlags(d[q]);
 				}
 			}
 			q -= d.length;
@@ -104,10 +149,11 @@ public class DomainSequence {
 		}
 		return false;
 	}
-	public String toString(){
+	public String toString(DomainStructureData dsd){
 		StringBuffer sb = new StringBuffer();
+		sb.append("(Partial) "+moleculeName+": ");
 		for(int i = 0; i < numDomains; i++){
-			sb.append((domainList[i] & DNA_SEQ_FLAGSINVERSE) + 1); //0 index undo
+			sb.append(dsd.getDomainName(domainList[i] & DNA_SEQ_FLAGSINVERSE));
 			if ((domainList[i]&DNA_COMPLEMENT_FLAG)!=0){
 				sb.append("*");
 			}

@@ -14,6 +14,8 @@ public interface DDSeqDesigner {
 	 */
 	public String getResult();
 	
+	public DesignIntermediateReporter getDir();
+	
 	public boolean isRunning();
 	public boolean isFinished();
 	public float statusVal();

@@ -1,12 +1,10 @@
 package DnaDesign;
 
+import static DnaDesign.DnaDefinition.DNAFLAG_ADD;
+import static DnaDesign.DnaDefinition.DisplayBase;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -14,6 +12,8 @@ import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeMap;
 import java.util.Map.Entry;
+
+import DnaDesign.DesignIntermediateReporter.DesignIntermediateScore;
 
 public class DomainDesigner_5_RandomDesigner2 {
 	public static class DomainDesigner_5_RandomDesigner2_Client implements DDSeqDesigner{
@@ -24,19 +24,22 @@ public class DomainDesigner_5_RandomDesigner2 {
 				//TODO: Alias map, so we have a contiguous list of domains.
 
 				final ArrayList<DomainSequence> MustBeVanilla = new ArrayList();
-
+				final ArrayList<DomainSequence[]> hairpinLoops = new ArrayList();
 				int num_domain = -1;
 				TreeMap<Integer, Integer> domain_length_t = new TreeMap<Integer, Integer>();
-				DomainStructureData dsd = new DomainStructureData();
+				final DomainStructureData dsd = new DomainStructureData();
 				for(int kq = 0; kq < inputStrands.size(); kq++){
 					String q = inputStrands.get(kq);
 					//DomainDesigner_SharedUtils.utilJunctionSplitter(theJunctions, q);
 					DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
-					DomainStructureData.readStructure(q, dsd);
+					String moleculeName = q.split("\\s+")[0];
+					String inputStrand = q.split("\\s+")[1];
+					DomainStructureData.readStructure(moleculeName, inputStrand, dsd);
 					if (dsd.structures==null){
-						throw new RuntimeException("Input strand invalid "+q);
+						throw new RuntimeException("Input strand invalid "+inputStrand);
 					}
 					DomainDesigner_SharedUtils.utilVanillaTargetFinder(dsd, MustBeVanilla);
+					DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsd, hairpinLoops);
 
 					num_domain = Math.max(num_domain,dsd.domainLengths.length-1);
 
@@ -67,7 +70,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 				for(int k = 0; k < domain_length.length; k++){
 					Integer got = domain_length_t.get(k);
 					if (got==null){
-						throw new RuntimeException("No length data for domain \'"+dsd.nameMap.get(k)+"\'");
+						throw new RuntimeException("No length data for domain \'"+dsd.getDomainName(k)+"\'");
 					}
 					domain_length[k] = got;
 					
@@ -77,6 +80,10 @@ public class DomainDesigner_5_RandomDesigner2 {
 						cc.put(k, new CodonCode());
 					}
 				}
+				
+				final int[] maxISO = dsd.getMaxISO();
+				final int[] maxPZ = dsd.getMaxPZ();
+				
 				
 				/**
 				 * These often invalidate rules - allow this.
@@ -103,7 +110,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 					while(timesToRun>0){
 						timesToRun--;
 						try {
-							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, MustBeVanilla,cc));
+							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, MustBeVanilla,cc,hairpinLoops,dir, maxISO, maxPZ,dsd));
 						} catch (Throwable e){
 							e.printStackTrace();
 							errorResult = e.toString();
@@ -125,6 +132,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 		private Map<Integer, String> lock;
 		private Map<Integer, String> initial;
 		private Map<Integer, CodonCode> cc;
+		private DesignIntermediateReporter dir;
 		public DomainDesigner_5_RandomDesigner2_Client(List<String> inputStrands, String domainDefsBlock, Map<Integer, String> lock, Map<Integer, String> initial, Map<Integer,CodonCode> cc){
 			this.inputStrands = inputStrands;
 			this.domainDefsBlock = domainDefsBlock;
@@ -135,6 +143,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 			options.add(penalizeJunctions);
 			options.add(performFullN4Junctions);
 			options.add(rule_ccend_option);
+			dir = new DesignIntermediateReporter();
 			runOnStart.run();
 		}
 		public List<SeqDesignerOption> getOptions() {
@@ -201,27 +210,32 @@ public class DomainDesigner_5_RandomDesigner2 {
 			if (r.outputDomains==null){
 				return "Output incomplete. Run designer longer";
 			}
-			StringBuffer sb = new StringBuffer();
-			String lR = "\n";
-			for(int k = 0; k < r.outputDomains.length; k++){
-				sb.append("Domain ");
-				sb.append(k+1);
-				sb.append(": ");
-				sb.append(r.outputDomains[k]);
-				sb.append(lR);
-				sb.append("Complem.: ");
-				sb.append(revComp(r.outputDomains[k]));
-				sb.append(lR);
-			}
-			sb.append(lR);
-			sb.append("Input Strands:");
-			sb.append(lR);
+
 			ArrayList<DomainSequence> singleStrands = new ArrayList();
 			DomainStructureData dsd = new DomainStructureData();
 			//DomainDesigner_SharedUtils.utilJunctionSplitter(theJunctions, q);
 			DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
+			StringBuffer sb = new StringBuffer();
+			String lR = "\n";
+			sb.append("Current designer state (to resume from this point, paste as 'Domain Definition'):");
+			sb.append(lR);
+			sb.append("Net 'Score': "+r.best_score);
+			sb.append(lR);
+			sb.append("----------------");
+			sb.append(lR);
+			for(int k = 0; k < r.outputDomains.length; k++){
+				sb.append(dsd.getDomainName(k));
+				sb.append("\t[");
+				sb.append(r.outputDomains[k]+"]");
+				sb.append(lR);
+			}
+			sb.append("----------------");
+			sb.append(lR);
+			sb.append("Input Strands:");
+			sb.append(lR);	
 			for(String q : inputStrands){
-				splitLoop: for(String subStrand : q.split("}")){
+				String a = q.split("\\s+")[1]; //Erase the name
+				splitLoop: for(String subStrand : a.split("}")){
 					DomainSequence ds = new DomainSequence();
 					ds.setDomains(subStrand,dsd);
 					for(DomainSequence g : singleStrands){
@@ -300,6 +314,9 @@ public class DomainDesigner_5_RandomDesigner2 {
 
 		public void abort() {
 			r.abort = true;
+		}
+		public DesignIntermediateReporter getDir() {
+			return dir;
 		}
 	}
 
@@ -394,6 +411,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 	}
 
 	private static final boolean DEBUG_selfCrosstalkMethod = false;
+	/*
 	public static void main34(String[] args) throws IOException{
 		DomainSequence ds = new DomainSequence();
 		DomainSequence ds2 = new DomainSequence();
@@ -450,6 +468,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 		System.out.println(ed.foldSingleStranded(ds,domain,domainMarkings));
 		System.out.println(Arrays.deepToString(domainMarkings));
 	}
+	*/
 	public static void main10(String[] args){
 		int bigI = 0;
 		int bigJ = 9;
@@ -481,7 +500,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 		System.out.println(Arrays.toString(qIJ));
 		System.out.println(Arrays.toString(qIJ2));
 	}
-	public static void main(String[] args) throws Throwable{
+	public static void main42(String[] args) throws Throwable{
 		TreeMap<Integer, String> lock = new TreeMap<Integer, String>();
 		//lock.put(6,"GTTC");
 		
@@ -583,6 +602,8 @@ public class DomainDesigner_5_RandomDesigner2 {
 		rule_gatc_avail = 15; // all flags set (bases available)
 		rule_SeqRulesAreAbsolute = 1;
 	}
+	//It is sometimes advantageous to design sequences with some immutable complementarity.
+	boolean ALLOW_COMPLEMENTARY_SCORES = true;
 
 	private abstract static class ScorePenalty{
 		public static final double MAX_SCORE = 1e18;
@@ -590,14 +611,20 @@ public class DomainDesigner_5_RandomDesigner2 {
 			old_score = cur_score = MAX_SCORE; //A suitably large number
 		}
 		public double getScore(int[][] domain, int[][] domain_markings){
-			return old_score = cur_score = check(evalScoreSub(domain, domain_markings));
+			evalScore(domain, domain_markings);
+			dedicate();
+			return old_score;
 		}
 		public double old_score, cur_score;
+		public DesignIntermediateScore dis;
 		public void revert(){
 			cur_score = old_score;
 		}
 		public void dedicate(){
 			old_score = cur_score;
+			if (dis!=null){
+				dis.addScore(old_score);
+			}
 		}
 		public final double check(double possScore){
 			return Math.min(possScore,MAX_SCORE);
@@ -610,6 +637,18 @@ public class DomainDesigner_5_RandomDesigner2 {
 		public final double getCDelta(){
 			return cur_score - old_score;
 		}
+		protected void chooseScore(DesignIntermediateReporter dir) {
+			DomainSequence[] ds = getSeqs();
+			if (ds.length==0){
+				return;
+			} else
+			if (ds.length==1){
+				dis = dir.chooseDesignIntermediateScore(ds[0].getMoleculeName(), ds[0].getMoleculeName());
+			} else
+			if (ds.length==2){
+				dis = dir.chooseDesignIntermediateScore(ds[0].getMoleculeName(), ds[1].getMoleculeName());
+			}
+		}
 		public abstract double evalScoreSub(int[][] domain, int[][] domain_markings);
 		public abstract boolean affectedBy(int domain);
 		public abstract DomainSequence[] getSeqs();
@@ -617,20 +656,27 @@ public class DomainDesigner_5_RandomDesigner2 {
 		public abstract int getPriority();
 	}
 	public class CrossInteraction extends ScorePenalty { 
-		public CrossInteraction(DomainSequence ds, DomainSequence ds2, int[][] domain){
+		public CrossInteraction(DomainSequence ds, DomainSequence ds2, int[][] domain, DesignIntermediateReporter dir, boolean invert){
 			this.ds = new DomainSequence[]{ds,ds2};
 			for(DomainSequence q : getSeqs()){
 				numDomains += q.numDomains;
 			}
 			numDomains /= getSeqs().length;
+			chooseScore(dir);
+			invertScore = invert;
 		}
+		private boolean invertScore;
 		public int getPriority(){
 			return 2;
 		}
 		private int numDomains;
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			return pairscore(ds[0],ds[1],domain,null);
+			double normal = pairscore(ds[0],ds[1],domain,null);
+			if (invertScore){
+				return -normal+50; //Scores will go negative very quickly.
+			}
+			return normal;
 		}
 		public boolean affectedBy(int domain) {
 			return ds[0].contains(domain) || ds[1].contains(domain);
@@ -642,6 +688,39 @@ public class DomainDesigner_5_RandomDesigner2 {
 			return numDomains;
 		}
 	}
+	
+	/**
+	 * Penalize complementarity at the base of a hairpin loop
+	 */
+	public class HairpinOpeningPenalty extends ScorePenalty {
+		public HairpinOpeningPenalty(DomainSequence dsL, DomainSequence dsR, DesignIntermediateReporter dir){
+			this.ds = new DomainSequence[]{dsL,dsR};
+			chooseScore(dir);
+		}
+		public int getPriority(){
+			return 0;
+		}
+		private DomainSequence[] ds;
+		public double evalScoreSub(int[][] domain, int[][] domain_markings){
+			for(int k = 0; k < 2; k++){
+				if (DnaDefinition.bindScore(ds[0].base(k, domain),ds[1].base(ds[1].length(domain)-1-k, domain))>0){
+					return 1;
+				}
+			}
+			return 0;
+		}
+		public boolean affectedBy(int domain) {
+			return (ds[0].domainList[0]& DNA_SEQ_FLAGSINVERSE)==domain ||
+			(ds[1].domainList[ds[1].domainList.length-1]& DNA_SEQ_FLAGSINVERSE)==domain;
+		}
+		public DomainSequence[] getSeqs() {
+			return ds;
+		}
+		public int getNumDomainsInvolved() {
+			return 2;
+		}
+	}
+	
 	/**
 	 * If we wish to use the validity checking as a penalty instead of an absolute condition,
 	 * use this.
@@ -680,6 +759,9 @@ public class DomainDesigner_5_RandomDesigner2 {
 			return new DomainSequence[0];
 		}
 	}
+	
+	//TODO: deliberate paring score.
+	
 	public class SelfFold extends ScorePenalty { 
 		public SelfFold(DomainSequence ds, int[][] domain){
 			this.ds = new DomainSequence[]{ds};
@@ -711,10 +793,22 @@ public class DomainDesigner_5_RandomDesigner2 {
 	 * The program will attempt to prevent any interaction between the DNASequences in toSynthesize, though interactions
 	 * containing complementary sequences will be ignored (i.e, 1|4*|5 will not be tested against 1|4|5).
 	 * @param initial 
+	 * @param maxPZ 
+	 * @param maxISO 
+	 * @param dsd 
 	 */
-	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> seqToSynthesize, Map<Integer, CodonCode> cc) {
+	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> seqToSynthesize, Map<Integer, CodonCode> cc, List<DomainSequence[]> hairpinLoops, DesignIntermediateReporter DIR, int[] maxISO, int[] maxPZ, DomainStructureData dsd) {
 		//SANITY OF INPUT:
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(seqToSynthesize);
+		/*
+		System.out.println(seqToSynthesize);
+		for(DomainSequence[] ds : hairpinLoops){
+			System.out.print(Arrays.toString(ds));
+		}
+		System.out.println();
+		*/
+		//DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinLoops);
+		
 		//System.out.println(seqToSynthesize.size());
 
 		//Domains to be designed. The integer type is being used to hold DNA bases,
@@ -747,7 +841,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 			boolean mutable = false;
 			//Optimize for completely locked domains.
 			loop:for (j = 0; j < domain_length[i]; j++) {
-				if (domain[i][j] < 10){
+				if (domain[i][j] < DNAFLAG_ADD){
 					mutable = true;
 					break loop;
 				}
@@ -800,22 +894,26 @@ public class DomainDesigner_5_RandomDesigner2 {
 		//List all score calculations.
 		ArrayList<ScorePenalty> allScores = new ArrayList<ScorePenalty>();
 		allScores.add(new ValidSequenceScore(seqToSynthesize));
+		for(i = 0; i < hairpinLoops.size(); i++){
+			DomainSequence[] ds = hairpinLoops.get(i);
+			allScores.add(new HairpinOpeningPenalty(ds[0],ds[1],DIR));
+		}
 		for(i = 0; i < seqToSynthesize.size(); i++){
 			DomainSequence ds = seqToSynthesize.get(i);
 			//Secondary structure avoidance.
-			if (!checkComplementary(ds, ds)){
+			if (!checkComplementary(ds, ds) || ALLOW_COMPLEMENTARY_SCORES){
 				allScores.add(new SelfFold(ds,domain));
 			}
 			//Dimerization.
 			if (!designSSonly){
-				if (!checkComplementary(ds, ds)){
-					allScores.add(new CrossInteraction(ds,ds,domain));
+				if (!checkComplementary(ds, ds)|| ALLOW_COMPLEMENTARY_SCORES){
+					allScores.add(new CrossInteraction(ds,ds,domain,DIR,false));
 				}
 				//Crosstalk.
 				for(k = i+1; k < seqToSynthesize.size(); k++){ //Do only upper triangle
 					DomainSequence ds2 = seqToSynthesize.get(k);
-					if (!checkComplementary(ds, ds2) && ds != ds2){
-						allScores.add(new CrossInteraction(ds2,ds,domain));
+					if ((!checkComplementary(ds, ds2)|| ALLOW_COMPLEMENTARY_SCORES) && ds != ds2){
+						allScores.add(new CrossInteraction(ds2,ds,domain,DIR,false));
 					}
 				}
 			}
@@ -837,9 +935,13 @@ public class DomainDesigner_5_RandomDesigner2 {
 		//Initial score.
 		float current_score = 0;
 		deepFill(domain_markings,DNAMARKER_DONTMUTATE);
-		for(ScorePenalty q : allScores){
-			current_score += q.getScore(domain, domain_markings);
-		}
+		DIR.beginScoreReport();{
+			for(ScorePenalty q : allScores){
+				current_score += q.getScore(domain, domain_markings);
+			}
+		}DIR.endScoreReport();
+		System.out.println("Initial score: "+current_score);
+		
 		/*
 		for(int[] row : domain_markings){
 			System.out.println(Arrays.toString(row));
@@ -938,7 +1040,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 				System.arraycopy(domain[mut_domain],0,old_domains[mut_domain],0,domain_length[mut_domain]);
 				System.arraycopy(domain_markings[mut_domain],0,old_domains_markings[mut_domain],0,domain_length[mut_domain]);
 				//Mutate
-				mutateUntilValid(mut_domain, domain, domain_length, seqToSynthesize, domain_markings, ccs[mut_domain], min_mutations, max_mutations);
+				mutateUntilValid(mut_domain, domain, domain_length, seqToSynthesize, domain_markings, ccs[mut_domain], min_mutations, max_mutations, maxISO, maxPZ);
 				domain_mutated[mut_domain] = true;
 			}
 
@@ -952,13 +1054,8 @@ public class DomainDesigner_5_RandomDesigner2 {
 			}
 			deltaScoreSum = 0;
 			int priority;
+			
 			priorityLoop: for(priority = 0; priority <= 2; priority++){
-
-				if (DEBUG_PENALTIES){
-					resetDebugPenalty();
-				}
-
-
 				for(k = 0; k < num_domains_mut; k++){
 					mut_domain = mut_domains[k];
 					for(ScorePenalty s : scoredElements[mut_domain]){
@@ -974,9 +1071,6 @@ public class DomainDesigner_5_RandomDesigner2 {
 				worstPenaltyScore = 0;
 				deltaScore = 0;
 				for(ScorePenalty s : allScores){
-					if (DEBUG_PENALTIES){
-						debugPenalty(s.cur_score, s.toString(), domain, s.getSeqs());
-					}
 					deltaScore += s.getCDelta();
 					if (s.cur_score > worstPenaltyScore){
 						worstPenalty = s;
@@ -1077,29 +1171,39 @@ public class DomainDesigner_5_RandomDesigner2 {
 				
 				timesSameCount = 0;
 				//Dedicate
-				for(k = 0; k < num_domains_mut; k++){
-					mut_domain = mut_domains[k];
-					for(ScorePenalty s : scoredElements[mut_domain]){
-						s.dedicate();
-					}
+				boolean DebugPenaltiesNow = DEBUG_PENALTIES && newPointReached;
+				if (DebugPenaltiesNow){
+					resetDebugPenalty();
 				}
+				current_score = 0;
+				DIR.beginScoreReport();{
+					for(ScorePenalty s : allScores){
+						s.dedicate();
+						current_score += s.cur_score;
+						if (DebugPenaltiesNow){
+							debugPenalty(s, domain,dsd);
+						}
+					}
+				}DIR.endScoreReport();
 				if (OUTPUT_RUNTIME_STATS){
 					System.out.println(num_mut_attempts+" , "+best_score);
 				}
 				//System.out.println(Arrays.toString(worstPenalty.getSeqs()));
-				current_score += deltaScoreSum;
+				//current_score += deltaScoreSum;
 				best_score = current_score;
 				displayDomains(domain, false); //Updates public domains
 
 		
-				if (DEBUG_PENALTIES && newPointReached){
+				if (DebugPenaltiesNow){
 					printDebugPenalties();
 					System.out.println();
 					displayDomains(domain, true);
 					if (ENABLE_MARKINGS){
+						/*
 						for(int[] row : domain_markings){
 							System.out.println(Arrays.toString(row));
 						}
+						*/
 					}
 				}
 
@@ -1122,7 +1226,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 			if (num_mut_attempts > TOTAL_ATTEMPTS){
 				break;
 			}
-			if ((System.nanoTime()-lastDumpState)>.5e9){
+			if ((System.nanoTime()-lastDumpState)>2e9){
 				lastDumpState = System.nanoTime();
 				//if (DEBUG_PENALTIES){
 					System.out.println("iteration: "+num_mut_attempts+" score: "+best_score+" most significant subscore: "+(priority-1)+" "+(current_score+deltaScore));
@@ -1136,11 +1240,10 @@ public class DomainDesigner_5_RandomDesigner2 {
 				}
 			}
 		}
-		System.out.println("Threshold for all penalties ("+EndThreshold+") reached after "+num_mut_attempts+" iterations, each time mutating at 	st "+MAX_MUTATIONS_LIMIT+" bases of at most "+MAX_MUTATION_DOMAINS+" domains.");
+		System.out.println("Designer ended after "+num_mut_attempts+" iterations, with a score of "+best_score);
 		displayDomains(domain);
 		return num_mut_attempts;
 	}
-
 
 	public static final void deepFill(int[][] domain_markings, int i) {
 		for(int[] row : domain_markings){
@@ -1153,18 +1256,14 @@ public class DomainDesigner_5_RandomDesigner2 {
 	private void pickInitialSequence(int[] domain) {
 		int lessATthanGC = 0;
 		for(int i = 0; i < domain.length; i++){
-			if (domain[i] >= 10){
-				if (isGC(domain[i])){
-					lessATthanGC ++;
-				} else {
-					lessATthanGC --;
-				}
+			if (domain[i] >= DNAFLAG_ADD){
+				lessATthanGC+=isGClessAT(domain[i]);
 			}
 		}
 		for(int i = 0; i < domain.length; i++){
 			int newBase = 0;
 			if (i > 0){
-				newBase = (((domain[i-1]%10))%2); //Ensure alternating
+				newBase = (((domain[i-1]%DNAFLAG_ADD))%2); //Ensure alternating
 			}
 			if (Math.abs(lessATthanGC)>0){
 				newBase = newBase==0?T:A;
@@ -1173,15 +1272,12 @@ public class DomainDesigner_5_RandomDesigner2 {
 			}
 			if (domain[i]==0){
 				domain[i] = newBase;
-				
-				if (isGC(domain[i])){
-					lessATthanGC ++;
-				} else {
-					lessATthanGC --;
-				}
+
+				lessATthanGC+=isGClessAT(domain[i]);
 			}
 		}
 	}
+
 
 	private int[] mut_old_domain;
 	/**
@@ -1196,7 +1292,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 	 * @param max_mutations 
 	 */
 	private boolean mutateUntilValid(int mut_domain, int[][] domain,
-			int[] domain_length, List<DomainSequence> seqToSynthesize, int[][] domain_markings, CodonCode cc, int min_mutations, int max_mutations) {
+			int[] domain_length, List<DomainSequence> seqToSynthesize, int[][] domain_markings, CodonCode cc, int min_mutations, int max_mutations, int[] maxISO, int[] maxPZ) {
 
 		int len = domain_length[mut_domain];
 		/*
@@ -1216,7 +1312,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 		
 		//How many mutations will we try now?
 		int num_mut = Math.min(len,max_mutations);
-		//Count the ones
+		//Count the reccomended bases to mutate
 		if (ENABLE_MARKINGS){
 			for(int q : domain_markings[mut_domain]){
 				if (q!=DNAMARKER_DONTMUTATE){
@@ -1247,23 +1343,27 @@ public class DomainDesigner_5_RandomDesigner2 {
 					}
 				}
 
-				int oldJ = domain[mut_domain][j]%10;
+				int oldJ = domain[mut_domain][j]%DNAFLAG_ADD;
 
-				if (domain[mut_domain][j] > 10 && domain[mut_domain][j] < 20) {
+				if (domain[mut_domain][j] > DNAFLAG_ADD && domain[mut_domain][j] < DNAFLAG_ADD*2) {
 					// Base immutable
 					continue; 
-				} else if (domain[mut_domain][j] > 20){
+				} else if (domain[mut_domain][j] > DNAFLAG_ADD*2){
 					//Alternate between G / C
-					mut_new[j] = 20 + (5-(domain[mut_domain][j]-20));
-				} else {
-					//Switch to one of the other 3 bases
-					mut_new[j] = mut_new[j] + int_urn(1,3);
-					if (mut_new[j] > 4){
-						mut_new[j] -= 4;
+					switch(domain[mut_domain][j]){
+					case GCLC:
+						mut_new[j] = GCLG;
+						break;
+					case GCLG:
+						mut_new[j] = GCLC;
+						break;
 					}
+				} else {
+					//Switch to one of the other bases
+					mut_new[j] = DnaDefinition.pickNewBase(mut_new,mut_new[j],maxISO[mut_domain],maxPZ[mut_domain]);
 				}
 
-				if (len > 1){
+				if (len > 1 && isGClessAT(mut_new[j])!=0){
 					//Handle the new creation, by swapping another base to conserve the GC / AT balance.
 					int otherJ;
 					int candidateL3 = -1;
@@ -1273,7 +1373,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 					searchOtherJ: for(int otherJi = 0; otherJi < len; otherJi++){
 						otherJ = (otherJ_startCheck+otherJi)%len;
 						if (otherJ != j){
-							if (domain[mut_domain][otherJ] < 10){
+							if (domain[mut_domain][otherJ] < DNAFLAG_ADD){
 								//Necessary conditions over.
 								if (isGC(domain[mut_domain][otherJ])!=isGC(oldJ)){
 									if (domain_markings[mut_domain][otherJ]!=DNAMARKER_DONTMUTATE){
@@ -1298,7 +1398,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 					if (otherJ==-1){
 						//It absolutely was not possible to find a partner. Oh well.
 					} else {
-						int newJ = domain[mut_domain][j]%10;
+						int newJ = domain[mut_domain][j]%DNAFLAG_ADD;
 						if ((oldJ==G || oldJ==C) && (newJ==A || newJ==T)){
 							domain[mut_domain][otherJ] = int_urn(0, 1)==0?G:C;
 						}
@@ -1308,7 +1408,6 @@ public class DomainDesigner_5_RandomDesigner2 {
 					}
 				}
 			} else { //Codon table: 3 mutation points = 1 amino swap.
-				
 				// Attempt a mutation
 				int j = int_urn(0, len-1); // select a base to mutate
 				//Round to codon
@@ -1356,16 +1455,18 @@ public class DomainDesigner_5_RandomDesigner2 {
 	private double[] debug_keepMessages = new double[debugOutTopScores];
 	private String[] debug_messages = new String[debugOutTopScores];
 
-	private void debugPenalty(double val, String string, int[][] domain, DomainSequence ... seq) {
+
+	private void debugPenalty(ScorePenalty s, int[][] domain, DomainStructureData dsd) {
+		double val = s.cur_score;
 		for(int k = 0; k < debug_keepMessages.length; k++){
 			if (k == debug_keepMessages.length-1 || val < debug_keepMessages[k+1]){
 				for(int y = 0; y < k; y++){
 					debug_keepMessages[y] = debug_keepMessages[y+1];
 					debug_messages[y] = debug_messages[y+1];
 				}
-				debug_messages[k] = string;
-				for(DomainSequence q : seq){
-					debug_messages[k] += " "+displaySequence(q,domain);
+				debug_messages[k] = s.toString();
+				for(DomainSequence q : s.getSeqs()){
+					debug_messages[k] += " "+displaySequence(q,domain,dsd);
 				}
 				debug_keepMessages[k] = val;
 				break;
@@ -1419,7 +1520,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 	private DomainSequence mutateSequence = new DomainSequence();
 
 	private double isValidSequenceSetup0(int mut_domain, List<DomainSequence> seqToSynthesize, int[][] domain, int[][] domain_markings) {
-		mutateSequence.setDomains(mut_domain);
+		mutateSequence.setDomains(mut_domain,null);
 		//Break if we succeed all VALIDITY checks:
 		double res = 0;
 		res += isValidSequence(mutateSequence,domain,domain_markings);
@@ -1538,9 +1639,21 @@ public class DomainDesigner_5_RandomDesigner2 {
 	}
 
 	double pairscore(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] problemAreas) {
-		//Target is 7, and multiply by a factor because these scores 
-		return Math.max(pairscore_viaMatrix(seq1,seq2,domain,problemAreas)-5.,-1) ;
+		//Target is 6.25, and multiply by a factor because these scores 
+		return Math.max(pairscore_viaMatrix(seq1,seq2,domain,problemAreas)-6.25,-1) ;
 	}
+
+	
+	double foldSingleStranded(DomainSequence seq, int[][] domain, int[][] domain_markings){
+		if (FOLD_VIA_UNAFOLD){
+			//0 is the target (so shift the score to make it 0) for unafold delta G output 
+			return foldSingleStranded_viaUnafold(seq, domain, domain_markings) - (0);
+		} else {
+			//2.5 is the target for our little matrix algorithm.
+			return Math.max(foldSingleStranded_viaMatrix(seq, domain, domain_markings) - (2.5), -1);
+		}
+	}
+	
 	
 	/**
 	 * Interaction score.
@@ -1569,14 +1682,10 @@ public class DomainDesigner_5_RandomDesigner2 {
 			for (j = 0; j < len2; j++) {
 				int base1 = seq1.base(i,domain);
 				int base2 = seq2.base(len2-1-j,domain);
-				if (((base1 + base2)%10 == 5)&&((base1 * base2)%10 == 4)) // G/C Match
-					Cmatrix[i][j] = GCstr;
-				else if (((base1 + base2)%10 == 5)&&((base1 * base2)%10 == 6)) // A/T Match
-					Cmatrix[i][j] = ATstr;
-				else if (((base1 + base2)%10 == 4)&&((base1 * base2)%10 == 3)) // G/T Wobble
-					Cmatrix[i][j] = GTstr;
-				else
+				Cmatrix[i][j] = DnaDefinition.bindScore(base1, base2);
+				if (Cmatrix[i][j]==0.0){
 					Cmatrix[i][j] = MBstr; // mismatch
+				}
 			}
 		}
 
@@ -1717,7 +1826,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 					val = Math.max(-val,PERFECTscore);
 					return val;
 				}
-			} finally {
+		 	} finally {
 				if (val == PERFECTscore){ //"Infinite" Free Energy (?)
 					return val;
 				}
@@ -1756,17 +1865,6 @@ public class DomainDesigner_5_RandomDesigner2 {
 			e.printStackTrace();
 		}
 		throw new RuntimeException();
-	}
-	
-	
-	double foldSingleStranded(DomainSequence seq, int[][] domain, int[][] domain_markings){
-		if (FOLD_VIA_UNAFOLD){
-			//0 is the target (so shift the score to make it 0) for unafold delta G output 
-			return foldSingleStranded_viaUnafold(seq, domain, domain_markings) - (0);
-		} else {
-			//5.0 is the target for our little matrix algorithm.
-			return foldSingleStranded_viaMatrix(seq, domain, domain_markings) - (5);
-		}
 	}
 	
 	private static final String absPathToHybridSSMinMod =  "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-ss-min.exe\" -q ";
@@ -1840,20 +1938,16 @@ public class DomainDesigner_5_RandomDesigner2 {
 		double[][] Cmatrix = Cmatrix_pairscore; // complementarity matrix
 		double[][] Smatrix = Smatrix_pairscore; // score matrix
 		byte[][] SDmatrix = SDmatrix_pairscore; // running total of helix size, 0 if current base didn't contribute.
-
+		
 		// NxN complementarities. 
 		for (i = 0; i < len1; i++) {
 			for (j = 0; j < len1; j++) {
 				int base1 = seq.base(i,domain);
 				int base2 = seq.base(len1-1-j,domain);
-				if (((base1 + base2)%10 == 5)&&((base1 * base2)%10 == 4)) // G/C Match
-					Cmatrix[i][j] = GCstr;
-				else if (((base1 + base2)%10 == 5)&&((base1 * (base2))%10 == 6)) // A/T Match
-					Cmatrix[i][j] = ATstr;
-				else if (((base1 + (base2))%10 == 4)&&((base1 * (base2))%10 == 3)) // G/T Wobble
-					Cmatrix[i][j] = GTstr;
-				else
+				Cmatrix[i][j] = DnaDefinition.bindScore(base1, base2);
+				if (Cmatrix[i][j]==0.0){
 					Cmatrix[i][j] = MBstr; // mismatch
+				}
 				//Make sure matrices are clear.
 				SDmatrix[i][j] = 0;
 				Smatrix[i][j] = 0;
@@ -1941,23 +2035,23 @@ public class DomainDesigner_5_RandomDesigner2 {
 					} else if ((SDmatrix[i-1][j-1] == 0)&&(Smatrix[i-1][j-1] > 0)) { // starting a new helix
 						Smatrix[i][j] = Smatrix[i-1][j-1] + Cmatrix[i][j];
 						SDmatrix[i][j] = 1;
-					} else {	  
-						if ((SDmatrix[i][j-1] > 0)&&(Smatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + Cmatrix[i][j] - Cmatrix[i][j-1] + MBstr > Smatrix[i][j])) {
-							Smatrix[i][j] = Smatrix[i][j-1] + Cmatrix[i][j] - Cmatrix[i][j-1] + MBstr; // introducing a 1-bulge, destroying previous bond
+					}	  
+					
+					if ((SDmatrix[i][j-1] > 0)&&(Smatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + Cmatrix[i][j] - Cmatrix[i][j-1] + MBstr > Smatrix[i][j])) {
+						Smatrix[i][j] = Smatrix[i][j-1] + Cmatrix[i][j] - Cmatrix[i][j-1] + MBstr; // introducing a 1-bulge, destroying previous bond
+						SDmatrix[i][j] = 1;
+					} else if ((SDmatrix[i][j-1] == 0)&&(Smatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + Cmatrix[i][j] > Smatrix[i][j])) {
+						Smatrix[i][j] = Smatrix[i][j-1] + Cmatrix[i][j]; // closing a bulge
+						SDmatrix[i][j] = 1;
+					}
+
+					if(true){
+						if ((SDmatrix[i-1][j] > 0)&&(Smatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + Cmatrix[i][j] - Cmatrix[i-1][j] + MBstr > Smatrix[i][j])) {
+							Smatrix[i][j] = Smatrix[i-1][j] + Cmatrix[i][j] - Cmatrix[i-1][j] + MBstr;
 							SDmatrix[i][j] = 1;
-						} else if ((SDmatrix[i][j-1] == 0)&&(Smatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + Cmatrix[i][j] > Smatrix[i][j])) {
-							Smatrix[i][j] = Smatrix[i][j-1] + Cmatrix[i][j]; // closing a bulge
+						} else if ((SDmatrix[i-1][j] == 0)&&(Smatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + Cmatrix[i][j] > Smatrix[i][j])) {
+							Smatrix[i][j] = Smatrix[i-1][j] + Cmatrix[i][j];
 							SDmatrix[i][j] = 1;
-						}
-						
-						if(true){
-							if ((SDmatrix[i-1][j] > 0)&&(Smatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + Cmatrix[i][j] - Cmatrix[i-1][j] + MBstr > Smatrix[i][j])) {
-								Smatrix[i][j] = Smatrix[i-1][j] + Cmatrix[i][j] - Cmatrix[i-1][j] + MBstr;
-								SDmatrix[i][j] = 1;
-							} else if ((SDmatrix[i-1][j] == 0)&&(Smatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + Cmatrix[i][j] > Smatrix[i][j])) {
-								Smatrix[i][j] = Smatrix[i-1][j] + Cmatrix[i][j];
-								SDmatrix[i][j] = 1;
-							}
 						}
 					}
 
@@ -2060,12 +2154,28 @@ public class DomainDesigner_5_RandomDesigner2 {
 		//System.out.print(k);
 		return k;
 	}
-	private static final int G = 1, A = 2, T = 3, C = 4, GL = 11, AL = 12, TL = 13, CL = 14, GCLG = 21, GCLC = 24;
+	//x1: locked. x2: GCLG / GCLC flag.
 	
+	private static final int 
+	G = DnaDefinition.G, 
+	A = DnaDefinition.A, 
+	T = DnaDefinition.T,
+	C = DnaDefinition.C,
+	D = DnaDefinition.D,
+	H = DnaDefinition.H,
+	GL = DnaDefinition.G+DNAFLAG_ADD,
+	AL = DnaDefinition.A+DNAFLAG_ADD,
+	TL = DnaDefinition.T+DNAFLAG_ADD,
+	CL = DnaDefinition.C+DNAFLAG_ADD,
+	DL = DnaDefinition.D+DNAFLAG_ADD,
+	HL = DnaDefinition.H+DNAFLAG_ADD,
+	GCLG = DnaDefinition.G+DNAFLAG_ADD*2,
+	GCLC = DnaDefinition.C+DNAFLAG_ADD*2;
 	
 	private static int getLockedBase(char charAt) {
-		return decodeConstraintChar(charAt)%10+10;
+		return decodeConstraintChar(charAt)%DNAFLAG_ADD+DNAFLAG_ADD*1;
 	}
+	
 	private static int decodeConstraintChar(char charAt){
 		switch(charAt){
 		case 'G':
@@ -2076,6 +2186,10 @@ public class DomainDesigner_5_RandomDesigner2 {
 			return C;
 		case 'T':
 			return T;
+		case 'D':
+			return D;
+		case 'H':
+			return H;
 		case 'g':
 			return GL;
 		case 'a':
@@ -2084,34 +2198,24 @@ public class DomainDesigner_5_RandomDesigner2 {
 			return TL;
 		case 'c':
 			return CL;
+		case 'd':
+			return DL;
+		case 'h':
+			return HL;
 		default:
 			return 0; //In practice, pickInitialSequences will erase this anyway.
 		}
 	}
-	private boolean isGC(int otherJ) {
-		return (otherJ%10) == G || (otherJ%10) == C;
+	private int isGClessAT(int i) {
+		return isGC(i)?1:(isAT(i)?-1:0);
 	}
-	public String DisplayBase(int base) {
-		// 1 = G, 2 = A, 3 = T, 4 = C; 11 = G (locked), etc
-		if (base == G)
-			return printf("G");
-		else if (base == A)
-			return printf("A");
-		else if (base == T)
-			return printf("T");
-		else if (base == C)
-			return printf("C");
-		else if (base == GL || base==GCLG)
-			return printf("G");
-		else if (base == AL)
-			return printf("A");
-		else if (base == TL)
-			return printf("T");
-		else if (base == CL || base==GCLC)
-			return printf("C");
-		else {
-			throw new IllegalArgumentException("Unrecognized base "+base);
-		}
+	private boolean isGC(int otherJ) {
+		otherJ = DnaDefinition.noFlags(otherJ);
+		return (otherJ == G) || (otherJ == C);
+	}
+	private boolean isAT(int otherJ) {
+		otherJ = DnaDefinition.noFlags(otherJ);
+		return (otherJ == A) || (otherJ == T);
 	}
 
 	void displayDomains(int[][] domain) {
@@ -2145,14 +2249,16 @@ public class DomainDesigner_5_RandomDesigner2 {
 			System.out.println();
 		}
 	}
-	private String displaySequence(DomainSequence sequence, int[][] domain) {
+	private String displaySequence(DomainSequence sequence, int[][] domain, DomainStructureData dsd) {
 		StringBuffer sb = new StringBuffer();
+		sb.append(sequence.toString(dsd));
+		
 		int len = sequence.length(domain);
-		sb.append(sequence.toString()+" = ");
+		sb.append(" = ");
 		for(int i = 0; i < len; i++){
 			sb.append(DisplayBase(sequence.base(i, domain)));
 		}
+		
 		return sb.toString();
 	}
-
 }

@@ -1,6 +1,6 @@
 package DnaDesign;
-import static DnaDesign.DomainDesigner_ByRandomPartialMutations.DNA_COMPLEMENT_FLAG;
-import static DnaDesign.DomainDesigner_ByRandomPartialMutations.DNA_SEQ_FLAGSINVERSE;
+import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
+import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,6 +17,7 @@ public class DomainStructureData {
 	public int[] domainLengths;
 	public DomainStructure[] structures;
 	public int[] domains;
+	public String moleculeName;
 	public static final int DEFAULT_TO_LENGTH = 8;
 	/**
 	 * Invertible.
@@ -32,6 +33,8 @@ public class DomainStructureData {
 		return ""+(domain & DNA_SEQ_FLAGSINVERSE)+postpend;
 	}
 	private Map<Integer, String> domainConstraints = new TreeMap();
+	private Map<Integer, Integer> maxISO = new TreeMap();
+	private Map<Integer, Integer> maxPZ = new TreeMap();
 	private static final int FLAG_CONSERVEAMINOS = 2;
 	private Map<Integer, Integer> otherRuleFlags = new TreeMap();
 	/**
@@ -62,8 +65,8 @@ public class DomainStructureData {
 		Scanner in = new Scanner(domainDefsBlock);
 		int k = -1;
 		while(in.hasNextLine()){
-			String[] line = in.nextLine().split("\\s+");
-			if (line.length<2){
+			String[] line = in.nextLine().trim().split("\\s+");
+			if (line.length<=1){ //0 is sort of impossible though.
 				continue;
 			}
 			k++;
@@ -83,53 +86,81 @@ public class DomainStructureData {
 			//Sequence constraints...
 			if (line.length>seqIndex){
 				//Regions of characters enclosed in square bracket will be lowercased, meaning "lock".
-				StringBuffer parseBracketLowerCase = new StringBuffer();
-				boolean inBracket = false;
-				for(int e = 0; e < line[seqIndex].length(); e++){
-					char kc = line[seqIndex].charAt(e);
-					if (kc=='['){
-						inBracket = true;
-						continue;
-					}
-					if (kc==']'){
-						if (!inBracket){
-							//Oops, stack underflow.
-							throw new RuntimeException("Stack Underflow of nonconstraint bracket: "+line[seqIndex]);
+				if (line[seqIndex].charAt(0)!='-'){
+					StringBuffer parseBracketLowerCase = new StringBuffer();
+					boolean inBracket = false;
+					for(int e = 0; e < line[seqIndex].length(); e++){
+						char kc = line[seqIndex].charAt(e);
+						if (kc=='['){
+							inBracket = true;
+							continue;
 						}
-						inBracket = false;
-						continue;
+						if (kc==']'){
+							if (!inBracket){
+								//Oops, stack underflow.
+								throw new RuntimeException("Stack Underflow of nonconstraint bracket: "+line[seqIndex]);
+							}
+							inBracket = false;
+							continue;
+						}
+						if (Character.toLowerCase(kc)=='u'){
+							kc = 'T'; // rna / dna treated equally.
+						}
+						if (!inBracket){ //Things in brackets are allowed to change.
+							kc = Character.toLowerCase(kc);
+						} else {
+							kc = Character.toUpperCase(kc);
+						}
+						parseBracketLowerCase.append(kc);
 					}
-					if (Character.toLowerCase(kc)=='u'){
-						kc = 'T'; // rna / dna treated equally.
-					}
-					if (!inBracket){ //Things in brackets are allowed to change.
-						kc = Character.toLowerCase(kc);
+					line[seqIndex] = parseBracketLowerCase.toString();
+					//Ok! load the constraint. Default to "unconstrained".
+					if (line[seqIndex].equalsIgnoreCase("TBD")){
+						//Lol, silly format.
 					} else {
-						kc = Character.toUpperCase(kc);
+						out.domainConstraints.put(k,line[seqIndex]);
+						domainLengths.set(k,seqLen = line[seqIndex].length());
 					}
-					parseBracketLowerCase.append(kc);
-				}
-				line[seqIndex] = parseBracketLowerCase.toString();
-				//Ok! load the constraint. Default to "unconstrained".
-				if (line[seqIndex].equalsIgnoreCase("TBD")){
-					//Lol, silly format.
-				} else {
-					out.domainConstraints.put(k,line[seqIndex]);
-					domainLengths.set(k,seqLen = line[seqIndex].length());
-				}
-				if (seqLen==-1){
-					throw new RuntimeException("Assertion error - no length for domain '"+domainID+"'");
+					seqIndex++;
 				}
 				//Do we have a protein flag?
-				seqIndex++;
-				if (line.length>seqIndex){
-					if (line[seqIndex].toLowerCase().contains("p")){
-						out.otherRuleFlags.put(k,FLAG_CONSERVEAMINOS);
-						if (seqLen%3!=0){
-							throw new RuntimeException("Domain "+domainID+" not a valid protein sequence - length not a multiple of 3");
+				int flagSum = 0;
+				Pattern decodeArg = Pattern.compile("\\-(\\w+)(\\((.*)\\))?");
+				for(int flag = seqIndex; flag < line.length; flag++){
+					Matcher m = decodeArg.matcher(line[flag]);
+					if(m.find()){
+						String paramName = null;
+						try {
+							paramName = m.group(1);
+						} catch (Throwable e){
+							throw new RuntimeException("Invalid parameter name @ k ");
+						}
+						try {
+							String args = m.group(3);
+							if (paramName.equalsIgnoreCase("p")){
+								if (seqLen%3!=0){
+									throw new RuntimeException("Domain "+domainID+" not a valid protein sequence - length not a multiple of 3");
+								}
+								flagSum |= FLAG_CONSERVEAMINOS;
+							}
+							if (paramName.equalsIgnoreCase("iso")){
+								out.maxISO.put(k, new Integer(args));
+							}
+							if (paramName.equalsIgnoreCase("pz")){
+								out.maxPZ.put(k, new Integer(args));
+							}
+						} catch (Throwable e){
+							throw new RuntimeException("Invalid args to '-"+paramName+"'");
 						}
 					}
 				}
+				out.otherRuleFlags.put(k,flagSum);
+			}
+			if (seqLen==-1){
+				throw new RuntimeException("Assertion error - no length for domain '"+domainID+"'");
+			}
+			if (seqLen < 2){
+				throw new RuntimeException("1-base domains not allowed for now.");
 			}
 		}
 		out.domainLengths = new int[domainLengths.size()];
@@ -141,7 +172,8 @@ public class DomainStructureData {
 	//Tested and verified. Group 1 : Domain, with comp flag, Group 2: Structural flag
 	private static final Pattern regexp = Pattern.compile("(\\w+\\*?)(.*?)($|[\\|\\}\\[]+)");
 	
-	public static void readStructure(String dnaString, DomainStructureData out){
+	public static void readStructure(String moleculeName, String dnaString, DomainStructureData out){
+		out.moleculeName = moleculeName;
 		out.domains = null;
 		out.structures = null;
 		Matcher m = regexp.matcher(dnaString);
@@ -373,5 +405,26 @@ public class DomainStructureData {
 			return false;
 		}
 		return (integer & FLAG_CONSERVEAMINOS)!=0;
+	}
+
+	public int[] getMaxISO() {
+		return getMaxes(maxISO);
+	}
+
+	private int[] getMaxes(Map<Integer, Integer> maxISO2) {
+		int[] arr = new int[domainLengths.length];
+		for(int k = 0; k < arr.length; k++){
+			Integer integer = maxISO2.get(k);
+			int val = 0;
+			if (integer!=null){
+				val = integer;
+			}
+			arr[k] = val;
+		}
+		return arr;
+	}
+
+	public int[] getMaxPZ() {
+		return getMaxes(maxPZ);
 	}
 }
