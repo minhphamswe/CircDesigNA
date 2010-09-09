@@ -8,6 +8,7 @@ import DnaDesign.DomainStructureData.DomainStructure;
 public class DomainSequence {
 	public static final int DNA_COMPLEMENT_FLAG = 0x8000;
 	public static final int DNA_SEQ_FLAGSINVERSE = ~(DNA_COMPLEMENT_FLAG);
+	public static final int DNAMARKER_DONTMUTATE = -1;
 
 	/**
 	 * & 0x8000 - complement.
@@ -102,7 +103,7 @@ public class DomainSequence {
 	public void mark(int i, int[][] domain, int[][] domain_markings) {
 		mark(i,domain,domain_markings,1);
 	}
-	public void mark(int i, int[][] domain, int[][] domain_markings, int markerValue) {
+	private void mark(int i, int[][] domain, int[][] domain_markings, int markerValue) {
 		if(domain_markings==null) return;
 		int q = i, r = 0;
 		int[] d;
@@ -111,10 +112,12 @@ public class DomainSequence {
 			d = domain[dNum];
 			if (q < d.length){
 				if ((domainList[r]&DNA_COMPLEMENT_FLAG)!=0){
-					domain_markings[dNum][d.length-1-q] = markerValue;
+					int old = domain_markings[dNum][d.length-1-q];
+					domain_markings[dNum][d.length-1-q] = old==DNAMARKER_DONTMUTATE?markerValue:old+markerValue;
 					return;
 				} else{
-					domain_markings[dNum][q] = markerValue;
+					int old = domain_markings[dNum][q];
+					domain_markings[dNum][q] = old==DNAMARKER_DONTMUTATE?markerValue:old+markerValue;
 					return;
 				}
 			}

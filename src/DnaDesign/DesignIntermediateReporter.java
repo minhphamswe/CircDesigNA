@@ -23,8 +23,8 @@ public class DesignIntermediateReporter {
 		}
 		public void addScore(double score){
 			for(int[] row : scoreAdders){
-				currentMatrix[row[0]][row[1]]+=score;
-				currentMatrix[row[1]][row[0]]+=score;
+				currentMatrix[row[0]][row[1]]=(float) Math.max(score,currentMatrix[row[0]][row[1]]);
+				currentMatrix[row[1]][row[0]]=(float) Math.max(score,currentMatrix[row[1]][row[0]]);
 			}
 		}
 	}

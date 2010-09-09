@@ -1,6 +1,7 @@
 package DnaDesign;
 
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
+import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -132,6 +133,55 @@ public class DomainDesigner_SharedUtils {
 		rightS.setDomains(right,dsd);
 		hairpins.add(new DomainSequence[]{leftS,rightS});
 	}
+	
+	public static boolean checkComplementary(DomainSequence a, DomainSequence b){
+		for(int k = 0; k < a.numDomains; k++){
+			for(int y = 0; y < b.numDomains; y++){
+				int abase = a.domainList[k];
+				int bbase = b.domainList[y];
+				if ((abase&DNA_COMPLEMENT_FLAG)!=(bbase&DNA_COMPLEMENT_FLAG)){
+					if ((abase&DNA_SEQ_FLAGSINVERSE)==(bbase&DNA_SEQ_FLAGSINVERSE)){
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	public static void utilHairpinInternalsFinder(DomainStructureData dsd, ArrayList<DomainSequence> hairpinInnards) {
+		for(DomainStructure ds : dsd.structures){
+			utilHairpinInternalsFinder_R(dsd,ds,hairpinInnards);
+		}
+	}
+	private static void utilHairpinInternalsFinder_R(DomainStructureData dsd, DomainStructure ds, ArrayList<DomainSequence> hairpinInnards) {
+		if (ds instanceof HairpinStem){
+			DomainStructure bottomStem = null;
+			ArrayList<Integer> left = new ArrayList();
+			ArrayList<Integer> right = new ArrayList();
+			DomainStructure substem = ds;
+			while(true){
+				if (substem==null || !(substem instanceof HairpinStem)){
+					bottomStem = substem;
+					break;
+				} else {
+					HairpinStem ss = ((HairpinStem)substem);
+					left.add(dsd.domains[ss.sequencePartsInvolved[0]]); //5'-3'
+					right.add(0,dsd.domains[ss.sequencePartsInvolved[1]]); //5'-3'
+					substem = ss.subStructure.get(0);
+				}
+			}
+			DomainSequence leftS = new DomainSequence();leftS.setDomains(left,dsd);
+			DomainSequence rightS = new DomainSequence();rightS.setDomains(right,dsd);
+			hairpinInnards.add(leftS);
+			hairpinInnards.add(rightS);
+			utilHairpinInternalsFinder_R(dsd,bottomStem,hairpinInnards);
+		} else {
+			for(DomainStructure ds2 : ds.subStructure){
+				utilHairpinInternalsFinder_R(dsd,ds2,hairpinInnards);
+			}
+		}
+	}
 
 	public static void utilVanillaTargetFinder(DomainStructureData dsd,
 			ArrayList<DomainSequence> MustBeVanilla) {
@@ -144,6 +194,13 @@ public class DomainDesigner_SharedUtils {
 			DomainSequence freeListD = new DomainSequence();
 			freeListD.setDomains(freeList,dsd);
 			MustBeVanilla.add(freeListD);
+		}
+		
+		//Check!
+		for(DomainSequence q : MustBeVanilla){
+			if (checkComplementary(q,q)){
+				throw new RuntimeException("Sequence "+q.toString(dsd)+" contains internal complementarity.");
+			}
 		}
 	}
 	
@@ -288,6 +345,7 @@ public class DomainDesigner_SharedUtils {
 		toRet[1] = out.toString();
 		return toRet;
 	}
+
 
 
 }

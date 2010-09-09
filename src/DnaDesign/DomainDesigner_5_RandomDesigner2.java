@@ -2,6 +2,7 @@ package DnaDesign;
 
 import static DnaDesign.DnaDefinition.DNAFLAG_ADD;
 import static DnaDesign.DnaDefinition.DisplayBase;
+import static DnaDesign.DomainSequence.DNAMARKER_DONTMUTATE;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
@@ -25,6 +26,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 
 				final ArrayList<DomainSequence> MustBeVanilla = new ArrayList();
 				final ArrayList<DomainSequence[]> hairpinLoops = new ArrayList();
+				final ArrayList<DomainSequence> hairpinInnards = new ArrayList();
 				int num_domain = -1;
 				TreeMap<Integer, Integer> domain_length_t = new TreeMap<Integer, Integer>();
 				final DomainStructureData dsd = new DomainStructureData();
@@ -39,6 +41,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 						throw new RuntimeException("Input strand invalid "+inputStrand);
 					}
 					DomainDesigner_SharedUtils.utilVanillaTargetFinder(dsd, MustBeVanilla);
+					DomainDesigner_SharedUtils.utilHairpinInternalsFinder(dsd, hairpinInnards);
 					DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsd, hairpinLoops);
 
 					num_domain = Math.max(num_domain,dsd.domainLengths.length-1);
@@ -54,7 +57,11 @@ public class DomainDesigner_5_RandomDesigner2 {
 					throw new RuntimeException("No valid molecules to design.");
 				}
 
-				System.out.println(MustBeVanilla);
+				/*
+				for(DomainSequence q : hairpinInnards){
+					System.out.println(q.toString(dsd));
+				}
+				*/
 				
 				//System.exit(0);
 
@@ -110,7 +117,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 					while(timesToRun>0){
 						timesToRun--;
 						try {
-							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, MustBeVanilla,cc,hairpinLoops,dir, maxISO, maxPZ,dsd));
+							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, MustBeVanilla,cc,hairpinLoops,hairpinInnards,dir, maxISO, maxPZ,dsd));
 						} catch (Throwable e){
 							e.printStackTrace();
 							errorResult = e.toString();
@@ -225,8 +232,8 @@ public class DomainDesigner_5_RandomDesigner2 {
 			sb.append(lR);
 			for(int k = 0; k < r.outputDomains.length; k++){
 				sb.append(dsd.getDomainName(k));
-				sb.append("\t[");
-				sb.append(r.outputDomains[k]+"]");
+				sb.append("\t");
+				sb.append(r.outputDomains[k]+"");
 				sb.append(lR);
 			}
 			sb.append("----------------");
@@ -346,7 +353,6 @@ public class DomainDesigner_5_RandomDesigner2 {
 	 * and mutate them. Recommended, otherwise you're merely randomly mutating.
 	 */
 	private boolean ENABLE_MARKINGS = true;
-	private static final int DNAMARKER_DONTMUTATE = -1;
 	
 	/**
 	 * Use the evaluator only to remove ss, don't care about dimers and so forth.
@@ -395,22 +401,25 @@ public class DomainDesigner_5_RandomDesigner2 {
 	boolean CALCULATE_JUNCTION_PENALTIES = false;
 	boolean JunctionPenalty_FullPenalty = true;
 
-	private static boolean checkComplementary(DomainSequence a, DomainSequence b){
-		for(int k = 0; k < a.numDomains; k++){
-			for(int y = 0; y < b.numDomains; y++){
-				int abase = a.domainList[k];
-				int bbase = b.domainList[y];
-				if ((abase&DNA_COMPLEMENT_FLAG)!=(bbase&DNA_COMPLEMENT_FLAG)){
-					if ((abase&DNA_SEQ_FLAGSINVERSE)==(bbase&DNA_SEQ_FLAGSINVERSE)){
-						return true;
-					}
-				}
-			}
-		}
-		return false;
-	}
+
 
 	private static final boolean DEBUG_selfCrosstalkMethod = false;
+	
+	public static void main(String[] args){
+		String seq = "CAACACAGGAACGTGATGTGGTGTGATG";
+		DomainDesigner_5_RandomDesigner2 r = new DomainDesigner_5_RandomDesigner2();
+		DomainSequence seqS = new DomainSequence();
+		DomainStructureData dsd = new DomainStructureData();
+		seqS.setDomains(0, dsd);
+		int[][] domain = new int[1][];
+		domain[0] = new int[seq.length()];
+		int[][] domainMark= new int[1][seq.length()];
+		for(int k = 0; k < seq.length(); k++){
+			domain[0][k] = r.getLockedBase(seq.charAt(k));
+		}
+		System.out.println(r.foldSingleStranded(seqS, domain, domainMark));
+	}
+	
 	/*
 	public static void main34(String[] args) throws IOException{
 		DomainSequence ds = new DomainSequence();
@@ -603,11 +612,11 @@ public class DomainDesigner_5_RandomDesigner2 {
 		rule_SeqRulesAreAbsolute = 1;
 	}
 	//It is sometimes advantageous to design sequences with some immutable complementarity.
-	boolean ALLOW_COMPLEMENTARY_SCORES = true;
+	boolean ALLOW_COMPLEMENTARY_SCORES = false;
 
 	private abstract static class ScorePenalty{
 		public static final double MAX_SCORE = 1e18;
-		public ScorePenalty(){
+		public ScorePenalty(DesignIntermediateReporter dir){
 			old_score = cur_score = MAX_SCORE; //A suitably large number
 		}
 		public double getScore(int[][] domain, int[][] domain_markings){
@@ -657,6 +666,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 	}
 	public class CrossInteraction extends ScorePenalty { 
 		public CrossInteraction(DomainSequence ds, DomainSequence ds2, int[][] domain, DesignIntermediateReporter dir, boolean invert){
+			super(dir);
 			this.ds = new DomainSequence[]{ds,ds2};
 			for(DomainSequence q : getSeqs()){
 				numDomains += q.numDomains;
@@ -694,6 +704,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 	 */
 	public class HairpinOpeningPenalty extends ScorePenalty {
 		public HairpinOpeningPenalty(DomainSequence dsL, DomainSequence dsR, DesignIntermediateReporter dir){
+			super(dir);
 			this.ds = new DomainSequence[]{dsL,dsR};
 			chooseScore(dir);
 		}
@@ -728,8 +739,10 @@ public class DomainDesigner_5_RandomDesigner2 {
 	public class ValidSequenceScore extends ScorePenalty {
 		private List<DomainSequence> seqs;
 
-		public ValidSequenceScore(List<DomainSequence> seqToSynthesize) {
+		public ValidSequenceScore(List<DomainSequence> seqToSynthesize, DesignIntermediateReporter dir) {
+			super(dir);
 			seqs = seqToSynthesize;
+			//chooseScore(dir); Can't show up. Uses everybody.
 		}
 
 		public boolean affectedBy(int domain) {
@@ -763,12 +776,14 @@ public class DomainDesigner_5_RandomDesigner2 {
 	//TODO: deliberate paring score.
 	
 	public class SelfFold extends ScorePenalty { 
-		public SelfFold(DomainSequence ds, int[][] domain){
+		public SelfFold(DomainSequence ds, int[][] domain, DesignIntermediateReporter dir){
+			super(dir);
 			this.ds = new DomainSequence[]{ds};
 			for(DomainSequence q : getSeqs()){
 				numDomains += q.numDomains;
 			}
 			numDomains /= getSeqs().length;
+			chooseScore(dir);
 		}
 		private int numDomains;
 		private DomainSequence[] ds;
@@ -793,13 +808,18 @@ public class DomainDesigner_5_RandomDesigner2 {
 	 * The program will attempt to prevent any interaction between the DNASequences in toSynthesize, though interactions
 	 * containing complementary sequences will be ignored (i.e, 1|4*|5 will not be tested against 1|4|5).
 	 * @param initial 
+	 * @param hairpinInnards 
 	 * @param maxPZ 
 	 * @param maxISO 
 	 * @param dsd 
 	 */
-	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> seqToSynthesize, Map<Integer, CodonCode> cc, List<DomainSequence[]> hairpinLoops, DesignIntermediateReporter DIR, int[] maxISO, int[] maxPZ, DomainStructureData dsd) {
+	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> makeSingleStranded, Map<Integer, CodonCode> cc, List<DomainSequence[]> hairpinLoops, ArrayList<DomainSequence> hairpinInnards, DesignIntermediateReporter DIR, int[] maxISO, int[] maxPZ, DomainStructureData dsd) {
 		//SANITY OF INPUT:
-		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(seqToSynthesize);
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSingleStranded);
+		hairpinInnards.addAll(makeSingleStranded);
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinInnards);
+		ArrayList<DomainSequence> preventComplementarity = hairpinInnards;
+		
 		/*
 		System.out.println(seqToSynthesize);
 		for(DomainSequence[] ds : hairpinLoops){
@@ -893,26 +913,29 @@ public class DomainDesigner_5_RandomDesigner2 {
 
 		//List all score calculations.
 		ArrayList<ScorePenalty> allScores = new ArrayList<ScorePenalty>();
-		allScores.add(new ValidSequenceScore(seqToSynthesize));
+		allScores.add(new ValidSequenceScore(makeSingleStranded,DIR));
 		for(i = 0; i < hairpinLoops.size(); i++){
 			DomainSequence[] ds = hairpinLoops.get(i);
 			allScores.add(new HairpinOpeningPenalty(ds[0],ds[1],DIR));
 		}
-		for(i = 0; i < seqToSynthesize.size(); i++){
-			DomainSequence ds = seqToSynthesize.get(i);
+		for(i = 0; i < makeSingleStranded.size(); i++){
+			DomainSequence ds = makeSingleStranded.get(i); //Only contains singlestranded sequences
 			//Secondary structure avoidance.
-			if (!checkComplementary(ds, ds) || ALLOW_COMPLEMENTARY_SCORES){
-				allScores.add(new SelfFold(ds,domain));
+			if (!DomainDesigner_SharedUtils.checkComplementary(ds, ds) || ALLOW_COMPLEMENTARY_SCORES){
+				allScores.add(new SelfFold(ds,domain,DIR));
 			}
-			//Dimerization.
+		}
+		for(i = 0; i < preventComplementarity.size(); i++){
+			DomainSequence ds = preventComplementarity.get(i); //singlestrands U hairpin insides.
 			if (!designSSonly){
-				if (!checkComplementary(ds, ds)|| ALLOW_COMPLEMENTARY_SCORES){
+				//Dimerization
+				if (!DomainDesigner_SharedUtils.checkComplementary(ds, ds)|| ALLOW_COMPLEMENTARY_SCORES){
 					allScores.add(new CrossInteraction(ds,ds,domain,DIR,false));
 				}
 				//Crosstalk.
-				for(k = i+1; k < seqToSynthesize.size(); k++){ //Do only upper triangle
-					DomainSequence ds2 = seqToSynthesize.get(k);
-					if ((!checkComplementary(ds, ds2)|| ALLOW_COMPLEMENTARY_SCORES) && ds != ds2){
+				for(k = i+1; k < preventComplementarity.size(); k++){ //Do only upper triangle
+					DomainSequence ds2 = preventComplementarity.get(k);
+					if ((!DomainDesigner_SharedUtils.checkComplementary(ds, ds2)|| ALLOW_COMPLEMENTARY_SCORES) && ds != ds2){
 						allScores.add(new CrossInteraction(ds2,ds,domain,DIR,false));
 					}
 				}
@@ -986,28 +1009,46 @@ public class DomainDesigner_5_RandomDesigner2 {
 
 			//Mutate, in some way.
 
-			num_domains_mut = int_urn(1,Math.min(Math.min(worstPenalty==null?1:worstPenalty.getNumDomainsInvolved()-1,MAX_MUTATION_DOMAINS),mutableDomains.length-1));
+			//num_domains_mut = int_urn(1,Math.min(Math.min(worstPenalty==null?1:worstPenalty.getNumDomainsInvolved()-1,MAX_MUTATION_DOMAINS),mutableDomains.length-1));
+			num_domains_mut = int_urn(1,Math.min(MAX_MUTATION_DOMAINS,mutableDomains.length));
 			Arrays.fill(domain_mutated,false);
 			int times = 0;
 			for(k = 0; k < num_domains_mut; k++){
-				min_mutations = 3;
-				if (/*int_urn(0, 4)==0 || */worstPenalty==null){
+				min_mutations = 1;
+				/*
+				if (worstPenalty==null){
 					mut_domain = int_urn(0, mutableDomains.length-1);
 					mut_domain = mutableDomains[mut_domain];
 				} else {
 					
-					/*
-					if (worstPenaltyScore > 100){
-						min_mutations = (int)Math.min(worstPenaltyScore / 50.,50);
-					}
-					*/
-					
-					do {
 						mut_domain = int_urn(0, mutableDomains.length-1);
 						mut_domain = mutableDomains[mut_domain];
 					}while (!worstPenalty.affectedBy(mut_domain));
 				}
+				*/
 				max_mutations = MAX_MUTATIONS_LIMIT;
+				
+
+				int mut_domain_search = int_urn(0, mutableDomains.length-1);
+				mut_domain = 0;
+				for(int o = 0; o < mutableDomains.length; o++){
+					mut_domain = mutableDomains[(mut_domain_search+o)%mutableDomains.length];
+					if (domain_mutated[mut_domain]){
+						continue;
+					}
+					if (worstPenalty!=null){
+						if (!worstPenalty.affectedBy(mut_domain)){
+							if (Math.random()<.25f){
+								continue; //We want to skew mutations towards the worst penalty.
+							}
+						}
+					}
+					break;
+				}
+				if(domain_mutated[mut_domain]){
+					k--;
+					continue;
+				}
 				
 				/*
 				if (timesSameCount > 0){
@@ -1029,18 +1070,13 @@ public class DomainDesigner_5_RandomDesigner2 {
 						continue;
 					}
 				}
-				
-				if(domain_mutated[mut_domain]){
-					k--;
-					continue;
-				}
 
 				mut_domains[k] = mut_domain;
 				//Backup
 				System.arraycopy(domain[mut_domain],0,old_domains[mut_domain],0,domain_length[mut_domain]);
 				System.arraycopy(domain_markings[mut_domain],0,old_domains_markings[mut_domain],0,domain_length[mut_domain]);
 				//Mutate
-				mutateUntilValid(mut_domain, domain, domain_length, seqToSynthesize, domain_markings, ccs[mut_domain], min_mutations, max_mutations, maxISO, maxPZ);
+				mutateUntilValid(mut_domain, domain, domain_length, makeSingleStranded, domain_markings, ccs[mut_domain], min_mutations, max_mutations, maxISO, maxPZ);
 				domain_mutated[mut_domain] = true;
 			}
 
@@ -1185,6 +1221,16 @@ public class DomainDesigner_5_RandomDesigner2 {
 						}
 					}
 				}DIR.endScoreReport();
+				/*
+				System.out.println("Current matrix:[");
+				for(float[] row : DIR.currentMatrix){
+					for(float val : row){
+						System.out.printf("%.3f, ",val);
+					}
+					System.out.println();
+				}
+				System.out.println("]");
+				*/
 				if (OUTPUT_RUNTIME_STATS){
 					System.out.println(num_mut_attempts+" , "+best_score);
 				}
@@ -1639,15 +1685,20 @@ public class DomainDesigner_5_RandomDesigner2 {
 	}
 
 	double pairscore(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] problemAreas) {
-		//Target is 6.25, and multiply by a factor because these scores 
-		return Math.max(pairscore_viaMatrix(seq1,seq2,domain,problemAreas)-6.25,-1) ;
+		if (FOLD_VIA_UNAFOLD){
+			//0 is the target (so shift the score to make it 0) for unafold delta G output 
+			return Math.max(pairscore_viaUnafold(seq1, seq2, domain, problemAreas) - (0),-1);
+		} else {
+			//Target is 6.25 
+			return Math.max(pairscore_viaMatrix(seq1,seq2,domain,problemAreas)-6.25,-1) ;
+		}
 	}
 
 	
 	double foldSingleStranded(DomainSequence seq, int[][] domain, int[][] domain_markings){
 		if (FOLD_VIA_UNAFOLD){
 			//0 is the target (so shift the score to make it 0) for unafold delta G output 
-			return foldSingleStranded_viaUnafold(seq, domain, domain_markings) - (0);
+			return Math.max(foldSingleStranded_viaUnafold(seq, domain, domain_markings) - (0),-1);
 		} else {
 			//2.5 is the target for our little matrix algorithm.
 			return Math.max(foldSingleStranded_viaMatrix(seq, domain, domain_markings) - (2.5), -1);
@@ -1912,7 +1963,7 @@ public class DomainDesigner_5_RandomDesigner2 {
 					int num = new Integer(new String(arr,z,end-z));
 					//System.out.println(num);
 					if (num > 0){
-						seq.mark(num-1, domain, domain_markings, k);
+						seq.mark(num-1, domain, domain_markings);
 					}
 					//Thread.sleep(100);
 				}

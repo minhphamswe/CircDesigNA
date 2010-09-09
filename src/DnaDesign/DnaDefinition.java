@@ -17,22 +17,25 @@ public class DnaDefinition {
 	public static final double GTstr = 0.1;
 	//Binding score function.
 	public static final double bindScore(int a, int b){
-		if ((a==A && b==T) || (b==T && a==A)){
+		a = noFlags(a);
+		b = noFlags(b);
+		if ((a==A && b==T) || (a==T && b==A)){
 			return ATstr;
 		} else
-			if ((a==G && b==C) || (b==C && a==G)){
+			if ((a==G && b==C) || (a==C && b==G)){
 				return GCstr;
 			} else
-				if ((a==D && b==H) || (b==H && a==D)){
+				if ((a==D && b==H) || (a==H && b==D)){
 					return DHstr;
 				} else 
-					if ((a==P && b==Z) || (b==Z && a==P)){
+					if ((a==P && b==Z) || (a==Z && b==P)){
 						return DHstr;
 					} else
-						if ((a==G && b==T) || (b==T && a==G)){
+						if ((a==G && b==T) || (a==T && b==G)){
 							return GTstr;
+						} else {
+							return 0;
 						}
-		return 0;
 	}
 	public static final String DisplayBase(int base) {
 		base = noFlags(base);
