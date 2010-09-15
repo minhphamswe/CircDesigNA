@@ -10,8 +10,8 @@ public class DnaDefinition {
 	//A number guaranteed to be bigger than the largest base.
 	public static final int DNAFLAG_ADD = 10;
 	//Explicit definition of DNAxDNA -> Real . All other values are 0.
-	public static final double GCstr = 3;
-	public static final double ATstr = 2;
+	public static final double GCstr = 2;
+	public static final double ATstr = 1;
 	public static final double DHstr = GCstr;
 	public static final double PZstr = GCstr;
 	public static final double GTstr = 0.1;

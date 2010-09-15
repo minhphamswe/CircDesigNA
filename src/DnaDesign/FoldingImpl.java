@@ -21,9 +21,9 @@ public class FoldingImpl implements NAFolding{
 	double LLstr = -0.5; 
 
 	/**
-	 * "Score for domain ending in a base pair" - what?
+	 * "Score for domain ending in a base pair"
 	 */
-	double DHstr = 0; 
+	double DHstr = 3; 
 
 	int LHbases = 8;
 	double LHstart = 2;
@@ -46,7 +46,7 @@ public class FoldingImpl implements NAFolding{
 	double ATstr = 2;
 	double GTstr = 0.1;
 	double MBstr = -3;
-	private static final boolean DEBUG_selfCrosstalkMethod = false;
+	public static boolean DEBUG_selfCrosstalkMethod = false;
 	public FoldingImpl(){
 		
 	}
@@ -534,6 +534,7 @@ public class FoldingImpl implements NAFolding{
 
 			//How far to go into the "right" of the matrix.
 			int jloopMax = len1-i-1 - MinHairpinLoopSize;
+			//int jloopMax = len1;
 			jloop: for (j = 1; j < jloopMax; j++) {
 
 				if (i == j && false) { 
@@ -615,18 +616,22 @@ public class FoldingImpl implements NAFolding{
 			} 
 		}
 
-		/*
+		
 		if (DEBUG_selfCrosstalkMethod){
 			for(i = 0; i < len1; i++){
 				for(j = 0; j < len1; j++){
 					//System.out.printf("%8d",SDmatrix[i][j]);
-					System.out.printf("%8.3f",Smatrix[i][j]);
+					if (SDmatrix[i][j]>0){
+						System.out.printf("%8.3f",Smatrix[i][j]);
+					} else {
+						System.out.printf("%8s",",");
+					}
 					//System.out.print((Cmatrix[i][j]>0?1:0)+" ");
 				}
 				System.out.println();
 			}
 		}
-		*/
+		
 		int x = bestScoreX;
 		int y = bestScoreY;
 		do {
