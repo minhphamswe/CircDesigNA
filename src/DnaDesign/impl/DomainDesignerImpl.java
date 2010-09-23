@@ -1,9 +1,16 @@
-package DnaDesign;
+package DnaDesign.impl;
 
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import DnaDesign.DesignIntermediateReporter;
+import DnaDesign.DnaDefinition;
+import DnaDesign.DomainDesigner;
+import DnaDesign.DomainDesigner_SharedUtils;
+import DnaDesign.DomainSequence;
+import DnaDesign.NAFolding;
 
 public class DomainDesignerImpl extends DomainDesigner{
 

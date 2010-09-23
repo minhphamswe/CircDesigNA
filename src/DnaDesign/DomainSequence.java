@@ -13,8 +13,8 @@ public class DomainSequence {
 	/**
 	 * & 0x8000 - complement.
 	 */
-	protected int[] domainList = new int[2];
-	protected int numDomains = 0;
+	public int[] domainList = new int[2];
+	public int numDomains = 0;
 	private String moleculeName;
 	public String getMoleculeName(){
 		return moleculeName;

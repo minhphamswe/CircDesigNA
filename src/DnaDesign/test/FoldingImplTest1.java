@@ -3,7 +3,7 @@ package DnaDesign.test;
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainSequence;
 import DnaDesign.DomainStructureData;
-import DnaDesign.FoldingImpl;
+import DnaDesign.impl.FoldingImpl;
 
 public class FoldingImplTest1 {
 	public static void main(String[] args){

@@ -15,6 +15,7 @@ import DnaDesign.DomainStructureData.HairpinStem;
 import DnaDesign.DomainStructureData.SingleStranded;
 import DnaDesign.DomainStructureData.ThreePFivePOpenJunc;
 
+
 public class DomainDesigner_SharedUtils {
 	public static void utilJunctionSplitter(List<DomainSequence> out, String toJunctionize, DomainStructureData dsd){
 		int[] bases = DomainDesigner_SharedUtils.utilReadSequence(toJunctionize,dsd);

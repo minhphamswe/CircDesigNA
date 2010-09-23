@@ -1,4 +1,4 @@
-package DnaDesign;
+package DnaDesign.impl;
 
 public class CodonCode {
 	/**

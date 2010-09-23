@@ -61,6 +61,37 @@ public class DnaDefinition {
 		}
 	}
 	/**
+	 * See getNormalBase, but the number returned will be in [0,3].
+	 */
+	public static int getNormalBaseFromZero(int nonnormalBase) {
+		return getNormalBase(nonnormalBase)-1;
+	}
+	/**
+	 * Returns a base from {A,C,T,G} which is most like 'x'.
+	 */
+	public static int getNormalBase(int x){
+		switch(x){
+		case G:
+			return G;
+		case A:
+			return A;
+		case C:
+			return C;
+		case T:
+			return T;
+		case D:
+			return C;
+		case H:
+			return G;
+		case P:
+			return C;
+		case Z:
+			return G;
+		default:
+			throw new IllegalArgumentException("Unrecognized Base: "+x);
+		}
+	}
+	/**
 	 * Returns a randomly chosen base, not equal to i, which is with probability 'f' an exotic base.
 	 * @param maxPZ 
 	 * @param mut_new 

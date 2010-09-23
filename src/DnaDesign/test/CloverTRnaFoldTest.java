@@ -3,8 +3,8 @@ package DnaDesign.test;
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainSequence;
 import DnaDesign.DomainStructureData;
-import DnaDesign.FoldingImpl;
 import DnaDesign.NAFolding;
+import DnaDesign.impl.FoldingImpl;
 
 public class CloverTRnaFoldTest {
 	//The following sequence should fold into a clover.

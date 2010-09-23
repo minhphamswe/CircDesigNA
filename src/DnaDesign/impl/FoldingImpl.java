@@ -1,4 +1,4 @@
-package DnaDesign;
+package DnaDesign.impl;
 
 import static DnaDesign.DnaDefinition.A;
 import static DnaDesign.DnaDefinition.C;
@@ -8,6 +8,10 @@ import static DnaDesign.DnaDefinition.T;
 
 import java.util.List;
 import java.util.Scanner;
+
+import DnaDesign.DnaDefinition;
+import DnaDesign.DomainSequence;
+import DnaDesign.NAFolding;
 
 /**
  * Implements MFE prediction and folding score functions

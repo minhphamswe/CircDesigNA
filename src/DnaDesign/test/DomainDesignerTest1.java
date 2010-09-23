@@ -1,11 +1,10 @@
 package DnaDesign.test;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.TreeMap;
 
-import DnaDesign.CodonCode;
 import DnaDesign.DomainSequence;
+import DnaDesign.impl.CodonCode;
 
 public class DomainDesignerTest1 {
 	/*
@@ -66,37 +65,6 @@ public class DomainDesignerTest1 {
 		System.out.println(Arrays.deepToString(domainMarkings));
 	}
 	*/
-	public static void main10(String[] args){
-		int bigI = 0;
-		int bigJ = 9;
-		double[][] Qb = new double[bigJ+1][bigJ+1];
-		for(double[] row : Qb){
-			for(int i = 0; i < row.length; i++){
-				row[i] = Math.random();
-			}
-		}
-		//Calculate QbigI, bigJ
-		double[] qIJ = new double[bigJ+2];
-		double[] qIJ2 = new double[qIJ.length];
-		qIJ[0] = 1;
-		qIJ2[0] = 1;
-		for(int d = bigI; d <= bigJ; d++){
-			qIJ[d+1] = 1;
-			for(int e = d+1; e <= bigJ; e++){
-				qIJ[d+1] += Qb[d][e];
-			}
-			//qIJ[d+1] *= qIJ[d];
-			qIJ2[d+1] = qIJ2[d] * qIJ[d+1];
-		}
-		int wantGet = 8;
-		double result = qIJ[wantGet];
-		for(int k = 1; k < wantGet; k++){
-			result *= qIJ[k];
-		}
-		System.out.println(result);
-		System.out.println(Arrays.toString(qIJ));
-		System.out.println(Arrays.toString(qIJ2));
-	}
 	public static void main42(String[] args) throws Throwable{
 		TreeMap<Integer, String> lock = new TreeMap<Integer, String>();
 		//lock.put(6,"GTTC");

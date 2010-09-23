@@ -14,6 +14,9 @@ import java.util.TreeMap;
 import java.util.Map.Entry;
 
 import DnaDesign.DesignIntermediateReporter.DesignIntermediateScore;
+import DnaDesign.impl.CodonCode;
+import DnaDesign.impl.DomainDesignerImpl;
+import DnaDesign.impl.FoldingImpl;
 
 /**
  * The DomainDesigner engineers the input Domains (Defined in Domain Defs) to optimize a set of
@@ -380,11 +383,11 @@ public abstract class DomainDesigner {
 	boolean CALCULATE_JUNCTION_PENALTIES = false;
 	boolean JunctionPenalty_FullPenalty = true;
 	
-	int rule_targetworst = 0; // target worst domains for mutation
-	int rule_ccend = 1; // domains MUST start and end with C
-	int rule_SeqRulesAreAbsolute = 1;
+	public int rule_targetworst = 0; // target worst domains for mutation
+	public int rule_ccend = 1; // domains MUST start and end with C
+	public int rule_SeqRulesAreAbsolute = 1;
 	//It is sometimes advantageous to design sequences with some immutable complementarity.
-	boolean ALLOW_COMPLEMENTARY_SCORES = false;
+	public boolean ALLOW_COMPLEMENTARY_SCORES = false;
 
 	protected abstract static class ScorePenalty{
 		public static final double MAX_SCORE = 1e18;
