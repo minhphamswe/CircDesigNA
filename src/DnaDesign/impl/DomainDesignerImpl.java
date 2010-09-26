@@ -19,6 +19,12 @@ public class DomainDesignerImpl extends DomainDesigner{
 	 * Use the evaluator only to remove ss, don't care about dimers and so forth.
 	 */
 	private boolean designSSonly = false;
+	/**
+	 * Treshold ("green light" score) and weight for single stranded, hybridization scores.
+	 * Todo: actual genetic algorithm that adjusts these over time.
+	 */
+	private double singleStrandT = 2.0, hybridStrandsT = 4.0;
+	private double singleStrandW = 4.0, hybridStrandsW = 1.0;
 	
 	private NAFolding flI;
 	/**
@@ -56,7 +62,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		private int numDomains;
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double normal = flI.pairscore(ds[0],ds[1],domain,null);
+			double normal = (flI.pairscore(ds[0],ds[1],domain,null)-hybridStrandsT)*hybridStrandsW;
 			if (invertScore){
 				return -normal+50; //Scores will go negative very quickly.
 			}
@@ -163,7 +169,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			return //pairscore(ds[0], ds[0], domain,null);
-			flI.foldSingleStranded(ds[0],domain,domain_markings);
+			(flI.foldSingleStranded(ds[0],domain,domain_markings)-singleStrandT)*singleStrandW;
 		}
 		public int getPriority(){
 			return 1;

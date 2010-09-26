@@ -11,6 +11,7 @@ import java.util.Scanner;
 
 import DnaDesign.DnaDefinition;
 import DnaDesign.DomainSequence;
+import DnaDesign.ExperimentalDuplexParams;
 import DnaDesign.NAFolding;
 
 /**
@@ -51,8 +52,12 @@ public class FoldingImpl implements NAFolding{
 	double GTstr = 0.1;
 	double MBstr = -3;
 	public static boolean DEBUG_selfCrosstalkMethod = false;
+	private ExperimentalDuplexParams eParams;
 	public FoldingImpl(){
-		
+		this(new ExperimentalDuplexParamsImpl());
+	}
+	public FoldingImpl(ExperimentalDuplexParams params){
+		eParams = params;
 	}
 	
 	private DomainSequence mutateSequence = new DomainSequence();
@@ -179,10 +184,9 @@ public class FoldingImpl implements NAFolding{
 	public double pairscore(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] problemAreas) {
 		if (FOLD_VIA_UNAFOLD){
 			//0 is the target (so shift the score to make it 0) for unafold delta G output 
-			return Math.max(pairscore_viaUnafold(seq1, seq2, domain, problemAreas) - (0),-1);
+			return Math.max(pairscore_viaUnafold(seq1, seq2, domain, problemAreas) - (0), -1);
 		} else {
-			//Target is 6.25 
-			return Math.max(pairscore_viaMatrix(seq1,seq2,domain,problemAreas)-6.25,-1) ;
+			return Math.max(pairscore_viaMatrix(seq1,seq2,domain,problemAreas) - (0), 0) ;
 		}
 	}
 
@@ -192,8 +196,7 @@ public class FoldingImpl implements NAFolding{
 			//0 is the target (so shift the score to make it 0) for unafold delta G output 
 			return Math.max(foldSingleStranded_viaUnafold(seq, domain, domain_markings) - (0),-1);
 		} else {
-			//2.5 is the target for our little matrix algorithm.
-			return Math.max(foldSingleStranded_viaMatrix(seq, domain, domain_markings) - (2.5), -1);
+			return Math.max(foldSingleStranded_viaMatrix(seq, domain, domain_markings) - (0), 0);
 		}
 	}
 	
@@ -201,150 +204,27 @@ public class FoldingImpl implements NAFolding{
 	/**
 	 * Interaction score.
 	 */
-	private double[][] Cmatrix_pairscore;
-	private double[][] Smatrix_pairscore;
-	private byte[][] SDmatrix_pairscore;
-	double pairscore_viaMatrix(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] problemAreas) {
-		// Gives the score of the two sequences's crosstalk
-		double score, temp;
-		int i, j, k;
-		int len1 = seq1.length(domain);
-		int len2 = seq2.length(domain);
-		if (!(Cmatrix_pairscore!=null && len1 <= Cmatrix_pairscore.length && len2 <= Cmatrix_pairscore[0].length)){
-			Cmatrix_pairscore = new double[len1][len2];
-			Smatrix_pairscore = new double[len1][len2];
-			SDmatrix_pairscore = new byte[len1][len2];
+	private DomainSequence reverseStrand_shared = new DomainSequence();
+	private double[][] compMatrix_shared;
+	private double[][] sMatrix_shared;
+	private double[][] gamma3mat_shared;
+	/**
+	 * Each leaf (a pair of ints a,b) is either:
+	 * a>0: a is  the length of a helix
+	 * a<0: -a is the length of the left loop, -b is the length of the right loop.
+	 */
+	private int[][][] sdMatrix_shared;
+	private int[][] sdMatrix_old_shared;
+	public void ensureSharedMatrices(int len1, int len2){
+		if (!(compMatrix_shared!=null && len1 <= compMatrix_shared.length && len2 <= compMatrix_shared[0].length)){
+			compMatrix_shared = new double[len1][len2];
+			sMatrix_shared = new double[len1][len2];
+			sdMatrix_shared = new int[len1][len2][2];
+			sdMatrix_old_shared = new int[len1][len2];
+			gamma3mat_shared = new double[len1][len2];
 		}
-		double[][] Cmatrix = Cmatrix_pairscore; // complementarity matrix
-		double[][] Smatrix = Smatrix_pairscore; // score matrix
-		byte[][] SDmatrix = SDmatrix_pairscore; // running total of helix size, 0 if current base didn't contribute.
-
-		// LEN1 x LEN2: Complementarity calculation .
-		// Note that the binding is going 5'-3' on both strands, and assumes seq2 is in the array 3'-5'! 
-		for (i = 0; i < len1; i++) {
-			for (j = 0; j < len2; j++) {
-				int base1 = seq1.base(i,domain);
-				int base2 = seq2.base(len2-1-j,domain);
-				Cmatrix[i][j] = DnaDefinition.bindScore(base1, base2);
-				if (Cmatrix[i][j]==0.0){
-					Cmatrix[i][j] = MBstr; // mismatch
-				}
-			}
-		}
-
-		// Calculate score
-		score = 0;
-
-
-		// Seems to seed the algorithm somehow?
-		for (j = 0; j < len2; j++) {
-			Smatrix[0][j] = Cmatrix[0][j];
-			if (Smatrix[0][j] < 0) {
-				Smatrix[0][j] = 0;
-				SDmatrix[0][j] = 0;
-			} else {
-				Smatrix[0][j] = Smatrix[0][j] + DHstr;
-				SDmatrix[0][j] = 1;
-			}
-			if (Smatrix[0][j] > score)
-				score = Smatrix[0][j];
-		}
-
-
-		//Slide the window, maximizing score as it goes, and giving bonus points for helices.
-		//It ALSO allows for alignments that have "bulges" on one side or the other.
-		for (i = 1; i < len1; i++) {
-			Smatrix[i][0] = Cmatrix[i][0];
-			if (Smatrix[i][0] < 0) {
-				Smatrix[i][0] = 0;
-				SDmatrix[i][0] = 0;
-			} else {
-				Smatrix[i][0] = Smatrix[i][0] + DHstr;
-				SDmatrix[i][0] = 1;
-			}
-			if (Smatrix[i][0] > score)
-				score = Smatrix[i][0];
-
-			for (j = 1; j < len2; j++) {
-				if (Cmatrix[i][j] < 0) { // destabilizing base
-					SDmatrix[i][j] = 0;
-					Smatrix[i][j] = 0;
-
-					if ((SDmatrix[i-1][j-1] > 0)&&(Smatrix[i-1][j-1] + MBstr > 0)) // starting a mismatch loop
-						Smatrix[i][j] = Smatrix[i-1][j-1] + MBstr;
-					if ((SDmatrix[i-1][j-1] == 0)&&(Smatrix[i-1][j-1] + LLstr > 0)) // expanding a mismatch loop
-						Smatrix[i][j] = Smatrix[i-1][j-1] + LLstr;
-
-					if ((SDmatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + MBstr > 0)&&(Smatrix[i][j-1] + MBstr > Smatrix[i][j]))
-						Smatrix[i][j] = Smatrix[i][j-1] + MBstr;
-					if ((SDmatrix[i][j-1] == 0)&&(Smatrix[i][j-1] + LLstr > 0)&&(Smatrix[i][j-1] + LLstr > Smatrix[i][j]))
-						Smatrix[i][j] = Smatrix[i][j-1] + LLstr;
-
-					if ((SDmatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + MBstr > 0)&&(Smatrix[i-1][j] + MBstr > Smatrix[i][j]))
-						Smatrix[i][j] = Smatrix[i-1][j] + MBstr;
-					if ((SDmatrix[i-1][j] == 0)&&(Smatrix[i-1][j] + LLstr > 0)&&(Smatrix[i-1][j] + LLstr > Smatrix[i][j]))
-						Smatrix[i][j] = Smatrix[i-1][j] + LLstr;
-
-					if (Smatrix[i][j] < 0)
-						Smatrix[i][j] = 0;
-				} else { // stabilizing base
-					Smatrix[i][j] = Cmatrix[i][j];
-					SDmatrix[i][j] = 1;
-
-					if ((SDmatrix[i-1][j-1] > 0)&&(Smatrix[i-1][j-1] > 0)) { // continuing a helix
-						Smatrix[i][j] = Smatrix[i-1][j-1] + Cmatrix[i][j];
-						SDmatrix[i][j] = (byte)((SDmatrix[i-1][j-1] + 1)&127);
-					} else if ((SDmatrix[i-1][j-1] == 0)&&(Smatrix[i-1][j-1] > 0)) { // starting a new helix
-						Smatrix[i][j] = Smatrix[i-1][j-1] + Cmatrix[i][j];
-						SDmatrix[i][j] = 1;
-					} else {	  
-						if ((SDmatrix[i][j-1] > 0)&&(Smatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + Cmatrix[i][j] - Cmatrix[i][j-1] + MBstr > Smatrix[i][j])) {
-							Smatrix[i][j] = Smatrix[i][j-1] + Cmatrix[i][j] - Cmatrix[i][j-1] + MBstr; // introducing a 1-bulge, destroying previous bond
-							SDmatrix[i][j] = 1;
-						} else if ((SDmatrix[i][j-1] == 0)&&(Smatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + Cmatrix[i][j] > Smatrix[i][j])) {
-							Smatrix[i][j] = Smatrix[i][j-1] + Cmatrix[i][j]; // closing a bulge
-							SDmatrix[i][j] = 1;
-						}
-
-						if ((SDmatrix[i-1][j] > 0)&&(Smatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + Cmatrix[i][j] - Cmatrix[i-1][j] + MBstr > Smatrix[i][j])) {
-							Smatrix[i][j] = Smatrix[i-1][j] + Cmatrix[i][j] - Cmatrix[i-1][j] + MBstr;
-							SDmatrix[i][j] = 1;
-						} else if ((SDmatrix[i-1][j] == 0)&&(Smatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + Cmatrix[i][j] > Smatrix[i][j])) {
-							Smatrix[i][j] = Smatrix[i-1][j] + Cmatrix[i][j];
-							SDmatrix[i][j] = 1;
-						}
-					}
-
-					if (SDmatrix[i][j] > LHbases) {
-						// Extra points for long helices
-						temp = LHstart;
-						for (k = LHbases; k < SDmatrix[i][j]; k++)
-							temp = temp * LHpower;
-						Smatrix[i][j] = Smatrix[i][j] + temp;
-
-						/*
-						if (DEBUGNOW-->0){
-							System.out.println(seq1.toString()+"|"+seq2.toString());
-							System.out.println(SDmatrix[i][j]);
-						}
-						 */
-					}
-				}
-
-				if ((SDmatrix[i][j] > 0)&&((i == (len1-1))||(j == (len2-1))))
-					Smatrix[i][j] = Smatrix[i][j] + DHstr;
-
-				//Is this the best window?
-				if (Smatrix[i][j] > score){
-					score = Smatrix[i][j];
-				}
-			}
-		}
-
-		//Wow. this is a complicated little thing, isn't it?
-		return score;
 	}
-	double pairscore_viaUnafold(DomainSequence ds, DomainSequence ds2, int[][] domain, int[][] domain_markings) {
+	public double pairscore_viaUnafold(DomainSequence ds, DomainSequence ds2, int[][] domain, int[][] domain_markings) {
 		StringBuffer create = new StringBuffer();
 		int len = ds.length(domain);
 		for(int k = 0; k < len; k++){
@@ -413,7 +293,7 @@ public class FoldingImpl implements NAFolding{
 	private static final String absPathToHybridSSMinMod =  "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-ss-min.exe\" -q ";
 	private static final String absPathToHybridMinMod = "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-min.exe\" -q ";
 	
-	double foldSingleStranded_viaUnafold(DomainSequence seq, int[][] domain, int[][] domain_markings) {
+	public double foldSingleStranded_viaUnafold(DomainSequence seq, int[][] domain, int[][] domain_markings) {
 		StringBuffer create = new StringBuffer();
 		int len = seq.length(domain);
 		for(int k = 0; k < len; k++){
@@ -468,230 +348,276 @@ public class FoldingImpl implements NAFolding{
 		}
 		throw new RuntimeException();
 	}
-	
-	double foldSingleStranded_viaMatrix(DomainSequence seq, int[][] domain, int[][] domain_markings) {
-		double score, temp;
-		int i, j, k;
-		int len1 = seq.length(domain);
-		if (!(Cmatrix_pairscore!=null && len1 <= Cmatrix_pairscore.length && len1 <= Cmatrix_pairscore[0].length)){
-			Cmatrix_pairscore = new double[len1][len1];
-			Smatrix_pairscore = new double[len1][len1];
-			SDmatrix_pairscore = new byte[len1][len1];
-		}
-		double[][] Cmatrix = Cmatrix_pairscore; // complementarity matrix
-		double[][] Smatrix = Smatrix_pairscore; // score matrix
-		byte[][] SDmatrix = SDmatrix_pairscore; // running total of helix size, 0 if current base didn't contribute.
-		
+
+	/**
+	 * Not multithreaded.
+	 * @param len2 
+	 * @param seq2 
+	 */
+	private void foldSingleStranded_makeCMatrix(DomainSequence seq, DomainSequence seq2, int len1,int len2, int[][] domain){
+		double[][] Cmatrix = compMatrix_shared; // complementarity matrix
+		double[][] Smatrix = sMatrix_shared; // score matrix
+		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
 		// NxN complementarities. 
-		for (i = 0; i < len1; i++) {
-			for (j = 0; j < len1; j++) {
+		for (int i = 0; i < len1; i++) {
+			for (int j = 0; j < len2; j++) {
 				int base1 = seq.base(i,domain);
-				int base2 = seq.base(len1-1-j,domain);
+				int base2 = seq2.base(j,domain);
 				Cmatrix[i][j] = DnaDefinition.bindScore(base1, base2);
 				if (Cmatrix[i][j]==0.0){
 					Cmatrix[i][j] = MBstr; // mismatch
 				}
-				//Make sure matrices are clear.
-				SDmatrix[i][j] = 0;
 				Smatrix[i][j] = 0;
+				SDmatrix[i][j][0] = 0;
+				SDmatrix[i][j][1] = 0;
 			}
+		}		
+	}
+	public double pairscore_viaMatrix(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings) {
+		return foldNA_viaMatrix(seq1, seq2, domain, domain_markings, true);
+	}
+	public double foldSingleStranded_viaMatrix(DomainSequence seq, int[][] domain, int[][] domain_markings) {
+		return foldNA_viaMatrix(seq, seq, domain, domain_markings, false);
+	}
+	public double foldNA_viaMatrix(DomainSequence seq, DomainSequence seq2, int[][] domain, int[][] domain_markings, boolean fullMatrix) {
+		int len1 = seq.length(domain);
+		int len2 = seq2.length(domain);
+		ensureSharedMatrices(len1,len2);
+		foldSingleStranded_makeCMatrix(seq,seq2,len1,len2,domain);
+		double[][] Cmatrix = compMatrix_shared; // complementarity matrix
+		double[][] Smatrix = sMatrix_shared; // score matrix
+		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
+		double[][] gamma3mat = gamma3mat_shared;
+		
+		double score = 0;
+		int bestI = -1, bestJ = -1;
+		//Positive delta G.
+		//LCS, use eParams to do intelligent weighting.
+		int minHairpinSize = 1+3; //Only used in singlestranding.
+		//Calculate looping bounds.
+		int i;
+		if (fullMatrix){
+			i = len1-1;
+		} else {
+			i = (len1-1)-minHairpinSize;
 		}
-
-		score = 0;
-		int bestScoreX = 0, bestScoreY = 0;
-
-		//Unlike the pairwise scoring, which uses a sliding window,
-		//this is a linear search, which only looks for places where secondary
-		//structure could form (backfolding)
-		Smatrix[0][0] = 0;
-
-		for (j = 1; j < len1; j++) {
-			Smatrix[0][j] = Cmatrix[0][j];
-			if (Smatrix[0][j] < 0) {
-				Smatrix[0][j] = 0;
-				SDmatrix[0][j] = 0;
+		for(; i >= 0; i--){
+			int j;
+			if (fullMatrix){
+				j = 0;
 			} else {
-				Smatrix[0][j] = Smatrix[0][j] + DHstr;
-				SDmatrix[0][j] = 1;
+				j = i+minHairpinSize;
 			}
-			if (Smatrix[0][j] > score){
-				score = Smatrix[0][j];
-				bestScoreX = 0;
-				bestScoreY = j;
-			}
-		}
-
-		iloop: for (i = 1; i < len1; i++) {
-			Smatrix[i][0] = Cmatrix[i][0];
-			if (Smatrix[i][0] < 0) {
-				Smatrix[i][0] = 0;
-				SDmatrix[i][0] = 0;
-			} else {
-				Smatrix[i][0] = Smatrix[i][0] + DHstr;
-				SDmatrix[i][0] = 1;
-			}
-			if (Smatrix[i][0] > score){
-				score = Smatrix[i][0];
-				bestScoreX = i;
-				bestScoreY = 0;
-			}
-
-			//How far to go into the "right" of the matrix.
-			int jloopMax = len1-i-1 - MinHairpinLoopSize;
-			//int jloopMax = len1;
-			jloop: for (j = 1; j < jloopMax; j++) {
-
-				if (i == j && false) { 
-					// "Main line" match, do not score
-					SDmatrix[i][j] = 0;
-					Smatrix[i][j] = 0;
-				} else if (Cmatrix[i][j] < 0) { // destabilizing base
-					SDmatrix[i][j] = 0;
-					Smatrix[i][j] = 0;
-
-					if ((SDmatrix[i-1][j-1] > 0)&&(Smatrix[i-1][j-1] + MBstr > 0)) // starting a mismatch loop
-						Smatrix[i][j] = Smatrix[i-1][j-1] + MBstr;
-					if ((SDmatrix[i-1][j-1] == 0)&&(Smatrix[i-1][j-1] + LLstr > 0)) // expanding a mismatch loop
-						Smatrix[i][j] = Smatrix[i-1][j-1] + LLstr;
-
-					if ((SDmatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + MBstr > 0)&&(Smatrix[i][j-1] + MBstr > Smatrix[i][j]))
-						Smatrix[i][j] = Smatrix[i][j-1] + MBstr;
-					if ((SDmatrix[i][j-1] == 0)&&(Smatrix[i][j-1] + LLstr > 0)&&(Smatrix[i][j-1] + LLstr > Smatrix[i][j]))
-						Smatrix[i][j] = Smatrix[i][j-1] + LLstr;
-
-					if (true){
-					if ((SDmatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + MBstr > 0)&&(Smatrix[i-1][j] + MBstr > Smatrix[i][j]))
-						Smatrix[i][j] = Smatrix[i-1][j] + MBstr;
-					if ((SDmatrix[i-1][j] == 0)&&(Smatrix[i-1][j] + LLstr > 0)&&(Smatrix[i-1][j] + LLstr > Smatrix[i][j]))
-						Smatrix[i][j] = Smatrix[i-1][j] + LLstr;
-					}
-					
-					if (Smatrix[i][j] < 0)
-						Smatrix[i][j] = 0;
-
-				} else { // stabilizing base
-					Smatrix[i][j] = Cmatrix[i][j];
-					SDmatrix[i][j] = 1;
-
-					if ((SDmatrix[i-1][j-1] > 0)&&(Smatrix[i-1][j-1] > 0)) { // continuing a helix
-						Smatrix[i][j] = Smatrix[i-1][j-1] + Cmatrix[i][j];// * (SDmatrix[i-1][j-1] - .5);
-						SDmatrix[i][j] = (byte)Math.min(SDmatrix[i-1][j-1] + 1,127);
-					} else if ((SDmatrix[i-1][j-1] == 0)&&(Smatrix[i-1][j-1] > 0)) { // starting a new helix
-						Smatrix[i][j] = Smatrix[i-1][j-1] + Cmatrix[i][j];
-						SDmatrix[i][j] = 1;
-					}	  
-					
-					if ((SDmatrix[i][j-1] > 0)&&(Smatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + Cmatrix[i][j] - Cmatrix[i][j-1] + MBstr > Smatrix[i][j])) {
-						Smatrix[i][j] = Smatrix[i][j-1] + Cmatrix[i][j] - Cmatrix[i][j-1] + MBstr; // introducing a 1-bulge, destroying previous bond
-						SDmatrix[i][j] = 1;
-					} else if ((SDmatrix[i][j-1] == 0)&&(Smatrix[i][j-1] > 0)&&(Smatrix[i][j-1] + Cmatrix[i][j] > Smatrix[i][j])) {
-						Smatrix[i][j] = Smatrix[i][j-1] + Cmatrix[i][j]; // closing a bulge
-						SDmatrix[i][j] = 1;
-					}
-
-					if(true){
-						if ((SDmatrix[i-1][j] > 0)&&(Smatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + Cmatrix[i][j] - Cmatrix[i-1][j] + MBstr > Smatrix[i][j])) {
-							Smatrix[i][j] = Smatrix[i-1][j] + Cmatrix[i][j] - Cmatrix[i-1][j] + MBstr;
-							SDmatrix[i][j] = 1;
-						} else if ((SDmatrix[i-1][j] == 0)&&(Smatrix[i-1][j] > 0)&&(Smatrix[i-1][j] + Cmatrix[i][j] > Smatrix[i][j])) {
-							Smatrix[i][j] = Smatrix[i-1][j] + Cmatrix[i][j];
-							SDmatrix[i][j] = 1;
-						}
-					}
-
-					if (SDmatrix[i][j] > LHbases) {
-						// Extra points for long helices
-						temp = LHstart;
-						for (k = LHbases; k < SDmatrix[i][j]; k++)
-							temp = temp * LHpower;
-						Smatrix[i][j] = Smatrix[i][j] + temp;
-					}
+			for(; j < len2; j++){
+				//Left loop (m), + no bonus
+				double gamma1 = foldSingleStranded_calcGamma1(i,j,len1,Cmatrix,Smatrix,SDmatrix);
+				//Right loop (n), + no bonus
+				double gamma2 = foldSingleStranded_calcGamma2(i,j,Cmatrix,Smatrix,SDmatrix);
+				//Helix, + dummy score if new helix, - dummy score if 2nd base, + nn score is length >= 2.
+				//If beginning new helix, have to add the score of the last loop.
+				double gamma3 = foldSingleStranded_calcGamma3(len1,len2,seq,seq2,domain,i,j,Cmatrix,Smatrix,SDmatrix,true);
+				gamma3mat[i][j] = gamma3; //Store the gamma3 result for tracebacking use.
+				//Greedy algorithm: take the biggest one (Is this provably correct?).
+				Smatrix[i][j]=max(gamma1,gamma2,gamma3);
+				//Which did we do?
+				if (gamma3 == Smatrix[i][j]){
+					//We are doing helix. 
+					//SDmatrix[i][j] = Math.max(0,SDmatrix[i+1][j-1])+1;
+					//Leave the setting of the SDMatrix up to "calcGamma3". It must therefore run LAST in the above 3 seqs.
+				} else if (gamma1 == Smatrix[i][j]){
+					//Continuing loop, overwrite gamma3 calculation
+					SDmatrix[i][j][0] = Math.min(0,SDmatrix[i+1][j][0])-1;
+					SDmatrix[i][j][1] = Math.min(0,SDmatrix[i+1][j][1]);
+				} else if (gamma2 == Smatrix[i][j]){
+					//Continuing loop, overwrite gamma3 calculation
+					SDmatrix[i][j][0] = Math.min(0,SDmatrix[i][j-1][0]);
+					SDmatrix[i][j][1] = Math.min(0,SDmatrix[i][j-1][1])-1;
+				} else {
+					throw new RuntimeException("Assertion failure. foldSingleStranded_viaMatrix inner loop of filling.");
 				}
-
-				if ((SDmatrix[i][j] > 0)&&((i == (len1-1))||(j == (len1-1))))
-					Smatrix[i][j] = Smatrix[i][j] + DHstr;
-				
+				//Have we found the best structure?
 				if (Smatrix[i][j] > score){
 					score = Smatrix[i][j];
-					bestScoreX = i;
-					bestScoreY = j;
+					bestI = i;
+					bestJ = j;
 				}
-				
-			} 
+			}
 		}
-
 		
-		if (DEBUG_selfCrosstalkMethod){
-			for(i = 0; i < len1; i++){
-				for(j = 0; j < len1; j++){
-					//System.out.printf("%8d",SDmatrix[i][j]);
-					if (SDmatrix[i][j]>0){
-						System.out.printf("%8.3f",Smatrix[i][j]);
-					} else {
-						System.out.printf("%8s",",");
-					}
-					//System.out.print((Cmatrix[i][j]>0?1:0)+" ");
+		//Traceback?
+		foldSingleStranded_traceBack(len1,len2,Smatrix,Cmatrix,gamma3mat,bestI,bestJ,seq,seq2,domain,domain_markings,true);
+		
+		if (false){
+			for(int k = 0; k < len1; k++){
+				for(int y = 0; y < len2; y++){
+					System.out.printf(" (%3d,%3d)",SDmatrix[k][y][0],SDmatrix[k][y][1]);
+				}
+				System.out.println();
+			}
+			for(int k = 0; k < len1; k++){
+				for(int y = 0; y < len2; y++){
+					System.out.printf(" %4.8f",Smatrix[k][y]);
 				}
 				System.out.println();
 			}
 		}
 		
-		int x = bestScoreX;
-		int y = bestScoreY;
-		do {
-			if (x < 0 || y < 0 || x >= len1 || y >= len1){
+		return score;
+	}
+	/**
+	 * Performs the standard nussinov tracebacking, sans bifurcation tracing (thus, no stack).
+	 */
+	private void foldSingleStranded_traceBack(int len1, int len2, double[][] Smatrix, double[][] Cmatrix, double[][] gamma3mat, int bestI,
+			int bestJ, DomainSequence seq, DomainSequence seq2,
+			int[][] domain, int[][] domain_markings, boolean isSingleStrandFold) {
+		while(true){
+			//Break condition:
+			//System.out.println(bestI+" "+bestJ);
+			if (bestI>=len1 || bestJ < 0){
 				break;
 			}
-			//System.out.println(x+" "+y);
-			if (SDmatrix[x][y]>0){
-				//This is one of the helixes that contributes to the MFE structure.
-				//Mark the bases it requires as mutable.
-				
-				int ty = len1-1-y;
-				if (DEBUG_selfCrosstalkMethod)System.out.println(x+"-"+(x-(SDmatrix[x][y]-1))+" "+(ty)+"-"+(ty+SDmatrix[x][y]-1));
-				for(int z = -SDmatrix[x][y]+1; z <= 0; z++){
-					int nx = x + z;
-					int ny = ty - z;
-					//Store nx
-					seq.mark(nx,domain,domain_markings);
-					if (DEBUG_selfCrosstalkMethod)System.out.print(DisplayBase(seq.base(nx, domain)));
-					seq.mark(ny,domain,domain_markings);
-					if (DEBUG_selfCrosstalkMethod)System.out.print("="+DisplayBase(seq.base(ny, domain))+",");
+			boolean isOnFringeOfMap = bestI==len1-1 || bestJ==0;
+			if (isSingleStrandFold){
+				if (bestJ<bestI){
+					break;
 				}
-				if (DEBUG_selfCrosstalkMethod)System.out.println();
-
-				int HelixLength = SDmatrix[x][y];
-
-				x -= HelixLength;
-				y -= HelixLength;
-			} else {
-				//Backtrack the mismatch region... (Right to left, if no helix found, go up the matrix)
-				
-				/*
-				double bestScore = Smatrix[x][y];
-				int bestI = y;
-				for(i = y-1; i >=0; i--){
-					if (Smatrix[x][i]>bestScore){
-						bestI = i;
-						bestScore=Smatrix[x][i];
-					}
-				}
-				y = bestI;
-
-				if (SDmatrix[x][y]==0){
-					x--;
-					y--;
-				}
-				*/
-				x--;
-				y--;
 			}
-		} while(true);
-		if (DEBUG_selfCrosstalkMethod)System.out.println();
-		if (DEBUG_selfCrosstalkMethod)System.out.println(bestScoreX+" "+bestScoreY+" "+score);
+			boolean inHelix = false; //only if we go diagonally do we mark a duplex pair.
+			if (!isOnFringeOfMap){
+				double gamma1 = Smatrix[bestI+1][bestJ];
+				double gamma2 = Smatrix[bestI][bestJ-1];
+				double gamma3 = Smatrix[bestI+1][bestJ-1];
+				double best = max(gamma1,gamma2,gamma3);
+				//This is like the Zuker algorithm, we are keeping a matrix that
+				//maintains the score we would get if we always went diagonals (no bulge handling).
+				if (gamma3mat[bestI][bestJ]>best){
+					inHelix=true;
+				}
+				else if (gamma1 == best){
+					//Go there.
+					bestI++;
+				}
+				else if (gamma2 == best){
+					//Go there.
+					bestJ--;
+				}
+				else if (gamma3==best){
+					inHelix = true;
+				} 
+				else {
+					throw new RuntimeException("Assertion failure. foldSingleStranded_traceback in best check");
+				}
+			} else {
+				inHelix = true; //Go ahead and check the last guy.
+			}
+			if (inHelix){
+				//Mark condition:
+				if (Cmatrix[bestI][bestJ]>0){
+					//Complementary pair in traceback. mark.
+					seq.mark(bestI, domain, domain_markings);
+					seq2.mark(bestJ, domain, domain_markings);
+				}
+				//Go helix!
+				bestI++;
+				bestJ--;
+			}
+		}
+		
+	}
 
-
-		return score;
+	private double foldSingleStranded_calcDummyScore = .25;
+	private double foldSingleStranded_calcGamma1(int i, int j, int len1, double[][] cMatrix, double[][] sMatrix, int[][][] sdMatrix) {
+		//This is the number, if we are a "bulge" and defer to the helix in sMatrix[i+1][j].
+		if (i+1>=len1){
+			//Off the map.
+			return 0.0;
+		}
+		double bulgeScore = sMatrix[i+1][j];
+		//Be sure to remove dummyScore
+		if (sdMatrix[i+1][j][0]==1){
+			bulgeScore-=foldSingleStranded_calcDummyScore;
+		}
+		return bulgeScore;
+	}
+	private double foldSingleStranded_calcGamma2(int i, int j, double[][] cMatrix, double[][] sMatrix, int[][][] sdMatrix) {
+		if (j-1<0){
+			//Off the map.
+			return 0.0;
+		}
+		double bulgeScore = sMatrix[i][j-1];
+		//Be sure to remove dummyScore
+		if (sdMatrix[i][j-1][0]==1){
+			bulgeScore-=foldSingleStranded_calcDummyScore;
+		}
+		return bulgeScore;
+	}
+	/**
+	 * Helix, + dummy score if new helix, - dummy score if 2nd base, + nn score is length >= 2.
+	 * If beginning new helix, have to add the score of the last loop.
+	 * 
+	 * Both seq and seq2 should be in 5'-3' order.
+	 */
+	private double foldSingleStranded_calcGamma3(int len1, int len2, DomainSequence seq, DomainSequence seq2, int[][] domain, int i, int j, double[][] cMatrix, double[][] sMatrix, int[][][] sdMatrix, boolean writeToSD) {
+		double dummyScore = foldSingleStranded_calcDummyScore;
+		boolean onFringeOfMap = i+1>=len1 || j-1<0;
+		if (cMatrix[i][j]>0){
+			//This is a pair. Extend helix
+			if (writeToSD){
+				sdMatrix[i][j][0] = Math.max(0,onFringeOfMap?0:sdMatrix[i+1][j-1][0])+1;
+				sdMatrix[i][j][1] = sdMatrix[i][j][0]; //MUST set this > 0. Have to seperate loop counters from helix counters!
+			}
+			//New helix
+			if (onFringeOfMap || sdMatrix[i+1][j-1][0]<=0){
+				if(!onFringeOfMap && (sdMatrix[i+1][j-1][0]<0 || sdMatrix[i+1][j-1][1]<0)){
+					//Ending a loop, of length > 0
+					int leftLoopSize = -sdMatrix[i+1][j-1][0];
+					int rightLoopSize = -sdMatrix[i+1][j-1][1];
+				}
+				return (onFringeOfMap?0:sMatrix[i+1][j-1])+dummyScore;
+			}
+			//Continuing old helix
+			else {
+				//get NN score.
+				double nn = eParams.getNNdeltaG(seq.base(i+1, domain), seq2.base(j-1,domain),seq.base(i,domain), seq2.base(j,domain));
+				double helixScore = sMatrix[i+1][j-1];
+				if (sdMatrix[i+1][j-1][0]==1){
+					//Remove dummy score
+					helixScore -= dummyScore;
+				}
+				//Delta gs are negative, so subtract instead.
+				helixScore -= nn;
+				return helixScore;
+			}
+		} else {
+			//No helix. Extend both left and right bulges by one.
+			if (writeToSD){
+				sdMatrix[i][j][0] = Math.min(0,onFringeOfMap?0:sdMatrix[i+1][j-1][0])-1;
+				sdMatrix[i][j][1] = Math.min(0,onFringeOfMap?0:sdMatrix[i+1][j-1][1])-1;
+			}
+			if (onFringeOfMap){
+				return 0.0;
+			}
+			//Ending old helix?
+			if (sdMatrix[i+1][j-1][0]>0){
+				if (sdMatrix[i+1][j-1][0]==1){
+					//Remove dummy score, replace with 1 base score
+					double oneBaseScore = cMatrix[i][j]*.125f;
+					return sMatrix[i+1][j-1]-dummyScore+oneBaseScore;
+				} else {
+					//Add terminal score.
+					double terminalMismatch = eParams.getNNdeltaGterm(seq.base(i+1, domain), seq2.base(j-1,domain),seq.base(i,domain), seq2.base(j,domain));
+					//Delta gs are negative, so subtract instead.
+					return sMatrix[i+1][j-1]-terminalMismatch;
+				}
+			} 
+			//Continuing loop region
+			else {
+				return sMatrix[i+1][j-1];
+			}
+		}
+	}
+	private double max(double gamma1, double gamma2, double gamma3) {
+		return Math.max(Math.max(gamma1,gamma2),gamma3); 
 	}
 
 }

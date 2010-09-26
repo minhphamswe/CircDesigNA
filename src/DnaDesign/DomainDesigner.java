@@ -724,8 +724,7 @@ public abstract class DomainDesigner {
 				revert_mutation = false;
 				newPointReached = false;
 
-				float subScoreThreshold = 0;
-				if (deltaScore > subScoreThreshold){
+				if (deltaScore > 0){
 					revert_mutation = true;
 				}
 				/*

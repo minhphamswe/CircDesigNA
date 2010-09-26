@@ -16,14 +16,14 @@ public interface ExperimentalDuplexParams {
 	 * Nearest Neighbor pairing need not be symmetric; such that 
 	 * d((W,X),(Y,Z))!=d((X,W),(Z,Y)).
 	 */
-	public float getNNdeltaG(int W, int X, int Y, int Z);
+	public double getNNdeltaG(int W, int X, int Y, int Z);
 	/**
 	 * Returns the delta G for a (W,X) pair neighboring a (Y,Z) pair. 
 	 * Specifically, Y,Z must be a MISMATCH and X,W must be a PAIR.
 	 */
-	public float getNNdeltaGterm(int W, int X, int Y, int Z);
+	public double getNNdeltaGterm(int W, int X, int Y, int Z);
 	/**
 	 * Returns the dangle penalty for base D, on 3primeEnd, where X,Y are the terminal pair of the helix.
 	 */
-	public float getDanglePenalty(int X, int Y, int D, boolean PrimeEnd);
+	public double getDanglePenalty(int X, int Y, int D, boolean PrimeEnd);
 }

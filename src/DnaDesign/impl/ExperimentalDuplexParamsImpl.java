@@ -21,8 +21,8 @@ public class ExperimentalDuplexParamsImpl implements ExperimentalDuplexParams{
 	private static int getNormalBase(int nonnormalBase){
 		return DnaDefinition.getNormalBaseFromZero(nonnormalBase);
 	}
-	private float[][][][] getNNdeltaG;
-	public float getNNdeltaG(int W, int X, int Y, int Z) {
+	private double[][][][] getNNdeltaG;
+	public double getNNdeltaG(int W, int X, int Y, int Z) {
 		W = getNormalBase(W);
 		X = getNormalBase(X);
 		Y = getNormalBase(Y);
@@ -30,15 +30,15 @@ public class ExperimentalDuplexParamsImpl implements ExperimentalDuplexParams{
 		return getNNdeltaG[W][X][Y][Z];
 	}
 	//X,Y,D,primeEnd(0,1)
-	private float[][][][] getDangle;
-	public float getDanglePenalty(int X, int Y, int D, boolean PrimeEnd3) {
+	private double[][][][] getDangle;
+	public double getDanglePenalty(int X, int Y, int D, boolean PrimeEnd3) {
 		X = getNormalBase(X);
 		Y = getNormalBase(Y);
 		D = getNormalBase(D);
 		return getDangle[X][Y][D][PrimeEnd3?1:0];
 	}
-	private float[][][][] getNNdeltaGterm;
-	public float getNNdeltaGterm(int W, int X, int Y, int Z) {
+	private double[][][][] getNNdeltaGterm;
+	public double getNNdeltaGterm(int W, int X, int Y, int Z) {
 		W = getNormalBase(W);
 		X = getNormalBase(X);
 		Y = getNormalBase(Y);
@@ -307,9 +307,9 @@ public class ExperimentalDuplexParamsImpl implements ExperimentalDuplexParams{
 		}
 		
 		//Ok! parse the arraylists to actual tables.
-		getNNdeltaG = new float[4][4][4][4];
-		getNNdeltaGterm = new float[4][4][4][4];
-		getDangle = new float[4][4][4][2];
+		getNNdeltaG = new double[4][4][4][4];
+		getNNdeltaGterm = new double[4][4][4][4];
+		getDangle = new double[4][4][4][2];
 		for(NearestNeighborScore nnsi : nns){
 			getNNdeltaG[nnsi.W]
 			            [nnsi.X]
@@ -349,9 +349,9 @@ public class ExperimentalDuplexParamsImpl implements ExperimentalDuplexParams{
 			this.X = getNormalBase(X);
 			this.Y = getNormalBase(Y);
 			this.Z = getNormalBase(Z);
-			this.score = (float)score;
+			this.score = score;
 		}
 		public final int W,X,Y,Z;
-		public final float score;
+		public final double score;
 	}
 }

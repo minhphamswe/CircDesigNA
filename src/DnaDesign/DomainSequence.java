@@ -115,7 +115,7 @@ public class DomainSequence {
 					int old = domain_markings[dNum][d.length-1-q];
 					domain_markings[dNum][d.length-1-q] = old==DNAMARKER_DONTMUTATE?markerValue:old+markerValue;
 					return;
-				} else{
+				} else {
 					int old = domain_markings[dNum][q];
 					domain_markings[dNum][q] = old==DNAMARKER_DONTMUTATE?markerValue:old+markerValue;
 					return;
