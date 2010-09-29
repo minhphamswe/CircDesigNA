@@ -447,7 +447,7 @@ public class FoldingImpl implements NAFolding{
 		//Traceback?
 		foldSingleStranded_traceBack(len1,len2,Smatrix,Cmatrix,gamma3mat,bestI,bestJ,seq,seq2,domain,domain_markings,true);
 		
-		if (false){
+		if (debugLCSAlgorithm){
 			for(int k = 0; k < len1; k++){
 				for(int y = 0; y < len2; y++){
 					System.out.printf(" (%3d,%3d)",SDmatrix[k][y][0],SDmatrix[k][y][1]);
@@ -470,6 +470,9 @@ public class FoldingImpl implements NAFolding{
 	private void foldSingleStranded_traceBack(int len1, int len2, double[][] Smatrix, double[][] Cmatrix, double[][] gamma3mat, int bestI,
 			int bestJ, DomainSequence seq, DomainSequence seq2,
 			int[][] domain, int[][] domain_markings, boolean isSingleStrandFold) {
+		int helixLength = 0;
+		MFE_numBasesPaired = 0;
+		MFE_longestHelixLength = 0;
 		while(true){
 			//Break condition:
 			//System.out.println(bestI+" "+bestJ);
@@ -511,6 +514,8 @@ public class FoldingImpl implements NAFolding{
 				inHelix = true; //Go ahead and check the last guy.
 			}
 			if (inHelix){
+				helixLength ++;
+				MFE_longestHelixLength = Math.max(MFE_longestHelixLength,helixLength);
 				//Mark condition:
 				if (Cmatrix[bestI][bestJ]>0){
 					//Complementary pair in traceback. mark.
@@ -520,12 +525,26 @@ public class FoldingImpl implements NAFolding{
 				//Go helix!
 				bestI++;
 				bestJ--;
+				MFE_numBasesPaired++;
+			} else {
+				helixLength = 0;
 			}
 		}
 		
 	}
 
+	private int MFE_longestHelixLength = -1, MFE_numBasesPaired = -1;
+	public int getLongestHelixLength() {
+		return MFE_longestHelixLength;
+	}
+	public int getNumBasesPaired() {
+		// TODO Auto-generated method stub
+		return MFE_numBasesPaired;
+	}
+	private boolean debugLCSAlgorithm = false;
 	private double foldSingleStranded_calcDummyScore = .25;
+	private double foldSingleStranded_endHelixPenalty = 0;
+	private double foldSingleStranded_helixBaseScore = 0;
 	private double foldSingleStranded_calcGamma1(int i, int j, int len1, double[][] cMatrix, double[][] sMatrix, int[][][] sdMatrix) {
 		//This is the number, if we are a "bulge" and defer to the helix in sMatrix[i+1][j].
 		if (i+1>=len1){
@@ -536,6 +555,9 @@ public class FoldingImpl implements NAFolding{
 		//Be sure to remove dummyScore
 		if (sdMatrix[i+1][j][0]==1){
 			bulgeScore-=foldSingleStranded_calcDummyScore;
+		}
+		if (sdMatrix[i+1][j][0]>0){
+			bulgeScore-=foldSingleStranded_endHelixPenalty;
 		}
 		return bulgeScore;
 	}
@@ -548,6 +570,9 @@ public class FoldingImpl implements NAFolding{
 		//Be sure to remove dummyScore
 		if (sdMatrix[i][j-1][0]==1){
 			bulgeScore-=foldSingleStranded_calcDummyScore;
+		}
+		if (sdMatrix[i][j-1][0]>0){
+			bulgeScore-=foldSingleStranded_endHelixPenalty;
 		}
 		return bulgeScore;
 	}
@@ -583,6 +608,7 @@ public class FoldingImpl implements NAFolding{
 				if (sdMatrix[i+1][j-1][0]==1){
 					//Remove dummy score
 					helixScore -= dummyScore;
+					helixScore += foldSingleStranded_helixBaseScore;
 				}
 				//Delta gs are negative, so subtract instead.
 				helixScore -= nn;

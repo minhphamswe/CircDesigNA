@@ -366,7 +366,10 @@ public abstract class DomainDesigner {
 	 * and mutate them. Recommended, otherwise you're merely randomly mutating.
 	 */
 	private boolean ENABLE_MARKINGS = true;
-	
+	/**
+	 * If we are sorting markings, then markings that occur in multiple penalties are mutated first.
+	 */
+	private boolean SORT_MARKINGS = false;
 	/**
 	 * Take the evaluators word as absolute, and never mutate bases that
 	 * aren't directly involved in the "current worst penalty". (Otherwise, occasionally
@@ -619,7 +622,6 @@ public abstract class DomainDesigner {
 			//num_domains_mut = int_urn(1,Math.min(Math.min(worstPenalty==null?1:worstPenalty.getNumDomainsInvolved()-1,MAX_MUTATION_DOMAINS),mutableDomains.length-1));
 			num_domains_mut = int_urn(1,Math.min(MAX_MUTATION_DOMAINS,mutableDomains.length));
 			Arrays.fill(domain_mutated,false);
-			int times = 0;
 			for(k = 0; k < num_domains_mut; k++){
 				min_mutations = 1;
 				/*
@@ -643,6 +645,7 @@ public abstract class DomainDesigner {
 					if (domain_mutated[mut_domain]){
 						continue;
 					}
+					
 					if (worstPenalty!=null){
 						if (!worstPenalty.affectedBy(mut_domain)){
 							if (Math.random()<.25f){
@@ -653,7 +656,7 @@ public abstract class DomainDesigner {
 					break;
 				}
 				if(domain_mutated[mut_domain]){
-					k--;
+					k--; //Occurs rarely, when luck is against us. (literally).
 					continue;
 				}
 				
@@ -662,21 +665,6 @@ public abstract class DomainDesigner {
 					max_mutations = Math.max(MAX_MUTATIONS_LIMIT/timesSameCount,min_mutations);
 				}
 				*/
-				
-				if (ENABLE_MARKINGS){
-					boolean hasNo1 = true;
-					for(int q : domain_markings[mut_domain]){
-						if (q!=0){
-							hasNo1 = false;
-							break;
-						}
-					}
-					if (hasNo1){
-						k--;
-						num_domains_mut--;
-						continue;
-					}
-				}
 
 				mut_domains[k] = mut_domain;
 				//Backup
@@ -935,7 +923,25 @@ public abstract class DomainDesigner {
 	}
 
 
-	private int[] mut_old_domain;
+	private Priority_int_int[] inplacePrioritySort_shared;
+	private static final class Priority_int_int implements Comparable<Priority_int_int>{
+		public int a;
+		public int b;
+		public int compareTo(Priority_int_int o) {
+			int val = 0;
+			if (val==0){
+				val = o.b-b;
+			}
+			if (val==0){
+				val = a-o.a;
+			}
+			return val;
+		}
+		public void set(int k, int mark) {
+			a = k;
+			b = mark;
+		}
+	}
 	/**
 	 * Mutates mut_domain such that it is changed at the nucleic acid sequence level. If cc is nonnull, the changes will conserve amino acid sequence. 
 	 * @param seqToSynthesize 
@@ -965,30 +971,44 @@ public abstract class DomainDesigner {
 		int num_mut = Math.min(len,max_mutations);
 		//Count the reccomended bases to mutate
 		if (ENABLE_MARKINGS){
-			for(int q : domain_markings[mut_domain]){
+			if (SORT_MARKINGS){
+				if (inplacePrioritySort_shared==null || inplacePrioritySort_shared.length<len){
+					inplacePrioritySort_shared = new Priority_int_int[len]; 
+					for(int k = 0; k < inplacePrioritySort_shared.length; k++){
+						inplacePrioritySort_shared[k] = new Priority_int_int();
+					}
+				}
+			}
+			for(int k = 0; k < len; k++){
+				int q = domain_markings[mut_domain][k];
 				if (q!=DNAMARKER_DONTMUTATE){
+					if (SORT_MARKINGS) inplacePrioritySort_shared[oneC].set(k,q);
 					oneC++;
 				}
 			}
 			num_mut = Math.min(num_mut,oneC);
+			if (SORT_MARKINGS) Arrays.sort(inplacePrioritySort_shared,0,oneC);
+			//Post condition: num_mut <= oneC
 		}
 		//Randomize choice:
 		if (num_mut > 0){
-			num_mut = int_urn(1,num_mut);
-			num_mut = Math.max(num_mut,min_mutations);
+			num_mut = int_urn(min_mutations,num_mut);
+		} else {
+			//Was not able to mutate.
+			return false;
 		}
 		
 		//System.out.println(num_mut+" "+min_mutations);
-		
 
 		for (int k = 0; k < num_mut; k++) {
 			if (cc==null){ //no codon table: single base modifications
 				// Attempt a mutation
-				int j = int_urn(0, len-1); // select a base to mutate
-
-				if (ENABLE_MARKINGS){
-					//Is this a base we shouldn't target ? 
-					if (domain_markings[mut_domain][j] == DNAMARKER_DONTMUTATE /*&& domain_markings[mut_domain][otherJ] == 0*/ && !(!MARKINGS_ENABLESTRICT && int_urn(1,1000)==1)){
+				int j;
+				if (ENABLE_MARKINGS && SORT_MARKINGS){
+					j = inplacePrioritySort_shared[k].a;
+				} else {
+					j = int_urn(0, len-1);
+					if (domain_markings[mut_domain][j]==DNAMARKER_DONTMUTATE){
 						k--;
 						continue;
 					}

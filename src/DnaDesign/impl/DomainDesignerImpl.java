@@ -23,8 +23,8 @@ public class DomainDesignerImpl extends DomainDesigner{
 	 * Treshold ("green light" score) and weight for single stranded, hybridization scores.
 	 * Todo: actual genetic algorithm that adjusts these over time.
 	 */
-	private double singleStrandT = 2.0, hybridStrandsT = 4.0;
-	private double singleStrandW = 4.0, hybridStrandsW = 1.0;
+	private double singleStrand_Threshold = 2.0, hybridStrands_Threshold = 4.0;
+	private double singleStrand_Weight = 4.0, hybridStrands_Weight = 1.0;
 	
 	private NAFolding flI;
 	/**
@@ -62,7 +62,12 @@ public class DomainDesignerImpl extends DomainDesigner{
 		private int numDomains;
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double normal = (flI.pairscore(ds[0],ds[1],domain,null)-hybridStrandsT)*hybridStrandsW;
+			double deltaG = (flI.pairscore(ds[0],ds[1],domain,null)-hybridStrands_Threshold)*hybridStrands_Weight;
+			int longestHelixLength = flI.getLongestHelixLength();
+			int numBasesPaired = flI.getNumBasesPaired();
+			double normal = longestHelixLength*numBasesPaired;
+			//Compute the length of the longest helix found.
+			normal = normal*deltaG;
 			if (invertScore){
 				return -normal+50; //Scores will go negative very quickly.
 			}
@@ -168,8 +173,11 @@ public class DomainDesignerImpl extends DomainDesigner{
 		private int numDomains;
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			return //pairscore(ds[0], ds[0], domain,null);
-			(flI.foldSingleStranded(ds[0],domain,domain_markings)-singleStrandT)*singleStrandW;
+			double deltaG = (flI.foldSingleStranded(ds[0],domain,domain_markings)-singleStrand_Threshold)*singleStrand_Weight;
+			int longestHelixLength = flI.getLongestHelixLength();
+			int numBasesPaired = flI.getNumBasesPaired();
+			double normal = longestHelixLength*numBasesPaired;
+			return normal*deltaG;
 		}
 		public int getPriority(){
 			return 1;
