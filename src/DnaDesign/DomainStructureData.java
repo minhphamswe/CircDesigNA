@@ -1,6 +1,7 @@
 package DnaDesign;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
+import static DnaDesign.DnaDefinition.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,8 +34,7 @@ public class DomainStructureData {
 		return ""+(domain & DNA_SEQ_FLAGSINVERSE)+postpend;
 	}
 	private Map<Integer, String> domainConstraints = new TreeMap();
-	private Map<Integer, Integer> maxISO = new TreeMap();
-	private Map<Integer, Integer> maxPZ = new TreeMap();
+	private Map<Integer, int[][]> compositionConstraints = new TreeMap();
 	private static final int FLAG_CONSERVEAMINOS = 2;
 	private Map<Integer, Integer> otherRuleFlags = new TreeMap();
 	/**
@@ -143,14 +143,11 @@ public class DomainStructureData {
 								}
 								flagSum |= FLAG_CONSERVEAMINOS;
 							}
-							if (paramName.equalsIgnoreCase("iso")){
-								out.maxISO.put(k, new Integer(args));
-							}
-							if (paramName.equalsIgnoreCase("pz")){
-								out.maxPZ.put(k, new Integer(args));
+							if (paramName.equalsIgnoreCase("seq")){
+								out.compositionConstraints.put(k, parseSequenceComposition(args));
 							}
 						} catch (Throwable e){
-							throw new RuntimeException("Invalid args to '-"+paramName+"'");
+							throw new RuntimeException("Invalid args to '-"+paramName+"': "+e.getMessage());
 						}
 					}
 				}
@@ -407,24 +404,62 @@ public class DomainStructureData {
 		return (integer & FLAG_CONSERVEAMINOS)!=0;
 	}
 
-	public int[] getMaxISO() {
-		return getMaxes(maxISO);
-	}
-
-	private int[] getMaxes(Map<Integer, Integer> maxISO2) {
-		int[] arr = new int[domainLengths.length];
-		for(int k = 0; k < arr.length; k++){
-			Integer integer = maxISO2.get(k);
-			int val = 0;
-			if (integer!=null){
-				val = integer;
-			}
-			arr[k] = val;
+	/**
+	 * -2 means not specified. Otherwise, a -1 is deliberately fed in by the user.
+	 */
+	public int getMaxComponent(int i, int base) {
+		int[][] minmax = compositionConstraints.get(i);
+		if (minmax==null){
+			return -2;
 		}
-		return arr;
+		int[] max = minmax[1];
+		return max[base];
 	}
-
-	public int[] getMaxPZ() {
-		return getMaxes(maxPZ);
+	public int getMinComponent(int i, int base) {
+		int[][] minmax = compositionConstraints.get(i);
+		if (minmax==null){
+			return -2;
+		}
+		int[] min = minmax[0];
+		return min[base];
+	}
+	/**
+	 * Parses an argument string of the form
+	 * <base>,<min amount>,<maxamount>,<base2> ... so forth
+	 * where -1 means 'no bound'
+	 */
+	private static int[][] parseSequenceComposition(String args) {
+		int[] max = new int[DNAFLAG_ADD];
+		int[] min = new int[DNAFLAG_ADD];
+		Arrays.fill(max,-2);
+		Arrays.fill(min,-2);
+		String[] array = args.split(",");
+		if (array.length%3!=0){
+			throw new RuntimeException("Each contraint has 3 parts: base, min, and max");
+		}
+		for(int k = 0; k < array.length; k+=3){
+			if (array[k].length()!=1){
+				throw new RuntimeException("Invalid base: "+array[k]);
+			}
+			int base = DnaDefinition.decodeBaseChar(array[k].charAt(0));
+			if (base == 0 || base >= DNAFLAG_ADD){
+				throw new RuntimeException("Invalid base: "+array[k]);
+			}
+			//pure base.
+			int num1 = new Integer(array[k+1]);
+			int num2 = new Integer(array[k+2]);
+			if (num1 < -1 || num2 < -1){
+				throw new RuntimeException("Bound values must be >= -1. -1 means no bound.");
+			}
+			if (num2 !=-1 && num1 != -1 && num2 < num1){
+				throw new RuntimeException("Invalid bound: max < min");
+			}
+			if (min[base]!=-2 || max[base]!=-2){
+				throw new RuntimeException("Duplicate bounds for "+array[k]);
+			}
+			min[base] = num1;
+			max[base] = num2;
+		}
+		return new int[][]{min,max};
 	}
 }

@@ -1,7 +1,11 @@
 package DnaDesign;
 
+import static DnaDesign.DesignSequenceConstraints.GCL_FLAG;
+import static DnaDesign.DesignSequenceConstraints.LOCK_FLAG;
+import static DnaDesign.DnaDefinition.C;
 import static DnaDesign.DnaDefinition.DNAFLAG_ADD;
 import static DnaDesign.DnaDefinition.DisplayBase;
+import static DnaDesign.DnaDefinition.noFlags;
 import static DnaDesign.DomainSequence.DNAMARKER_DONTMUTATE;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
@@ -13,10 +17,14 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 
+import DnaDesign.AbstractDesigner.PopulationDesignMember;
 import DnaDesign.DesignIntermediateReporter.DesignIntermediateScore;
 import DnaDesign.impl.CodonCode;
+import DnaDesign.impl.DomainDesignBlockDesignerImpl;
+import DnaDesign.impl.DomainDesignPMemberImpl;
 import DnaDesign.impl.DomainDesignerImpl;
 import DnaDesign.impl.FoldingImpl;
+import DnaDesign.impl.SequenceCode;
 
 /**
  * The DomainDesigner engineers the input Domains (Defined in Domain Defs) to optimize a set of
@@ -26,13 +34,23 @@ public abstract class DomainDesigner {
 	/**
 	 * Utility method for creating a designer with the default parameters and input from the GUI layer.
 	 */
-	public static DDSeqDesigner getDefaultDesigner(ArrayList<String> inputStrands,String domainDefs) {
+	public static DDSeqDesigner<DesignerOptions> getDefaultDesigner(ArrayList<String> inputStrands,String domainDefs) {
 		return new DomainDesigner_Public(inputStrands,domainDefs,null,null,null);
 	}
 	/**
 	 * A coupled, exposed wrapper which allows the GUI to easily display design internals.
+	 * 
+	 * Why does this class exist? The domainDesigner is WAY too flexible, and has a lot of options.
+	 * To make client code simpler, this class has some adaptor methods (a constructor) that will 
+	 * prepare your input to be valid to the DomainDesigner. 
+	 * 
+	 * Error checking is done, in the sense that some combinations of inputs are not valid. For the most
+	 * part, however, input sanity is done in the DomainDesigner class itself.
+	 * 
+	 * Finally, this class serves to separate the public api which controls the behavior of the designer (run,
+	 * pause abort) from the internal api of how to do so (mutate, run block iteration).
 	 */
-	public static class DomainDesigner_Public implements DDSeqDesigner{
+	public static class DomainDesigner_Public implements DDSeqDesigner<DesignerOptions>{
 		private boolean waitOnStart = true;
 		private boolean finished = false;
 		/**
@@ -72,23 +90,15 @@ public abstract class DomainDesigner {
 				if (num_domain==-1){
 					throw new RuntimeException("No valid molecules to design.");
 				}
-
-				/*
-				for(DomainSequence q : hairpinInnards){
-					System.out.println(q.toString(dsd));
-				}
-				*/
 				
-				//System.exit(0);
-
 				final int num_domain_2 = num_domain+1;
 				final int[] domain_length = new int[num_domain_2];
 
 				if (initial==null){
 					initial = new TreeMap<Integer, String>();
 				}
-				if (cc == null){
-					cc = new TreeMap<Integer, CodonCode>();
+				if (mutators == null){
+					mutators = new TreeMap<Integer, DesignerCode>();
 				}
 				for(int k = 0; k < domain_length.length; k++){
 					Integer got = domain_length_t.get(k);
@@ -100,22 +110,10 @@ public abstract class DomainDesigner {
 					//Constraints are "initial sequences".
 					initial.put(k,dsd.getConstraint(k));
 					if (dsd.maintainAminos(k)){
-						cc.put(k, new CodonCode());
+						mutators.put(k, new CodonCode());
 					}
 				}
 				
-				final int[] maxISO = dsd.getMaxISO();
-				final int[] maxPZ = dsd.getMaxPZ();
-				
-				
-				/**
-				 * These often invalidate rules - allow this.
-				if (!(initial==null || initial.isEmpty())){
-					r.rule_SeqRulesAreAbsolute=0;
-				}
-				 */
-				
-
 
 				new Thread(){public void run(){
 					while(waitOnStart && ! r.abort){
@@ -132,11 +130,12 @@ public abstract class DomainDesigner {
 					int timesToRun = 1;
 					while(timesToRun>0){
 						timesToRun--;
+						errorResult = null;
 						try {
-							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, MustBeVanilla,cc,hairpinLoops,hairpinInnards,dir, maxISO, maxPZ,dsd));
+							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, MustBeVanilla,mutators,hairpinLoops,hairpinInnards,dir, dsd));
 						} catch (Throwable e){
 							e.printStackTrace();
-							errorResult = e.toString();
+							errorResult = e.toString()+"";//ensure nonnull
 							break;
 						}
 					}
@@ -147,82 +146,26 @@ public abstract class DomainDesigner {
 			}
 		};
 		DomainDesigner r;
-		{
-			r = new DomainDesignerImpl(new FoldingImpl());
-		}
 		private List<String> inputStrands;
 		private String domainDefsBlock;
 		private Map<Integer, String> lock;
 		private Map<Integer, String> initial;
-		private Map<Integer, CodonCode> cc;
+		private Map<Integer, DesignerCode> mutators;
 		private DesignIntermediateReporter dir;
-		public DomainDesigner_Public(List<String> inputStrands, String domainDefsBlock, Map<Integer, String> lock, Map<Integer, String> initial, Map<Integer,CodonCode> cc){
+		public DomainDesigner_Public(List<String> inputStrands, String domainDefsBlock, Map<Integer, String> lock, Map<Integer, String> initial, Map<Integer, DesignerCode> mutators){
 			this.inputStrands = inputStrands;
 			this.domainDefsBlock = domainDefsBlock;
 			this.lock = lock;
 			this.initial = initial;
-			this.cc = cc;
-			options.add(handleJunctions);
-			options.add(penalizeJunctions);
-			options.add(performFullN4Junctions);
-			options.add(rule_ccend_option);
+			this.mutators = mutators;
 			dir = new DesignIntermediateReporter();
+			
+			r = new DomainDesignerImpl(new FoldingImpl());
 			runOnStart.run();
 		}
-		public List<SeqDesignerOption> getOptions() {
-			return options;
+		public DesignerOptions getOptions() {
+			return r.options;
 		}
-		private ArrayList<SeqDesignerOption> options = new ArrayList();
-
-		private SeqDesignerOption handleJunctions = new SeqDesignerOption(){
-			public String getDescription() {
-				return "Calculate Junction Penalties";
-			}
-			public boolean getState() {
-				return r.CALCULATE_JUNCTION_PENALTIES;
-			}
-			public void toggle() {
-				r.CALCULATE_JUNCTION_PENALTIES = !r.CALCULATE_JUNCTION_PENALTIES;
-			}
-		};
-
-		private SeqDesignerOption penalizeJunctions = new SeqDesignerOption(){
-			public String getDescription() {
-				return "Scale Junction Penalties Very Low";
-			}
-			public boolean getState() {
-				return !r.JunctionPenalty_FullPenalty;
-			}
-			public void toggle() {
-				r.JunctionPenalty_FullPenalty = !r.JunctionPenalty_FullPenalty;
-			}
-		};
-
-
-
-		private SeqDesignerOption performFullN4Junctions = new SeqDesignerOption(){
-			public String getDescription() {
-				return "Calculate every possible domain junctions (ignore input)";
-			}
-			public boolean getState() {
-				return r.PERFORM_COMPLETE_JUNCTIONS;
-			}
-			public void toggle() {
-				r.PERFORM_COMPLETE_JUNCTIONS = !r.PERFORM_COMPLETE_JUNCTIONS;
-			}
-		};
-
-		private SeqDesignerOption rule_ccend_option = new SeqDesignerOption(){
-			public String getDescription() {
-				return "Force domains to begin / end with C";
-			}
-			public boolean getState() {
-				return r.rule_ccend==1;
-			}
-			public void toggle() {
-				r.rule_ccend = 1-r.rule_ccend;
-			}
-		};
 
 		private String errorResult;
 
@@ -312,6 +255,10 @@ public abstract class DomainDesigner {
 		public boolean isFinished() {
 			return finished;
 		}
+		
+		public boolean isEndConditionError(){
+			return errorResult!=null;
+		}
 
 		public boolean isRunning() {
 			return !waitOnStart && !r.waitForResume;
@@ -344,32 +291,55 @@ public abstract class DomainDesigner {
 		public DesignIntermediateReporter getDir() {
 			return dir;
 		}
+		public double getBestScore() {
+			return r.best_score;
+		}
 	}
+	
+	private DesignerOptions options = DesignerOptions.getDefaultOptions();
 
-	//Accessible to client:
+	//Output of designer. The best score, and the domains corresponding to it.
 	private double best_score;
 	private String[] outputDomains;
 	private boolean waitForResume = false, abort = false;
 
 	//End accessible to client.
 
+	public static int decodeConstraintChar(char charAt){
+		if (!Character.isLetter(charAt)){
+			return 0;
+		}
+		int ret = DnaDefinition.decodeBaseChar(charAt);
+		if (Character.isLowerCase(charAt)){
+			ret += LOCK_FLAG;
+		};
+		return ret;
+}
+	
 	//Constructor
 	
 	
 	/**
 	 * Debug output flags
 	 */
-	private static final boolean OUTPUT_RUNTIME_STATS = false;
-	private static final boolean DEBUG_PENALTIES = true;
+	public boolean DEBUG_PENALTIES = true;
+	
 	/**
 	 * Use the evaluator to determine where the problem spots are, 
 	 * and mutate them. Recommended, otherwise you're merely randomly mutating.
 	 */
 	private boolean ENABLE_MARKINGS = true;
+	
+	/**
+	 * How many population members to maintain if using the "Block Algorithm"
+	 */
+	private int populationSize = 30;
+	
 	/**
 	 * If we are sorting markings, then markings that occur in multiple penalties are mutated first.
 	 */
 	private boolean SORT_MARKINGS = false;
+
 	/**
 	 * Take the evaluators word as absolute, and never mutate bases that
 	 * aren't directly involved in the "current worst penalty". (Otherwise, occasionally
@@ -377,25 +347,17 @@ public abstract class DomainDesigner {
 	 */
 	private boolean MARKINGS_ENABLESTRICT = true;
 	
-	int MAX_MUTATION_DOMAINS = 999;
-	int MAX_MUTATIONS_LIMIT = 9999; // maximunotm number of simultaneous mutations
+	public int MAX_MUTATION_DOMAINS = 999;
+	public int MAX_MUTATIONS_LIMIT = 9999; // maximum number of simultaneous mutations
 
-
-	float INTERACTION_SCORE_MULT = .25f;
-	boolean PERFORM_COMPLETE_JUNCTIONS = false;
-	boolean CALCULATE_JUNCTION_PENALTIES = false;
-	boolean JunctionPenalty_FullPenalty = true;
-	
-	public int rule_targetworst = 0; // target worst domains for mutation
-	public int rule_ccend = 1; // domains MUST start and end with C
-	public int rule_SeqRulesAreAbsolute = 1;
 	//It is sometimes advantageous to design sequences with some immutable complementarity.
 	public boolean ALLOW_COMPLEMENTARY_SCORES = false;
 
-	protected abstract static class ScorePenalty{
+	public abstract static class ScorePenalty {
 		public static final double MAX_SCORE = 1e18;
 		public ScorePenalty(DesignIntermediateReporter dir){
 			old_score = cur_score = MAX_SCORE; //A suitably large number
+			this.dir = dir;
 		}
 		public double getScore(int[][] domain, int[][] domain_markings){
 			evalScore(domain, domain_markings);
@@ -404,14 +366,12 @@ public abstract class DomainDesigner {
 		}
 		public double old_score, cur_score;
 		public DesignIntermediateScore dis;
+		public DesignIntermediateReporter dir;
 		public void revert(){
 			cur_score = old_score;
 		}
 		public void dedicate(){
 			old_score = cur_score;
-			if (dis!=null){
-				dis.addScore(old_score);
-			}
 		}
 		public final double check(double possScore){
 			return Math.min(possScore,MAX_SCORE);
@@ -436,6 +396,7 @@ public abstract class DomainDesigner {
 				dis = dir.chooseDesignIntermediateScore(ds[0].getMoleculeName(), ds[1].getMoleculeName());
 			}
 		}
+		public abstract ScorePenalty clone();
 		public abstract double evalScoreSub(int[][] domain, int[][] domain_markings);
 		public abstract boolean affectedBy(int domain);
 		public abstract DomainSequence[] getSeqs();
@@ -448,11 +409,9 @@ public abstract class DomainDesigner {
 	 * containing complementary sequences will be ignored (i.e, 1|4*|5 will not be tested against 1|4|5).
 	 * @param initial 
 	 * @param hairpinInnards 
-	 * @param maxPZ 
-	 * @param maxISO 
 	 * @param dsd 
 	 */
-	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> makeSingleStranded, Map<Integer, CodonCode> cc, List<DomainSequence[]> hairpinLoops, ArrayList<DomainSequence> hairpinInnards, DesignIntermediateReporter DIR, int[] maxISO, int[] maxPZ, DomainStructureData dsd) {
+	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> makeSingleStranded, Map<Integer, DesignerCode> mutators, List<DomainSequence[]> hairpinLoops, ArrayList<DomainSequence> hairpinInnards, DesignIntermediateReporter DIR, DomainStructureData dsd) {
 		//SANITY OF INPUT:
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSingleStranded);
 		hairpinInnards.addAll(makeSingleStranded);
@@ -470,36 +429,53 @@ public abstract class DomainDesigner {
 		
 		//System.out.println(seqToSynthesize.size());
 
+		
 		//Domains to be designed. The integer type is being used to hold DNA bases,
 		//with additional metadata (multiples of 10 are added to mean certain things)
-		int i,j,k;
 		int[][] domain = new int[num_domain][];
 		int[][] domain_markings = new int[num_domain][];
-		CodonCode[] ccs = new CodonCode[num_domain];
-		for(i = 0; i < num_domain; i++){
+		DesignerCode[] mutate = new DesignerCode[num_domain];
+		for(int i = 0; i < num_domain; i++){
 			int[] cDomain = new int[domain_length[i]];
 			domain[i] = cDomain; //initialize to 0s
 			domain_markings[i] = new int[domain_length[i]];
-			if (cc!=null){
-				ccs[i] = cc.get(i);
+			if (mutators!=null){
+				mutate[i] = mutators.get(i);
+				if (mutate[i]==null){
+					SequenceCode newCode = SequenceCode.getDefaultSequenceCode();
+					DesignSequenceConstraints dsc = DesignSequenceConstraints.getDefaultConstraints();
+					for(int base = 0; base < DNAFLAG_ADD; base++){
+						//Build the constraints by querying the DSD. Mix Default settings with DSD specification.
+						final int maxComponent = dsd.getMaxComponent(i,base);
+						final int minComponent = dsd.getMinComponent(i,base);
+						if (maxComponent!=-2){
+							dsc.setMaxConstraint(base, maxComponent);
+						}
+						if (minComponent!=-2){
+							dsc.setMinConstraint(base, minComponent);
+						}
+					}
+					newCode.setConstraints(dsc);
+					mutate[i] = newCode;
+				}
 			}
 		}
 
 		//Initial domains, introducing constraints.
 		if (initial!=null){
 			for(Entry<Integer, String> init : initial.entrySet()){
-				i = init.getKey();
-				for (j = 0; j < domain_length[i]; j++) {
+				int i = init.getKey();
+				for (int j = 0; j < domain_length[i]; j++) {
 					domain[i][j] = decodeConstraintChar(init.getValue().charAt(j));
 				}
 			}
 		}
 		
 		ArrayList<Integer> mutableDomainsL = new ArrayList();
-		for(i = 0; i < num_domain; i++){
+		for(int i = 0; i < num_domain; i++){
 			boolean mutable = false;
 			//Optimize for completely locked domains.
-			loop:for (j = 0; j < domain_length[i]; j++) {
+			loop:for (int j = 0; j < domain_length[i]; j++) {
 				if (domain[i][j] < DNAFLAG_ADD){
 					mutable = true;
 					break loop;
@@ -511,13 +487,17 @@ public abstract class DomainDesigner {
 		}
 		
 		//Unconstrained initialization.
-		for(i = 0; i < num_domain; i++){
-			if (rule_ccend==1){
-				if (domain[i][0]==0)domain[i][0] = GCLC;
-				if (domain[i][domain[i].length-1]==0)domain[i][domain[i].length-1] = GCLC;
+		for(int i = 0; i < num_domain; i++){
+			if (options.rule_ccend_option.getState()){
+				if (domain[i][0]==0)domain[i][0] = C + GCL_FLAG;
+				if (domain[i][domain[i].length-1]==0)domain[i][domain[i].length-1] = C + GCL_FLAG;
 			}
 			//Will initialize unconstrained portion of domain
-			pickInitialSequence(domain[i]);
+			try {
+				pickInitialSequence(domain,i,mutate[i]);
+			} catch (Throwable e){
+				throw new RuntimeException("Initial conditions were too strict for domain "+dsd.getDomainName(i));
+			}
 		}
 		
 		//At this point, no domain should have any bases other than ((x%10)%5)>1.
@@ -525,8 +505,9 @@ public abstract class DomainDesigner {
 		//Locked domains feature.
 		if (lockedDomains!=null){
 			for(Entry<Integer, String> lock : lockedDomains.entrySet()){
-				mutableDomainsL.remove(lock.getKey());
-				for (j = 0; j < domain_length[i]; j++) {
+				int i;
+				mutableDomainsL.remove(i = lock.getKey());
+				for (int j = 0; j < domain_length[i]; j++) {
 					domain[i][j] = getLockedBase(lock.getValue().charAt(j));
 				}
 			}
@@ -534,7 +515,7 @@ public abstract class DomainDesigner {
 		
 		//Combine locked domains...
 		int[] mutableDomains = new int[mutableDomainsL.size()];
-		for(i = 0; i < mutableDomains.length; i++){
+		for(int i = 0; i < mutableDomains.length; i++){
 			mutableDomains[i] = mutableDomainsL.get(i);
 		}
 
@@ -557,13 +538,31 @@ public abstract class DomainDesigner {
 		if (allScores.isEmpty()){
 			throw new RuntimeException("No scores to optimize : Algorithm has nothing to do!");
 		}
-
+				
 		//Stop condition. See the scoring functions themselves for the actual threshold.
-		double EndThreshold = 0;
-		if (EndThreshold < 0){
-			 throw new RuntimeException("Assertion error: endingthreshold must be a positive score");
-		}
 		long lastDumpState = System.nanoTime();
+		
+		/*
+		for(int[] row : domain_markings){
+			System.out.println(Arrays.toString(row));
+		}
+		*/
+
+		//Select the penalties which depend on certain domains. Clear optimization here.
+		int[][] scoredElements = new int[num_domain][];
+		for(int k = 0; k < num_domain; k++){
+			ArrayList<Integer> affectedBySeq = new ArrayList();
+			for(int i = 0; i < allScores.size(); i++){
+				ScorePenalty q = allScores.get(i);
+				if (q.affectedBy(k)){
+					affectedBySeq.add(i);
+				}
+			}
+			scoredElements[k] = new int[affectedBySeq.size()];
+			for(int i = 0; i  < affectedBySeq.size(); i++){
+				scoredElements[k][i] = affectedBySeq.get(i);
+			}
+		}
 
 		//Initial score.
 		float current_score = 0;
@@ -573,293 +572,57 @@ public abstract class DomainDesigner {
 				current_score += q.getScore(domain, domain_markings);
 			}
 		}DIR.endScoreReport();
-		System.out.println("Initial score: "+current_score);
+		System.out.println("Initial score: "+current_score);	
+		best_score = current_score;
 		
-		/*
-		for(int[] row : domain_markings){
-			System.out.println(Arrays.toString(row));
-		}
-		*/
-
-		//Select the penalties which depend on certain domains. Clear optimization here.
-		ScorePenalty[][] scoredElements = new ScorePenalty[num_domain][];
-		for(k = 0; k < num_domain; k++){
-			ArrayList<ScorePenalty> affectedBySeq = new ArrayList();
-			for(ScorePenalty q : allScores){
-				if (q.affectedBy(k)){
-					affectedBySeq.add(q);
-				}
-			}
-			scoredElements[k] = new ScorePenalty[affectedBySeq.size()];
-			affectedBySeq.toArray(scoredElements[k]);
-		}
-
-		//Make a back buffer for domain reverts
-		int[][] old_domains = new int[num_domain][];
-		int[][] old_domains_markings = new int[num_domain][];
-		for(k = 0; k < num_domain; k++){
-			old_domains[k] = new int[domain_length[k]];
-			old_domains_markings[k] = new int[domain_length[k]];
-		}
-		//Blah blah blah, various temporaries. See usage below.
-		int num_mut_attempts = 0, mut_domain, num_domains_mut, min_mutations, max_mutations;
-		double worstPenaltyScore = -1, deltaScore = 0, deltaScoreSum = 0;
-		double[] bestWorstPenaltyScore = new double[]{Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE};
-		boolean revert_mutation = false, newPointReached = false;
-		ScorePenalty worstPenalty = null;
-		boolean[] domain_mutated = new boolean[num_domain];
-		int[] mut_domains = new int[MAX_MUTATION_DOMAINS];
-
-		double compareWithDelta = 0;
-		int timesSameBeforeBump = 10;
-		int timesSameCount = 0;
-		double bumpAmount = 10;
+		//Create block designer
+		DomainDesignPMemberImpl initialSeed = new DomainDesignPMemberImpl(allScores,scoredElements,domain,domain_markings);
+		DomainDesignBlockDesignerImpl dbesign = new DomainDesignBlockDesignerImpl(num_domain,domain_length,mutableDomains,mutate,dsd,this);
+		dbesign.initialize(initialSeed, populationSize);
 		
-		while (true && !abort) {
-
-			//Mutate, in some way.
-
-			//num_domains_mut = int_urn(1,Math.min(Math.min(worstPenalty==null?1:worstPenalty.getNumDomainsInvolved()-1,MAX_MUTATION_DOMAINS),mutableDomains.length-1));
-			num_domains_mut = int_urn(1,Math.min(MAX_MUTATION_DOMAINS,mutableDomains.length));
-			Arrays.fill(domain_mutated,false);
-			for(k = 0; k < num_domains_mut; k++){
-				min_mutations = 1;
-				/*
-				if (worstPenalty==null){
-					mut_domain = int_urn(0, mutableDomains.length-1);
-					mut_domain = mutableDomains[mut_domain];
-				} else {
-					
-						mut_domain = int_urn(0, mutableDomains.length-1);
-						mut_domain = mutableDomains[mut_domain];
-					}while (!worstPenalty.affectedBy(mut_domain));
+		if (false){ //The children, if this block is enabled, will start at a different position than the seed. 
+			PopulationDesignMember<DomainDesignPMemberImpl>[] a = dbesign.getPopulation();
+			for(PopulationDesignMember r2 : a){
+				DomainDesignPMemberImpl r = (DomainDesignPMemberImpl)r2;
+				for(int k = 0; k < r.domain.length; k++){
+					pickInitialSequence(r.domain,k,mutate[k]);
 				}
-				*/
-				max_mutations = MAX_MUTATIONS_LIMIT;
-				
-
-				int mut_domain_search = int_urn(0, mutableDomains.length-1);
-				mut_domain = 0;
-				for(int o = 0; o < mutableDomains.length; o++){
-					mut_domain = mutableDomains[(mut_domain_search+o)%mutableDomains.length];
-					if (domain_mutated[mut_domain]){
-						continue;
-					}
-					
-					if (worstPenalty!=null){
-						if (!worstPenalty.affectedBy(mut_domain)){
-							if (Math.random()<.25f){
-								continue; //We want to skew mutations towards the worst penalty.
-							}
-						}
-					}
-					break;
-				}
-				if(domain_mutated[mut_domain]){
-					k--; //Occurs rarely, when luck is against us. (literally).
-					continue;
-				}
-				
-				/*
-				if (timesSameCount > 0){
-					max_mutations = Math.max(MAX_MUTATIONS_LIMIT/timesSameCount,min_mutations);
-				}
-				*/
-
-				mut_domains[k] = mut_domain;
-				//Backup
-				System.arraycopy(domain[mut_domain],0,old_domains[mut_domain],0,domain_length[mut_domain]);
-				System.arraycopy(domain_markings[mut_domain],0,old_domains_markings[mut_domain],0,domain_length[mut_domain]);
-				//Mutate
-				mutateUntilValid(mut_domain, domain, domain_length, makeSingleStranded, domain_markings, ccs[mut_domain], min_mutations, max_mutations, maxISO, maxPZ);
-				domain_mutated[mut_domain] = true;
-			}
-
-			//Short circuiting constraint evaluation: If score was improved, keep, otherwise, break.
-			//Penalties with higher priority are presumably harder to compute, thus the shortcircuiting advantage
-
-			//Reset markers.
-			for(k = 0; k < num_domains_mut; k++){
-				mut_domain = mut_domains[k];
-				Arrays.fill(domain_markings[mut_domain], DNAMARKER_DONTMUTATE);
-			}
-			deltaScoreSum = 0;
-			int priority;
-			
-			priorityLoop: for(priority = 0; priority <= 2; priority++){
-				for(k = 0; k < num_domains_mut; k++){
-					mut_domain = mut_domains[k];
-					for(ScorePenalty s : scoredElements[mut_domain]){
-						if (s.getPriority()==priority){
-							s.evalScore(domain,domain_markings); //STATE CHANGE
-						}
-					}
-				}
-
-				//Decide whether we improved, checking all penalties so that we can compare
-				//objectively.
-
-				worstPenaltyScore = 0;
-				deltaScore = 0;
-				for(ScorePenalty s : allScores){
-					deltaScore += s.getCDelta();
-					if (s.cur_score > worstPenaltyScore){
-						worstPenalty = s;
-						worstPenaltyScore = s.cur_score; //Can't have 0 penalties.
-					}
-				}
-
-				revert_mutation = false;
-				newPointReached = false;
-
-				if (deltaScore > 0){
-					revert_mutation = true;
-				}
-				/*
-				if (bestWorstPenaltyScore[priority-1]<worstPenaltyScore){
-					revert_mutation = true;
-				} else if (bestWorstPenaltyScore[priority-1]==worstPenaltyScore){
-					//Very often, there is a "wall" at a problem spot - allow the rest of the system
-					//to also optimize in the background.
-					if (deltaScore > 0){
-						revert_mutation = true;
-					}
-				} else {
-					newPointReached = true;
-				}
-				 */
-
-				deltaScoreSum += deltaScore;
-				if (revert_mutation){
-					//Short circuit! Get out of there.
-					priority ++;
-
-					break priorityLoop;
-				} else {
-					//Keep the mutations
-					bestWorstPenaltyScore[priority] = Math.min(bestWorstPenaltyScore[priority],worstPenaltyScore);
-				}
-			}
-
-			if (deltaScoreSum > 0){
-				revert_mutation = true;
-			}
-			if (deltaScoreSum < 0){
-				newPointReached = true;
-			}
-			//Having run some or all of the affected penalty calculations,
-			//Revert the states or Dedicate them as need be here.
-
-			if (revert_mutation){
-				timesSameCount++;
-				//Revert
-				/*
-				if (ENABLE_MARKINGS){
-					for(int[] row : domain_markings){
-						for(int q : row){
-							System.out.printf("%4d",q);
-						}
-						System.out.println();
-					}
-				}
-				*/
-				for(k = 0; k < num_domains_mut; k++){
-					mut_domain = mut_domains[k];
-					for(ScorePenalty s : scoredElements[mut_domain]){
-						s.revert();
-					}
-					//Have to go back to old sequences..
-					System.arraycopy(old_domains_markings[mut_domain],0,domain_markings[mut_domain], 0, domain[mut_domain].length);
-					System.arraycopy(old_domains[mut_domain], 0, domain[mut_domain], 0, domain[mut_domain].length);
-				}	
-
-				//Which priority did we short circuit on?
-				if (priority==2){
-					//If we're having trouble with crosstalk (which is really crazy n^2 stuff), 
-					//ignore the advice of the self fold server.
-					for(k = 0; k < num_domains_mut; k++){
-						mut_domain = mut_domains[k];
-						//System.out.println(Arrays.toString(domain_markings[mut_domain]));
-						Arrays.fill(domain_markings[mut_domain], 1);
-					}
-				}
-				/*
-				for(k = 0; k < num_domains_mut; k++){
-					mut_domain = mut_domains[k];
-					for(ScorePenalty s : scoredElements[mut_domain]){
-						s.evalScore(domain, domain_markings);
-						if (s.cur_score!=s.old_score){
-							throw new RuntimeException("Assertion failure.");
-						}
-					}
-				}
-				*/
-			} else {
-				if (priority != 3){
-					throw new RuntimeException("Assertion failure: self fold layer (layer 2) never ran.");
-				}
-				
-				timesSameCount = 0;
-				//Dedicate
-				boolean DebugPenaltiesNow = DEBUG_PENALTIES && newPointReached;
-				if (DebugPenaltiesNow){
-					resetDebugPenalty();
-				}
-				current_score = 0;
+				//Initial score.
+				float current_score_in = 0;
+				deepFill(r.domain_markings,DNAMARKER_DONTMUTATE);
 				DIR.beginScoreReport();{
-					for(ScorePenalty s : allScores){
-						s.dedicate();
-						current_score += s.cur_score;
-						if (DebugPenaltiesNow){
-							debugPenalty(s, domain,dsd);
-						}
+					for(ScorePenalty q : r.penalties){
+						current_score_in += q.getScore(r.domain, r.domain_markings);
 					}
 				}DIR.endScoreReport();
-				/*
-				System.out.println("Current matrix:[");
-				for(float[] row : DIR.currentMatrix){
-					for(float val : row){
-						System.out.printf("%.3f, ",val);
-					}
-					System.out.println();
-				}
-				System.out.println("]");
-				*/
-				if (OUTPUT_RUNTIME_STATS){
-					System.out.println(num_mut_attempts+" , "+best_score);
-				}
-				//System.out.println(Arrays.toString(worstPenalty.getSeqs()));
-				//current_score += deltaScoreSum;
-				best_score = current_score;
-				displayDomains(domain, false); //Updates public domains
-
-		
-				if (DebugPenaltiesNow){
-					printDebugPenalties();
-					System.out.println();
-					displayDomains(domain, true);
-					if (ENABLE_MARKINGS){
-						/*
-						for(int[] row : domain_markings){
-							System.out.println(Arrays.toString(row));
-						}
-						*/
-					}
-				}
-
-				double bestWorstPenaltyScoreSum = 0;
-				for(double q : bestWorstPenaltyScore){
-					//Disallow negative contributions. The overall EndThreshold can still be >0, however.
-					bestWorstPenaltyScoreSum += Math.max(q,0);
-				}
-				if (bestWorstPenaltyScoreSum <= EndThreshold){
-					break;
-				}
-
-				//System.out.printf("Components: CX%.3f IN%.3f JX%.3f INT%.3f\n",crosstalkSum,interactionSum,junctionPenalties,selfCrossTalk);
+				System.out.println("Initial score: "+current_score_in);			
 			}
+		}
+		
+		
+		int num_mut_attempts = 0;
+		while (!abort) {
+			double endingThreshold = options.end_score_threshold.getState();
+			if (best_score <= endingThreshold){
+				break;
+			}
+			dbesign.runBlockIteration(endingThreshold);
 			//Iteration complete.
-
+			resetDebugPenalty();
+			DomainDesignPMemberImpl q = dbesign.getBestPerformingChild();
+			//Report the status of the best member.
+			DIR.beginScoreReport();
+			double score = 0;
+			for(ScorePenalty s : q.penalties){
+				score += s.old_score;
+				if (s.dis!=null){
+					s.dis.addScore(s.old_score);
+				}
+			}
+			best_score = score;
+			DIR.endScoreReport();
+			displayDomains(q.domain,false);
+			//debugPenalty(s, q.domain, dsd);
 			//System.out.println(num_domains_mut);
 
 			num_mut_attempts++;
@@ -869,7 +632,7 @@ public abstract class DomainDesigner {
 			if ((System.nanoTime()-lastDumpState)>2e9){
 				lastDumpState = System.nanoTime();
 				//if (DEBUG_PENALTIES){
-					System.out.println("iteration: "+num_mut_attempts+" score: "+best_score+" most significant subscore: "+(priority-1)+" "+(current_score+deltaScore));
+					//System.out.println("iteration: "+num_mut_attempts+" score: "+best_score+" most significant subscore: "+(priority-1)+" "+(current_score+deltaScore));
 				//}
 			}
 			while (waitForResume && !abort){
@@ -896,8 +659,24 @@ public abstract class DomainDesigner {
 	}
 	/**
 	 * Postcondition: any bases which were < 10 will be alternated to most ideally balance ATCG.
+	 * @param designerCode 
 	 */
-	private void pickInitialSequence(int[] domain) {
+	private void pickInitialSequence(int[][] domain, int mut_domain, DesignerCode mutator) {
+		initialLoop: for(int k = 0; ; k++){
+			if ( k > 1000 ){
+				throw new RuntimeException("Initial constraints for domain: "+mut_domain+ " were too strict");
+			}
+			for(int j = 0; j < domain[mut_domain].length; j++){
+				mutator.mutateToOther(domain,mut_domain,j);
+				if (noFlags(domain[mut_domain][j])==0){
+					//Mutation failed to replace a 0. rules must have been too strict; try again from the start.
+					continue initialLoop;
+				}
+			}
+			break;
+		}
+		
+		/*
 		int lessATthanGC = 0;
 		for(int i = 0; i < domain.length; i++){
 			if (domain[i] >= DNAFLAG_ADD){
@@ -920,9 +699,13 @@ public abstract class DomainDesigner {
 				lessATthanGC+=isGClessAT(domain[i]);
 			}
 		}
+		*/
 	}
 
 
+	/**
+	 * Used for sorting bases we want to mutate in a max heap by priority
+	 */
 	private Priority_int_int[] inplacePrioritySort_shared;
 	private static final class Priority_int_int implements Comparable<Priority_int_int>{
 		public int a;
@@ -946,26 +729,15 @@ public abstract class DomainDesigner {
 	 * Mutates mut_domain such that it is changed at the nucleic acid sequence level. If cc is nonnull, the changes will conserve amino acid sequence. 
 	 * @param seqToSynthesize 
 	 * @param domain_markings 
-	 * @param cc 
+	 * @param mutators 
 	 * @param max_mutations 
 	 */
-	private boolean mutateUntilValid(int mut_domain, int[][] domain,
-			int[] domain_length, List<DomainSequence> seqToSynthesize, int[][] domain_markings, CodonCode cc, int min_mutations, int max_mutations, int[] maxISO, int[] maxPZ) {
+	public boolean mutateUntilValid(int mut_domain, int[][] domain,
+			int[] domain_length, int[][] domain_markings, DesignerCode mutator, int min_mutations, int max_mutations) {
 		int len = domain_length[mut_domain];
-		/*
-		// Save old domain
-		if (!(mut_old_domain!=null && len <= mut_old_domain.length)){
-			mut_old_domain = new int[len];
-		}
-		System.arraycopy(domain[mut_domain],0,mut_old_domain,0,len);
-		int[] mut_old = mut_old_domain;
-		*/
-		int[] mut_new = domain[mut_domain];
 
 		//Count the ones
 		int oneC = 0;
-		
-		//System.out.println(num_mut+" "+min_mutations);
 		
 		//How many mutations will we try now?
 		int num_mut = Math.min(len,max_mutations);
@@ -1000,111 +772,49 @@ public abstract class DomainDesigner {
 		
 		//System.out.println(num_mut+" "+min_mutations);
 
+		int timesInLoop = 0;
 		for (int k = 0; k < num_mut; k++) {
-			if (cc==null){ //no codon table: single base modifications
-				// Attempt a mutation
-				int j;
-				if (ENABLE_MARKINGS && SORT_MARKINGS){
+			// Attempt a mutation
+			int j;
+			j = int_urn(0, len-1);
+			if (ENABLE_MARKINGS){
+				if (SORT_MARKINGS){
+					if (k >= inplacePrioritySort_shared.length){
+						break;
+					}
 					j = inplacePrioritySort_shared[k].a;
 				} else {
-					j = int_urn(0, len-1);
 					if (domain_markings[mut_domain][j]==DNAMARKER_DONTMUTATE){
-						k--;
+						num_mut++;
 						continue;
 					}
 				}
-
-				int oldJ = domain[mut_domain][j]%DNAFLAG_ADD;
-
-				if (domain[mut_domain][j] > DNAFLAG_ADD && domain[mut_domain][j] < DNAFLAG_ADD*2) {
-					// Base immutable
-					continue; 
-				} else if (domain[mut_domain][j] > DNAFLAG_ADD*2){
-					//Alternate between G / C
-					switch(domain[mut_domain][j]){
-					case GCLC:
-						mut_new[j] = GCLG;
-						break;
-					case GCLG:
-						mut_new[j] = GCLC;
-						break;
-					}
-				} else {
-					//Switch to one of the other bases
-					mut_new[j] = DnaDefinition.pickNewBase(mut_new,mut_new[j],maxISO[mut_domain],maxPZ[mut_domain]);
-				}
-
-				if (len > 1 && isGClessAT(mut_new[j])!=0){
-					//Handle the new creation, by swapping another base to conserve the GC / AT balance.
-					int otherJ;
-					int candidateL3 = -1;
-					int candidateL2 = -1;
-					int candidateL1 = -1;
-					int otherJ_startCheck = int_urn(0,len-1);
-					searchOtherJ: for(int otherJi = 0; otherJi < len; otherJi++){
-						otherJ = (otherJ_startCheck+otherJi)%len;
-						if (otherJ != j){
-							if (domain[mut_domain][otherJ] < DNAFLAG_ADD){
-								//Necessary conditions over.
-								if (isGC(domain[mut_domain][otherJ])!=isGC(oldJ)){
-									if (domain_markings[mut_domain][otherJ]!=DNAMARKER_DONTMUTATE){
-										candidateL1 = otherJ; //All conditions (L1) succeeded.
-										break searchOtherJ;
-									} else {
-										candidateL2 = otherJ;
-									}
-								} else {
-									candidateL3 = otherJ;
-								}
-							}
-						}
-					}
-					otherJ = candidateL1;
-					if (otherJ==-1){
-						otherJ = candidateL2;
-					}
-					if (otherJ==-1){
-						otherJ = candidateL3;
-					}
-					if (otherJ==-1){
-						//It absolutely was not possible to find a partner. Oh well.
-					} else {
-						int newJ = domain[mut_domain][j]%DNAFLAG_ADD;
-						if ((oldJ==G || oldJ==C) && (newJ==A || newJ==T)){
-							domain[mut_domain][otherJ] = int_urn(0, 1)==0?G:C;
-						}
-						if ((oldJ==A || oldJ==T) && (newJ==G || newJ==C)){
-							domain[mut_domain][otherJ] = int_urn(0, 1)==0?A:T;
-						}
-					}
+			}
+			timesInLoop++;
+			if (timesInLoop > 1000){
+				System.err.println("Warning. Could not mutate in 1000 guesses. Breaking");
+				break;
+			}
+			if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
+				if (!mutator.mutateToOther(domain, mut_domain, j)){
+					num_mut++;
+					continue;
 				}
 			} else { //Codon table: 3 mutation points = 1 amino swap.
-				// Attempt a mutation
-				int j = int_urn(0, len-1); // select a base to mutate
 				//Round to codon
 				j -= j%3;
 
-				if (ENABLE_MARKINGS){
-					//Is this a codon we shouldn't target ?
-					boolean hasMutateMarker = false;
-					for(int jb = j; jb < j+3; jb++){
-						hasMutateMarker |= domain_markings[mut_domain][jb] != DNAMARKER_DONTMUTATE;
-					}
-					if (!hasMutateMarker){
-						if (!(!MARKINGS_ENABLESTRICT && int_urn(1,1000)==1)){
-							k--;
-							continue;
-						}
-					}
+				//Protein domains are multiples of 3 long, so this is fine.
+				//Mutate codon!
+				if (!mutator.mutateToOther(domain, mut_domain, j)){
+					num_mut++;
+					continue;
 				}
 				
-				//Mutate codon!
-				cc.mutateToOther(domain[mut_domain], j);
-
 				//+3.
 				k+=2;
-			}
-			        
+			}      
+			
 		}
 		return true;
 	}
@@ -1116,7 +826,7 @@ public abstract class DomainDesigner {
 			System.out.println(debug_keepMessages[k]+" "+debug_messages[k]);
 		}
 	}
-	private void resetDebugPenalty(){
+	public void resetDebugPenalty(){
 		for(int k = 0; k < debug_keepMessages.length; k++){
 			debug_keepMessages[k] = 0;
 			debug_messages[k] = "";
@@ -1127,7 +837,7 @@ public abstract class DomainDesigner {
 	private String[] debug_messages = new String[debugOutTopScores];
 
 
-	private void debugPenalty(ScorePenalty s, int[][] domain, DomainStructureData dsd) {
+	public void debugPenalty(ScorePenalty s, int[][] domain, DomainStructureData dsd) {
 		double val = s.cur_score;
 		for(int k = 0; k < debug_keepMessages.length; k++){
 			if (k == debug_keepMessages.length-1 || val < debug_keepMessages[k+1]){
@@ -1172,68 +882,8 @@ public abstract class DomainDesigner {
 	}
 	//x1: locked. x2: GCLG / GCLC flag.
 	
-	
-	//Utilities
-	private static final int 
-	G = DnaDefinition.G, 
-	A = DnaDefinition.A, 
-	T = DnaDefinition.T,
-	C = DnaDefinition.C,
-	D = DnaDefinition.D,
-	H = DnaDefinition.H,
-	GL = DnaDefinition.G+DNAFLAG_ADD,
-	AL = DnaDefinition.A+DNAFLAG_ADD,
-	TL = DnaDefinition.T+DNAFLAG_ADD,
-	CL = DnaDefinition.C+DNAFLAG_ADD,
-	DL = DnaDefinition.D+DNAFLAG_ADD,
-	HL = DnaDefinition.H+DNAFLAG_ADD,
-	GCLG = DnaDefinition.G+DNAFLAG_ADD*2,
-	GCLC = DnaDefinition.C+DNAFLAG_ADD*2;
-	
 	public static int getLockedBase(char charAt) {
 		return decodeConstraintChar(charAt)%DNAFLAG_ADD+DNAFLAG_ADD*1;
-	}
-	
-	public static int decodeConstraintChar(char charAt){
-		switch(charAt){
-		case 'G':
-			return G;
-		case 'A':
-			return A;
-		case 'C':
-			return C;
-		case 'T':
-			return T;
-		case 'D':
-			return D;
-		case 'H':
-			return H;
-		case 'g':
-			return GL;
-		case 'a':
-			return AL;
-		case 't':
-			return TL;
-		case 'c':
-			return CL;
-		case 'd':
-			return DL;
-		case 'h':
-			return HL;
-		default:
-			return 0; //In practice, pickInitialSequences will erase this anyway.
-		}
-	}
-	private static int isGClessAT(int i) {
-		return isGC(i)?1:(isAT(i)?-1:0);
-	}
-	private static boolean isGC(int otherJ) {
-		otherJ = DnaDefinition.noFlags(otherJ);
-		return (otherJ == G) || (otherJ == C);
-	}
-	private static boolean isAT(int otherJ) {
-		otherJ = DnaDefinition.noFlags(otherJ);
-		return (otherJ == A) || (otherJ == T);
 	}
 	private static String wrap(String q, int i){
 		StringBuffer out = new StringBuffer();
@@ -1258,7 +908,7 @@ public abstract class DomainDesigner {
 		
 		return sb.toString();
 	}
-	private static int int_urn(int from, int to) {
+	public static int int_urn(int from, int to) {
 		return (int)(Math.random()*(to-from+1)+from);
 	}
 }

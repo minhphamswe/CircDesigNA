@@ -23,7 +23,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 	 * Treshold ("green light" score) and weight for single stranded, hybridization scores.
 	 * Todo: actual genetic algorithm that adjusts these over time.
 	 */
-	private double singleStrand_Threshold = 2.0, hybridStrands_Threshold = 4.0;
+	private double singleStrand_Threshold = 0.0, hybridStrands_Threshold = 0;
 	private double singleStrand_Weight = 4.0, hybridStrands_Weight = 1.0;
 	
 	private NAFolding flI;
@@ -54,7 +54,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			numDomains /= getSeqs().length;
 			chooseScore(dir);
 			invertScore = invert;
-		}
+		}		
 		private boolean invertScore;
 		public int getPriority(){
 			return 2;
@@ -67,7 +67,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			int numBasesPaired = flI.getNumBasesPaired();
 			double normal = longestHelixLength*numBasesPaired;
 			//Compute the length of the longest helix found.
-			normal = normal*deltaG;
+			normal = normal*Math.max(0,deltaG);
 			if (invertScore){
 				return -normal+50; //Scores will go negative very quickly.
 			}
@@ -82,6 +82,12 @@ public class DomainDesignerImpl extends DomainDesigner{
 		public int getNumDomainsInvolved() {
 			return numDomains;
 		}
+		public ScorePenalty clone() {
+			CrossInteraction ci = new CrossInteraction(ds[0],ds[1],dir,invertScore);
+			ci.old_score = old_score;
+			ci.cur_score = cur_score;
+			return ci;
+		}
 	}
 	
 	/**
@@ -92,6 +98,12 @@ public class DomainDesignerImpl extends DomainDesigner{
 			super(dir);
 			this.ds = new DomainSequence[]{dsL,dsR};
 			chooseScore(dir);
+		}
+		public ScorePenalty clone() {
+			HairpinOpeningPenalty ci = new HairpinOpeningPenalty(ds[0],ds[1],dir);
+			ci.old_score = old_score;
+			ci.cur_score = cur_score;
+			return ci;
 		}
 		public int getPriority(){
 			return 0;
@@ -129,7 +141,14 @@ public class DomainDesignerImpl extends DomainDesigner{
 			seqs = seqToSynthesize;
 			//chooseScore(dir); Can't show up. Uses everybody.
 		}
-
+		
+		public ScorePenalty clone() {
+			ValidSequenceScore ci = new ValidSequenceScore(seqs,dir);
+			ci.old_score = old_score;
+			ci.cur_score = cur_score;
+			return ci;
+		}
+		
 		public boolean affectedBy(int domain) {
 			return true;
 		}
@@ -147,9 +166,6 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 
 		public int getPriority() {
-			if (rule_SeqRulesAreAbsolute==1){
-				return 0;
-			}
 			return 2;
 		}
 
@@ -170,6 +186,13 @@ public class DomainDesignerImpl extends DomainDesigner{
 			numDomains /= getSeqs().length;
 			chooseScore(dir);
 		}
+		public ScorePenalty clone() {
+			SelfFold ci = new SelfFold(ds[0],dir);
+			ci.old_score = old_score;
+			ci.cur_score = cur_score;
+			return ci;
+		}
+
 		private int numDomains;
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
@@ -177,7 +200,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			int longestHelixLength = flI.getLongestHelixLength();
 			int numBasesPaired = flI.getNumBasesPaired();
 			double normal = longestHelixLength*numBasesPaired;
-			return normal*deltaG;
+			return normal*Math.max(0,deltaG);
 		}
 		public int getPriority(){
 			return 1;

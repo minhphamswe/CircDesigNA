@@ -1,10 +1,12 @@
 package DnaDesign.impl;
 
-public class CodonCode {
+import DnaDesign.DesignerCode;
+
+public class CodonCode implements DesignerCode{
 	/**
 	 * Returns which amino acid is being encoded at [i,i+2]
 	 */
-	public char decodeAmino(int[] out, int i){
+	private char decodeAmino(int[] out, int i){
 		int result = pow8(out,i);
 		return forwardTable[result];
 	}
@@ -12,7 +14,7 @@ public class CodonCode {
 	 * Mutates the codons [i,i+2] and [j,j+2] to different codons, both of the original amino acid, but
 	 * with complementarity reduced. 
 	 */
-	public void mutateToFixComplement(int[] is, int i, int j) {
+	private void mutateToFixComplement(int[] is, int i, int j) {
 		final int pow8i = pow8(is,i);
 		final int pow8j = pow8(is,j);
 		int allowableComplement = 0;
@@ -101,7 +103,8 @@ public class CodonCode {
 	/**
 	 * Mutates the codon at [i,i+2] to a different codon of the same amino acid.
 	 */
-	public void mutateToOther(int[] out, int i){
+	public boolean mutateToOther(int[][] domain, int mutdomain, int i){
+		int[] out = domain[mutdomain];
 		//Code duplicated from decodeAmino
 		int pow8 = pow8(out,i);
 		char amino = forwardTable[pow8];
@@ -110,7 +113,7 @@ public class CodonCode {
 		int[] possible = reverseTable[amino];
 		if (possible.length==1){
 			//throw new RuntimeException("Amino "+amino+" has just one codon!");
-			return; //Unfortunately, this is all we can do...
+			return false; //We can't change this base.
 		}
 		int which = (int)(Math.random()*possible.length);
 		int newPow8 = possible[which];
@@ -124,6 +127,7 @@ public class CodonCode {
 		out[i] = (newPow8>>6)&7;
 		out[i+1] = (newPow8>>3)&7;
 		out[i+2] = (newPow8)&7;
+		return true;
 	}
 	private char[] forwardTable = new char[512];
 	private int[][] reverseTable = new int['Z'][0];

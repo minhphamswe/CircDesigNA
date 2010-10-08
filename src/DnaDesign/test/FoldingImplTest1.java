@@ -19,7 +19,7 @@ public class FoldingImplTest1 {
 			DomainStructureData dsd = new DomainStructureData();
 			seqS.setDomains(0, dsd);
 			int[][] domain = new int[1][];
-			String seq = "GGGAAGAAGGTTCCTC";
+			String seq = "GTGATAGA";
 			int seqLength;
 			if (seq==null){
 				seqLength = (int)(Math.random()*10+10);

@@ -7,13 +7,17 @@ import java.util.TreeSet;
 /**
  * Possible other names: Equal Opportunity Designer, or Patient Designer
  * 
+ * Optimizes scores to be LOW. The fittest individual has the smallest score.
+ *  
+ * 
  * @author Benjamin
  */
 public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
-	
-	private PopulationDesignMember<T>[] population_mutable;
-	private PopulationDesignMember<T>[] population_backup;
+	private T[] population_mutable;
+	private T fittest;
 	private int populationSize = 0;
+	private int iterations = 0;
+	private int param_iterationShortcut = -1;
 	/**
 	 * Initializes this designer with one member, and numCopies-1 number of newly created members with that same seed.
 	 * Necessary before designing.
@@ -22,55 +26,76 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	 */
 	public void initialize(T init, int numCopies){
 		populationSize = numCopies;
-		population_backup = new PopulationDesignMember[numCopies];
-		population_mutable = new PopulationDesignMember[numCopies];
+		population_mutable = (T[]) new PopulationDesignMember[numCopies];
 		for(int k = 0; k < numCopies; k++){
 			if (k!=0){
 				population_mutable[k] = init.designerCopyConstructor(k);
+				population_mutable[k].seedFromOther(init);
 			} else {
 				population_mutable[k] = init;
 			}
-			population_backup[k] = init.designerCopyConstructor(k);
 		}
 	}
-	public void runBlockIteration(){
-		TreeSet<PopulationDesignMember<T>> blockIterationLevel = new TreeSet();
+	/**
+	 * Break if any child is at least as optimal as endThreshold.
+	 */
+	public void runBlockIteration(double endThreshold){
+		TreeSet<T> blockIterationLevel = new TreeSet();
 		for(int k = 0; k < populationSize; k++){
 			blockIterationLevel.add(population_mutable[k]);
 		}
-		while(true){
-			Iterator<PopulationDesignMember<T>> qb = blockIterationLevel.iterator();
-			for(int k = 0; k < 5; k++){ //multiple times for random chance.
+		iterations++;
+		blockItr: for(int itrCount = 0;; itrCount++){
+			Iterator<T> qb = blockIterationLevel.iterator();
+			//for(int k = 0; k < 1; k++){ //multiple times for random chance.
 				while(qb.hasNext()){
-					PopulationDesignMember<T> q = qb.next();
-					boolean mutationSuccessful = mutateAndTest(q);
+					T q = qb.next();
+					boolean mutationSuccessful = mutateAndTestAndBackup(q);
 					if (mutationSuccessful){
-						//commit
-						population_backup[q.myID].seedFromOther(q);
+						//commit. Did we solve the problem entirely?
+						double newScore = getOverallScore(q);
+						if (newScore <= endThreshold){
+							break blockItr;
+						}
 						qb.remove();
 					} else {
-						//need to backup.
-						q.seedFromOther(population_backup[q.myID]);
+						//need to backup. It should have
 					}
 				}
-			}
+			//}
 			if (blockIterationLevel.size()<populationSize*.5){
 				break;
 			}
+			if (param_iterationShortcut>=0){
+				if (itrCount>param_iterationShortcut && populationSize-blockIterationLevel.size()>0){
+					//Someone made it through. Break;
+					break;
+				}
+			}
 		}
 		//Seed the fittest
-		TreeMap<Double, PopulationDesignMember<T>> populationView = new TreeMap();
-		for(PopulationDesignMember<T> q : population_mutable){
+		TreeMap<Double, T> populationView = new TreeMap();
+		for(T q : population_mutable){
 			double score = getOverallScore(q);
 			populationView.put(-score, q); //sort descending
 		}
-		PopulationDesignMember<T> top = populationView.remove(populationView.lastKey());
+		fittest = populationView.remove(populationView.lastKey());
+		System.out.println("Iteration "+iterations+" Score "+getOverallScore(fittest));
 		int bottomToSeed = (int) (populationView.size()*.4f);
 		for(int k = 0; k < bottomToSeed; k++){
-			PopulationDesignMember<T> bottom = populationView.remove(populationView.firstKey());
-			bottom.seedFromOther(top);
+			T bottom = populationView.remove(populationView.firstKey());
+			bottom.seedFromOther(fittest);
 		}
 	}
-	public abstract double getOverallScore(PopulationDesignMember<T> q);
-	public abstract boolean mutateAndTest(PopulationDesignMember<T> q);
+	/**
+	 * Returns null before blockIteration is called.
+	 */
+	public final T getBestPerformingChild(){
+		return fittest;
+	}
+	public final PopulationDesignMember<T>[] getPopulation(){
+		return population_mutable;
+	}
+	public abstract double getOverallScore(T q);
+	public abstract boolean mutateAndTestAndBackup(T q);
 }

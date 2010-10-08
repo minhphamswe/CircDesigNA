@@ -445,7 +445,7 @@ public class FoldingImpl implements NAFolding{
 		}
 		
 		//Traceback?
-		foldSingleStranded_traceBack(len1,len2,Smatrix,Cmatrix,gamma3mat,bestI,bestJ,seq,seq2,domain,domain_markings,true);
+		double overCount = foldSingleStranded_traceBack(len1,len2,Smatrix,Cmatrix,gamma3mat,bestI,bestJ,seq,seq2,domain,domain_markings,true);
 		
 		if (debugLCSAlgorithm){
 			for(int k = 0; k < len1; k++){
@@ -462,17 +462,18 @@ public class FoldingImpl implements NAFolding{
 			}
 		}
 		
-		return score;
+		return score-overCount;
 	}
 	/**
 	 * Performs the standard nussinov tracebacking, sans bifurcation tracing (thus, no stack).
 	 */
-	private void foldSingleStranded_traceBack(int len1, int len2, double[][] Smatrix, double[][] Cmatrix, double[][] gamma3mat, int bestI,
+	private double foldSingleStranded_traceBack(int len1, int len2, double[][] Smatrix, double[][] Cmatrix, double[][] gamma3mat, int bestI,
 			int bestJ, DomainSequence seq, DomainSequence seq2,
 			int[][] domain, int[][] domain_markings, boolean isSingleStrandFold) {
 		int helixLength = 0;
 		MFE_numBasesPaired = 0;
 		MFE_longestHelixLength = 0;
+		double overCount = 0;
 		while(true){
 			//Break condition:
 			//System.out.println(bestI+" "+bestJ);
@@ -530,7 +531,10 @@ public class FoldingImpl implements NAFolding{
 				helixLength = 0;
 			}
 		}
-		
+		if (MFE_longestHelixLength==1){
+			overCount += foldSingleStranded_oneBaseScore;
+		}
+		return overCount;
 	}
 
 	private int MFE_longestHelixLength = -1, MFE_numBasesPaired = -1;
@@ -542,6 +546,7 @@ public class FoldingImpl implements NAFolding{
 		return MFE_numBasesPaired;
 	}
 	private boolean debugLCSAlgorithm = false;
+	private double foldSingleStranded_oneBaseScore = .25;
 	private double foldSingleStranded_calcDummyScore = .25;
 	private double foldSingleStranded_endHelixPenalty = 0;
 	private double foldSingleStranded_helixBaseScore = 0;
@@ -627,8 +632,7 @@ public class FoldingImpl implements NAFolding{
 			if (sdMatrix[i+1][j-1][0]>0){
 				if (sdMatrix[i+1][j-1][0]==1){
 					//Remove dummy score, replace with 1 base score
-					double oneBaseScore = cMatrix[i][j]*.125f;
-					return sMatrix[i+1][j-1]-dummyScore+oneBaseScore;
+					return sMatrix[i+1][j-1]-dummyScore+foldSingleStranded_oneBaseScore;
 				} else {
 					//Add terminal score.
 					double terminalMismatch = eParams.getNNdeltaGterm(seq.base(i+1, domain), seq2.base(j-1,domain),seq.base(i,domain), seq2.base(j,domain));

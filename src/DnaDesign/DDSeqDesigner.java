@@ -1,32 +1,53 @@
 package DnaDesign;
 
-import java.util.List;
 
-public interface DDSeqDesigner {
+public interface DDSeqDesigner<T extends DesignerOptions> {
 	public interface SeqDesignerOption{
 		public String getDescription();
-		public boolean getState();
-		public void toggle();
+		public interface Boolean extends SeqDesignerOption {
+			public boolean getState();
+			public boolean getDefaultState();
+			public void toggle();
+		}
+		public interface Double extends SeqDesignerOption{
+			public double getState();
+			public double getDefaultState();
+			public void setState(double newVal);
+		}
 	}
-	public List<SeqDesignerOption> getOptions();
 	/**
-	 * Use System.getProperty("line.separator") to format multiline result
+	 * Returns the generic options object for this designer.
+	 */
+	public T getOptions();
+	/**
+	 * Returns the score value of the best solution.
+	 */
+	public double getBestScore();
+	/**
+	 * Use System.getProperty("line.separator") to split multiline result into individual lines.
 	 */
 	public String getResult();
-	
+	/**
+	 * Returns the shared score reporter object (used for generating real time visuals)
+	 */
 	public DesignIntermediateReporter getDir();
 	
 	public boolean isRunning();
 	public boolean isFinished();
-	public float statusVal();
-	public float scoreVal();
-	
+	/**
+	 * Returns true if the designer ended due to an error.
+	 */
+	public boolean isEndConditionError();
 	/**
 	 * Starts if stopped, resumes if paused
 	 */
 	public void resume();
-	
+	/**
+	 * Stops is running.
+	 */
 	public void pause();
-	
+	/**
+	 * Stops in all cases; cannot be resumed; cleanup occurs immediately.
+	 */
 	public void abort();
 }
