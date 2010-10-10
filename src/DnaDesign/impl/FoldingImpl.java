@@ -2,7 +2,7 @@ package DnaDesign.impl;
 
 import static DnaDesign.DnaDefinition.A;
 import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.DisplayBase;
+import static DnaDesign.DnaDefinition.displayBase;
 import static DnaDesign.DnaDefinition.G;
 import static DnaDesign.DnaDefinition.T;
 
@@ -11,7 +11,7 @@ import java.util.Scanner;
 
 import DnaDesign.DnaDefinition;
 import DnaDesign.DomainSequence;
-import DnaDesign.ExperimentalDuplexParams;
+import DnaDesign.ExperimentDatabase;
 import DnaDesign.NAFolding;
 
 /**
@@ -52,11 +52,11 @@ public class FoldingImpl implements NAFolding{
 	double GTstr = 0.1;
 	double MBstr = -3;
 	public static boolean DEBUG_selfCrosstalkMethod = false;
-	private ExperimentalDuplexParams eParams;
+	private ExperimentDatabase eParams;
 	public FoldingImpl(){
 		this(new ExperimentalDuplexParamsImpl());
 	}
-	public FoldingImpl(ExperimentalDuplexParams params){
+	public FoldingImpl(ExperimentDatabase params){
 		eParams = params;
 	}
 	
@@ -228,12 +228,12 @@ public class FoldingImpl implements NAFolding{
 		StringBuffer create = new StringBuffer();
 		int len = ds.length(domain);
 		for(int k = 0; k < len; k++){
-			create.append(DisplayBase(ds.base(k, domain)));
+			create.append(displayBase(ds.base(k, domain)));
 		}
 		create.append(" ");
 		int len2 = ds2.length(domain);
 		for(int k = 0; k < len2; k++){
-			create.append(DisplayBase(ds2.base(k, domain)));
+			create.append(displayBase(ds2.base(k, domain)));
 		}
 		
 		String str = create.toString();
@@ -297,7 +297,7 @@ public class FoldingImpl implements NAFolding{
 		StringBuffer create = new StringBuffer();
 		int len = seq.length(domain);
 		for(int k = 0; k < len; k++){
-			create.append(DisplayBase(seq.base(k, domain)));
+			create.append(displayBase(seq.base(k, domain)));
 		}
 		String str = create.toString();
 		try {

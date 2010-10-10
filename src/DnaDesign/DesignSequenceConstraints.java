@@ -83,18 +83,25 @@ public class DesignSequenceConstraints {
 		return true;
 	}
 	
-	private boolean isOutOfValidRange(int base, int basecount) {
-		if (minConstituents[base]!=-1){
-			if (basecount < minConstituents[base]){
-				return true;
-			}
-		}
+
+	private boolean isOverValidMax(int base, int basecount){
 		if (maxConstituents[base]!=-1){
 			if (basecount > maxConstituents[base]){
 				return true;
 			}
 		}
 		return false;
+	}
+	private boolean isUnderValidMin(int base, int basecount){
+		if (minConstituents[base]!=-1){
+			if (basecount < minConstituents[base]){
+				return true;
+			}
+		}
+		return false; 
+	}
+	private boolean isOutOfValidRange(int base, int basecount) {
+		return isUnderValidMin(base,basecount) || isOverValidMax(base, basecount);
 	}
 	/**
 	 * Enumerates the possible mutations that could be made, without invalidating the sequence constraints.
@@ -110,13 +117,27 @@ public class DesignSequenceConstraints {
 		private int j;
 		//Index in the baseOrders array.
 		private int i_inBaseOrders;
+		//Base baseOrders[i_inBaseOrders], or overriden
+		private int b_inBaseOrders;
 		private int lastSwapIndex;
 		private boolean isDirectMutation = false;
+		private final int UnderQuota_Not = -2;
+		private final int UnderQuotaButImpossibleToChange = -3;
+		private int isUnderQuotaInBase = UnderQuota_Not;
 		/**
 		 * Returns false if no more valid mutations are possible.
 		 * @return
 		 */
 		public boolean nextChoice(){
+			if (isUnderQuotaInBase!=UnderQuota_Not){
+				if (isUnderQuotaInBase==UnderQuotaButImpossibleToChange){
+					return false; 
+				}
+				boolean alreadyReturnedBypass = isUnderQuotaInBase==b_inBaseOrders;
+				b_inBaseOrders = isUnderQuotaInBase;
+				isDirectMutation = true;
+				return !alreadyReturnedBypass;
+			}
 			int oldBase = mut_new[j];
 			int oldBase_pure = (oldBase % DNAFLAG_ADD);
 			int oldBase_flag = oldBase - oldBase_pure;
@@ -124,13 +145,18 @@ public class DesignSequenceConstraints {
 				//Locked bases are not mutable.
 				return false;
 			}
-			while(++i_inBaseOrders < baseOrders.length){
-				int testBase = baseOrders[i_inBaseOrders];
+			while(true){
+				if (i_inBaseOrders+1>=baseOrders.length){
+					break;
+				}
+				++i_inBaseOrders;
+				b_inBaseOrders = baseOrders[i_inBaseOrders];
+				int testBase = b_inBaseOrders;
 				if (testBase==oldBase_pure){
 					continue; //This wouldn't be a changing mutation.
 				}
-				if (canMutateBaseDirectly()){
-					return isDirectMutation = true;
+				if (isDirectMutation = canMutateBaseDirectly()){
+					return isDirectMutation;
 				}
 				isDirectMutation = false;
 				if (canMutateBySwapping()){
@@ -152,7 +178,7 @@ public class DesignSequenceConstraints {
 			//Currently, this is always possible as long as we have some other base which is of 
 			//base type "testBase". This is because swapping doesn't change composition.
 			//If we allow more complicated constraints, this assumption will change.
-			int testBase = baseOrders[i_inBaseOrders];
+			int testBase = b_inBaseOrders;
 			for(int i = 0; i < mut_new.length; i++){
 				if (i==j){
 					continue;
@@ -182,7 +208,7 @@ public class DesignSequenceConstraints {
 				return false;
 				//We can't remove it, it's keeping us above a quota.
 			}
-			int testBase = baseOrders[i_inBaseOrders];
+			int testBase = b_inBaseOrders;
 			//Count the number of occurrences of testBase, which is not the same as oldBase, so we can assume
 			//that the index j is irrelevent, and see if that count + 1 is out of range
 			int count = countBaseOccurrences(testBase);
@@ -216,10 +242,35 @@ public class DesignSequenceConstraints {
 			this.mut_new = mut_new;
 			this.j = j;
 			i_inBaseOrders = -1;
+			isDirectMutation = true;
+			b_inBaseOrders = -1;
+			isUnderQuotaInBase = checkUnderQuota(mut_new,j);
 		}
 
+		private int checkUnderQuota(int[] mut_new2, int j) {
+			boolean hadUnderValid = false;
+			//Is mut_new[j] underquota?
+			if (isUnderValidMin(noFlags(mut_new[j]), countBaseOccurrences(noFlags(mut_new[j])))){
+				return UnderQuotaButImpossibleToChange;
+			}
+			for(int test_base : baseOrders){
+				if (noFlags(mut_new[j])==test_base){
+					continue; //These don't count.
+				}
+				if (isUnderValidMin(test_base, countBaseOccurrences(test_base))){
+					hadUnderValid = true;
+					if (isAllowableBaseforFlags(mut_new[j],test_base)){
+						return test_base;
+					}
+				}
+			}
+			return hadUnderValid?UnderQuotaButImpossibleToChange:UnderQuota_Not;
+		}
 		public int getMutationBase() {
-			return baseOrders[i_inBaseOrders];
+			if (b_inBaseOrders <0){
+				throw new RuntimeException("Assertion error: possible mutation < 0");
+			}
+			return b_inBaseOrders;
 		}
 		public boolean isDirectMutationChoice() {
 			return isDirectMutation;

@@ -81,4 +81,7 @@ public class SequenceCode implements DesignerCode{
 		}
 		*/
 	}
+	public boolean isValid(int[][] domain, int whichDomain) {
+		return dsc.isValid(domain[whichDomain]);
+	}
 }

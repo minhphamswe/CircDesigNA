@@ -64,7 +64,7 @@ public class PairscoreImplTest {
 				System.out.println(Arrays.deepToString(domainMark2));
 				for(int[] domainS : domain){
 					for(int k : domainS){
-						System.out.print(DnaDefinition.DisplayBase(k));
+						System.out.print(DnaDefinition.displayBase(k));
 					}
 					System.out.println();
 				}

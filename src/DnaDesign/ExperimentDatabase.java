@@ -10,7 +10,7 @@ package DnaDesign;
  * DNA bases are marked by their identifiers in DnaDefinition.java
  *  </pre>
  */
-public interface ExperimentalDuplexParams {
+public interface ExperimentDatabase {
 	/**
 	 * Returns the delta G for a (W,X) pair neighboring a (Y,Z) pair. 
 	 * Nearest Neighbor pairing need not be symmetric; such that 

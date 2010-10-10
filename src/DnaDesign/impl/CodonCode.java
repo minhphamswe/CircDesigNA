@@ -3,6 +3,9 @@ package DnaDesign.impl;
 import DnaDesign.DesignerCode;
 
 public class CodonCode implements DesignerCode{
+	public boolean isValid(int[][] domain, int whichDomain) {
+		return domain[whichDomain].length%3==0;
+	}
 	/**
 	 * Returns which amino acid is being encoded at [i,i+2]
 	 */

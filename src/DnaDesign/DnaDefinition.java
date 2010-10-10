@@ -12,13 +12,14 @@ import static DnaDesign.DnaDefinition.T;
 
 
 /**
+ * This class defines the bases.
  * I needed a place to hold the various properties of DNA.
  */
 public class DnaDefinition {
-	//Explicit definition of DNA: Mapping from a subset of Z to all of DNA 
-	public static final int A = 1, T = 2, G = 3, C = 4, D = 5, H = 6, P = 7, Z = 8;
+	//Explicit definition of DNA: Mapping from a subset of Z to all of DNA
+	public static final int NOBASE = 0, A = 1, T = 2, G = 3, C = 4, D = 5, H = 6, P = 7, Z = 8;
 	//A number guaranteed to be bigger than the largest base.
-	public static final int DNAFLAG_ADD = Z+2;
+	public static final int DNAFLAG_ADD = Z+1;
 	//Blech. to get rid of.
 	public static final double GCstr = 2;
 	public static final double ATstr = 1;
@@ -26,6 +27,7 @@ public class DnaDefinition {
 	public static final double PZstr = GCstr;
 	public static final double GTstr = 0.1;
 	//Binding score function.
+	//TODO Delete this thing. 
 	public static final double bindScore(int a, int b){
 		a = noFlags(a);
 		b = noFlags(b);
@@ -47,7 +49,12 @@ public class DnaDefinition {
 							return 0;
 						}
 	}
-	public static final String DisplayBase(int base) {
+	/**
+	 * Returns a string representation of a base int.
+	 * @param base
+	 * @return
+	 */
+	public static final String displayBase(int base) {
 		base = noFlags(base);
 		switch(base){
 		case G:
@@ -102,6 +109,11 @@ public class DnaDefinition {
 		}
 	} 
 
+	/**
+	 * Inverse of displayBase: turns characters into numbers.
+	 * @param charAt
+	 * @return
+	 */
 	public static int decodeBaseChar(char charAt){
 		charAt = Character.toUpperCase(charAt);
 		switch(charAt){
@@ -127,7 +139,8 @@ public class DnaDefinition {
 	}
 
 	/**
-	 * Returns the unflagged complement of base i
+	 * Returns the unflagged complement of base i.
+	 * Needs to know the numeric definitions of the bases.
 	 */
 	public static int complement(int i) {
 		i = noFlags(i);
@@ -136,6 +149,7 @@ public class DnaDefinition {
 		}
 		return i-1;
 	}
+	
 	public static int noFlags(int i) {
 		return i%DNAFLAG_ADD;
 	}

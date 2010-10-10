@@ -1,11 +1,13 @@
 package DnaDesign;
+import static DnaDesign.DnaDefinition.DNAFLAG_ADD;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
-import static DnaDesign.DnaDefinition.*;
 
+import java.io.CharConversionException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.SortedMap;
@@ -52,7 +54,7 @@ public class DomainStructureData {
 		}
 		return wT.toString();
 	}
-	
+
 	/** 
 	 * Pass in whole block, please
 	 **/
@@ -61,115 +63,117 @@ public class DomainStructureData {
 		out.nameMap.clear();
 		out.domainConstraints.clear();
 		out.otherRuleFlags.clear();
-		ArrayList<Integer> domainLengths = new ArrayList();
+		ArrayList<Integer> domainLengths = new ArrayList<Integer>();
 		Scanner in = new Scanner(domainDefsBlock);
 		int k = -1;
 		while(in.hasNextLine()){
-			String[] line = in.nextLine().trim().split("\\s+");
-			if (line.length<=1){ //0 is sort of impossible though.
-				continue;
-			}
-			k++;
-			domainLengths.add(-1);//initialize length
-			String domainID = line[0];
-			if (domainID.length()==0){
-				throw new RuntimeException("'Empty' Domain ID: on line "+k);
-			}
-			out.nameMap.put(domainID,k);
-			int seqIndex = 1;
-			int seqLen = -1;
-			if (line[1].matches("\\d+")){
-				//We have length map (optional)
-				seqIndex = 2;
-				domainLengths.set(k,seqLen = new Integer(line[1]));
-			}
-			//Sequence constraints...
-			if (line.length>seqIndex){
-				//Regions of characters enclosed in square bracket will be lowercased, meaning "lock".
-				if (line[seqIndex].charAt(0)!='-'){
-					StringBuffer parseBracketLowerCase = new StringBuffer();
-					boolean inBracket = false;
-					for(int e = 0; e < line[seqIndex].length(); e++){
-						char kc = line[seqIndex].charAt(e);
-						if (kc=='['){
-							inBracket = true;
-							continue;
-						}
-						if (kc==']'){
-							if (!inBracket){
-								//Oops, stack underflow.
-								throw new RuntimeException("Stack Underflow of nonconstraint bracket: "+line[seqIndex]);
-							}
-							inBracket = false;
-							continue;
-						}
-						if (Character.toLowerCase(kc)=='u'){
-							kc = 'T'; // rna / dna treated equally.
-						}
-						if (!inBracket){ //Things in brackets are allowed to change.
-							kc = Character.toLowerCase(kc);
-						} else {
-							kc = Character.toUpperCase(kc);
-						}
-						parseBracketLowerCase.append(kc);
-					}
-					line[seqIndex] = parseBracketLowerCase.toString();
-					//Ok! load the constraint. Default to "unconstrained".
-					if (line[seqIndex].equalsIgnoreCase("TBD")){
-						//Lol, silly format.
-					} else {
-						out.domainConstraints.put(k,line[seqIndex]);
-						domainLengths.set(k,seqLen = line[seqIndex].length());
-					}
-					seqIndex++;
-				}
-				//Do we have a protein flag?
-				int flagSum = 0;
-				Pattern decodeArg = Pattern.compile("\\-(\\w+)(\\((.*)\\))?");
-				for(int flag = seqIndex; flag < line.length; flag++){
-					Matcher m = decodeArg.matcher(line[flag]);
-					if(m.find()){
-						String paramName = null;
-						try {
-							paramName = m.group(1);
-						} catch (Throwable e){
-							throw new RuntimeException("Invalid parameter name @ k ");
-						}
-						try {
-							String args = m.group(3);
-							if (paramName.equalsIgnoreCase("p")){
-								if (seqLen%3!=0){
-									throw new RuntimeException("Domain "+domainID+" not a valid protein sequence - length not a multiple of 3");
-								}
-								flagSum |= FLAG_CONSERVEAMINOS;
-							}
-							if (paramName.equalsIgnoreCase("seq")){
-								out.compositionConstraints.put(k, parseSequenceComposition(args));
-							}
-						} catch (Throwable e){
-							throw new RuntimeException("Invalid args to '-"+paramName+"': "+e.getMessage());
-						}
-					}
-				}
-				out.otherRuleFlags.put(k,flagSum);
-			}
-			if (seqLen==-1){
-				throw new RuntimeException("Assertion error - no length for domain '"+domainID+"'");
-			}
-			if (seqLen < 2){
-				throw new RuntimeException("1-base domains not allowed for now.");
-			}
+			k = parseDomainDefLine(in.nextLine(),out,domainLengths,k);
 		}
 		out.domainLengths = new int[domainLengths.size()];
 		for(k = 0; k < domainLengths.size(); k++){
 			out.domainLengths[k] = domainLengths.get(k);
 		}
 	}
-	
-	//Tested and verified. Group 1 : Domain, with comp flag, Group 2: Structural flag
-	private static final Pattern regexp = Pattern.compile("(\\w+\\*?)(.*?)($|[\\|\\}\\[]+)");
+
+	private static int parseDomainDefLine(String nextLine, DomainStructureData out, List<Integer> domainLengths, int k) {
+		String[] line = nextLine.trim().split("\\s+");
+		if (line.length<=1){ //0 is sort of impossible though.
+			return k;
+		}
+		k++;
+		domainLengths.add(-1);//initialize length
+		String domainID = line[0];
+		if (domainID.length()==0){
+			throw new RuntimeException("'Empty' Domain ID: on line "+k);
+		}
+		if (Character.isWhitespace(nextLine.charAt(0))){
+			throw new RuntimeException("'Empty' Domain ID: on line "+k+". (Leading whitespace?)");
+		}
+		out.nameMap.put(domainID,k);
+		int seqIndex = 1;
+		int seqLen = -1;
+		if (line[1].matches("\\d+")){
+			//We have length map (optional)
+			seqIndex = 2;
+			domainLengths.set(k,seqLen = new Integer(line[1]));
+		}
+		//Sequence constraints...
+		if (line.length>seqIndex){
+			//Regions of characters enclosed in square bracket will be lowercased, meaning "lock".
+			if (line[seqIndex].charAt(0)!='-'){
+				StringBuffer constraintParsed = new StringBuffer();
+				boolean inBracket = false;
+				for(int e = 0; e < line[seqIndex].length(); e++){
+					char kc = line[seqIndex].charAt(e);
+					if (kc=='['){
+						inBracket = true;
+						continue;
+					}
+					if (kc==']'){
+						if (!inBracket){
+							//Oops, stack underflow.
+							throw new RuntimeException("Stack Underflow of nonconstraint bracket: "+line[seqIndex]);
+						}
+						inBracket = false;
+						continue;
+					}
+					if (Character.toLowerCase(kc)=='u'){
+						kc = 'T'; // rna / dna treated equally.
+					}
+					//The case of characters is significant to deeper stages of the pipeline;
+					//Capital means mutable.
+					kc = inBracket ? Character.toUpperCase(kc) : Character.toLowerCase(kc);
+					constraintParsed.append(kc);
+				}
+				line[seqIndex] = constraintParsed.toString();
+				//Ok! load the constraint. Default to "unconstrained".
+				if (line[seqIndex].equalsIgnoreCase("TBD")){
+					//Lol, silly format.
+				} else {
+					out.domainConstraints.put(k,line[seqIndex]);
+					domainLengths.set(k,seqLen = line[seqIndex].length());
+				}
+				seqIndex++;
+			}
+			//Do we have flags?
+			int flagSum = 0;
+			Pattern decodeArg = Pattern.compile("\\-(\\w+)(\\((.*)\\))?");
+			for(int flag = seqIndex; flag < line.length; flag++){
+				Matcher m = decodeArg.matcher(line[flag]);
+				if(m.find()){
+					String paramName = m.group(1);
+					try {
+						String args = m.group(3);
+						if (paramName.equalsIgnoreCase("p")){
+							if (seqLen%3!=0){
+								throw new RuntimeException("Domain "+domainID+" not a valid protein sequence - length not a multiple of 3");
+							}
+							flagSum |= FLAG_CONSERVEAMINOS;
+						} 
+						if (paramName.equalsIgnoreCase("seq")){
+							out.compositionConstraints.put(k, parseSequenceComposition(args));
+						}
+					} catch (Throwable e){
+						throw new RuntimeException("Invalid args to '-"+paramName+"': "+e.getMessage());
+					}
+				}
+			}
+			out.otherRuleFlags.put(k,flagSum);
+		}
+		if (seqLen==-1){
+			throw new RuntimeException("Assertion error - no length for domain '"+domainID+"'");
+		}
+		if (seqLen < 2){
+			throw new RuntimeException("1-base domains not allowed for now.");
+		}
+		return k;
+	}
+
 	
 	public static void readStructure(String moleculeName, String dnaString, DomainStructureData out){
+		//Tested and verified. Group 1 : Domain, with comp flag, Group 2: Structural flag
+		final Pattern regexp = Pattern.compile("(\\w+\\*?)(.*?)($|[\\|\\}\\[]+)");
+		
 		out.moleculeName = moleculeName;
 		out.domains = null;
 		out.structures = null;
@@ -183,7 +187,7 @@ public class DomainStructureData {
 		while(m.find()){
 			try {
 				String domainName = m.group(1);
-				//Decode which domain
+				//Decode which domain, extract the "star" character (reverse complement flag)
 				int domainNameL = domainName.length();
 				if (domainName.endsWith("*")){
 					domainNameL --;
@@ -191,7 +195,6 @@ public class DomainStructureData {
 				int numberDomain = out.lookupDomainName(domainName.substring(0,domainNameL));
 				int numberDomain2 = numberDomain;
 				if (numberDomain2 < 0){
-					//TODO: Domain targetted exceptions?
 					throw new RuntimeException("Invalid domain: "+domainName);
 				}
 				if (domainName.endsWith("*")){
@@ -217,7 +220,7 @@ public class DomainStructureData {
 					int mP = parens.removeLast();
 					DomainStructure remove = out2.remove(mP);
 					if (!(remove instanceof SingleStranded)){
-						throw new RuntimeException("?huh?");
+						throw new RuntimeException("Assertion error.");
 					}
 					//Replace with a hairpinStem.
 					HairpinStem create = new HairpinStem(remove.sequencePartsInvolved[0],whichDomain);
@@ -263,6 +266,8 @@ public class DomainStructureData {
 				((HairpinStem)struct).handleSubConformation(out.domainLengths,out.domains);
 			}
 		}
+		//
+		return;
 	}
 	private static int[] expandToLength(int[] old, int newSize, int fillValue){
 		int[] newOld = new int[newSize];

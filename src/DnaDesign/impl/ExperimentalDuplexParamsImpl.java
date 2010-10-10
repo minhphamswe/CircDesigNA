@@ -2,7 +2,7 @@ package DnaDesign.impl;
 
 import static DnaDesign.DnaDefinition.A;
 import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.DisplayBase;
+import static DnaDesign.DnaDefinition.displayBase;
 import static DnaDesign.DnaDefinition.G;
 import static DnaDesign.DnaDefinition.T;
 
@@ -12,9 +12,9 @@ import java.util.ArrayList;
 import java.util.Scanner;
 
 import DnaDesign.DnaDefinition;
-import DnaDesign.ExperimentalDuplexParams;
+import DnaDesign.ExperimentDatabase;
 
-public class ExperimentalDuplexParamsImpl implements ExperimentalDuplexParams{
+public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 	public ExperimentalDuplexParamsImpl(){
 		makeTable();
 	}
@@ -75,16 +75,16 @@ public class ExperimentalDuplexParamsImpl implements ExperimentalDuplexParams{
 					for(Y = 0; Y < line2.length; Y++){
 						if (!line2[Y].equals(".")){
 							System.out.print(prefix);
-							System.out.print(DisplayBase(ordering[A])+sep+
-									DisplayBase(ordering[B])+sep);
+							System.out.print(displayBase(ordering[A])+sep+
+									displayBase(ordering[B])+sep);
 							if (!dangleMode){
 								System.out.print(
-										DisplayBase(ordering[X])+sep);
+										displayBase(ordering[X])+sep);
 							} else {
 								System.out.print(prEnd+sep);
 							}
 							System.out.print(
-									DisplayBase(ordering[Y%4])+sep);
+									displayBase(ordering[Y%4])+sep);
 							System.out.print(
 									line2[Y].equals(".")?"0":line2[Y]);
 							System.out.println(postum);

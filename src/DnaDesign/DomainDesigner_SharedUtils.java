@@ -15,7 +15,11 @@ import DnaDesign.DomainStructureData.HairpinStem;
 import DnaDesign.DomainStructureData.SingleStranded;
 import DnaDesign.DomainStructureData.ThreePFivePOpenJunc;
 
-
+/**
+ * Somewhat legacy. GUI Translator class.
+ * @author Benjamin
+ *
+ */
 public class DomainDesigner_SharedUtils {
 	public static void utilJunctionSplitter(List<DomainSequence> out, String toJunctionize, DomainStructureData dsd){
 		int[] bases = DomainDesigner_SharedUtils.utilReadSequence(toJunctionize,dsd);
@@ -232,6 +236,8 @@ public class DomainDesigner_SharedUtils {
 
 	/**
 	 * Returns both a new domainDefs and a Molecules text.
+	 * Basically, it adds a copy of the original problem set, so it has to find the
+	 * original problem set in the input, which can already have copies of same.
 	 */
 	public static String[] duplicateSystem(String domainDef, String molecul) {
 		String[] toRet = new String[2];
@@ -297,7 +303,10 @@ public class DomainDesigner_SharedUtils {
 			moleculIN.close();
 			Scanner in = new Scanner(molecul);
 			while(in.hasNextLine()){
-				String line = in.nextLine();
+				String line = in.nextLine().trim();
+				if (line.length()==0){
+					continue;
+				}
 				String[] linefake = line.split("\\s+");
 				if (linefake[0].endsWith("v"+whichV) || whichV == 1){
 					//Translate this guy!
