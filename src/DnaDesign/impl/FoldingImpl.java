@@ -19,7 +19,6 @@ import DnaDesign.NAFolding;
  */
 public class FoldingImpl implements NAFolding{
 
-
 	/**
 	 * "Large loop" - what?
 	 */

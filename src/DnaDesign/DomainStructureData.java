@@ -3,7 +3,6 @@ import static DnaDesign.DnaDefinition.DNAFLAG_ADD;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
-import java.io.CharConversionException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -36,7 +35,7 @@ public class DomainStructureData {
 		return ""+(domain & DNA_SEQ_FLAGSINVERSE)+postpend;
 	}
 	private Map<Integer, String> domainConstraints = new TreeMap();
-	private Map<Integer, int[][]> compositionConstraints = new TreeMap();
+	private Map<Integer, String> compositionConstraints = new TreeMap();
 	private static final int FLAG_CONSERVEAMINOS = 2;
 	private Map<Integer, Integer> otherRuleFlags = new TreeMap();
 	/**
@@ -62,6 +61,7 @@ public class DomainStructureData {
 		out.structures = null;
 		out.nameMap.clear();
 		out.domainConstraints.clear();
+		out.compositionConstraints.clear();
 		out.otherRuleFlags.clear();
 		ArrayList<Integer> domainLengths = new ArrayList<Integer>();
 		Scanner in = new Scanner(domainDefsBlock);
@@ -72,6 +72,10 @@ public class DomainStructureData {
 		out.domainLengths = new int[domainLengths.size()];
 		for(k = 0; k < domainLengths.size(); k++){
 			out.domainLengths[k] = domainLengths.get(k);
+			//Test the seq constraints
+			//Don't use Default, this prevents us from crashing on conflicting definition.
+			DesignSequenceConstraints dsc = new DesignSequenceConstraints();
+			out.loadConstraints(k, dsc, true);
 		}
 	}
 
@@ -151,7 +155,17 @@ public class DomainStructureData {
 							flagSum |= FLAG_CONSERVEAMINOS;
 						} 
 						if (paramName.equalsIgnoreCase("seq")){
-							out.compositionConstraints.put(k, parseSequenceComposition(args));
+							String old2 = out.compositionConstraints.get(k);
+							if (old2==null){
+								old2 = "";
+							}
+							while(old2.endsWith(",")){
+								old2 = old2.substring(0,old2.length()-1);
+							}
+							if (old2.contains(",")){
+								old2+=",";
+							}
+							out.compositionConstraints.put(k, old2+args);
 						}
 					} catch (Throwable e){
 						throw new RuntimeException("Invalid args to '-"+paramName+"': "+e.getMessage());
@@ -261,12 +275,14 @@ public class DomainStructureData {
 		out.structures = new DomainStructure[out2.size()];
 		int i = 0;
 		for(DomainStructure struct : out2.values()){
-			out.structures[i++]=struct;
-			if (struct instanceof HairpinStem){
-				((HairpinStem)struct).handleSubConformation(out.domainLengths,out.domains);
+			//Top level substructures - recursively handle subconformation
+			out.structures[i]=struct;
+			if (i>0 && out.structures[i-1] instanceof ThreePFivePOpenJunc){
+				throw new RuntimeException("Invalid use of 5' end. Molecule is not connected.");
 			}
-		}
-		//
+			i++;
+			struct.handleSubConformation(out.domainLengths,out.domains);
+		}		
 		return;
 	}
 	private static int[] expandToLength(int[] old, int newSize, int fillValue){
@@ -310,6 +326,9 @@ public class DomainStructureData {
 			}
 			return ret;
 		}
+		public void handleSubConformation(int[] domainLengths, int[] domains) {
+			
+		}
 	}
 	public static class HairpinStem extends DomainStructure {
 		public HairpinStem(int ... whichDomain) {
@@ -320,6 +339,9 @@ public class DomainStructureData {
 		public int innerCurveCircumference = 0;
 		
 		public void handleSubConformation(int[] domainLengths, int[] domains) {
+			if (subStructure.size()==0){
+				throw new RuntimeException("Hairpin with no loop: Invalid");
+			}
 			loop:for(DomainStructure q : subStructure){
 				if (q instanceof HairpinStem){
 					((HairpinStem)q).handleSubConformation(domainLengths,domains);
@@ -409,62 +431,67 @@ public class DomainStructureData {
 		return (integer & FLAG_CONSERVEAMINOS)!=0;
 	}
 
-	/**
-	 * -2 means not specified. Otherwise, a -1 is deliberately fed in by the user.
-	 */
-	public int getMaxComponent(int i, int base) {
-		int[][] minmax = compositionConstraints.get(i);
-		if (minmax==null){
-			return -2;
+	public void loadConstraints(int i, DesignSequenceConstraints dsc, boolean crashOnOverwrite) {
+		String args = compositionConstraints.get(i);
+		if (args==null){
+			return;
 		}
-		int[] max = minmax[1];
-		return max[base];
-	}
-	public int getMinComponent(int i, int base) {
-		int[][] minmax = compositionConstraints.get(i);
-		if (minmax==null){
-			return -2;
-		}
-		int[] min = minmax[0];
-		return min[base];
-	}
-	/**
-	 * Parses an argument string of the form
-	 * <base>,<min amount>,<maxamount>,<base2> ... so forth
-	 * where -1 means 'no bound'
-	 */
-	private static int[][] parseSequenceComposition(String args) {
-		int[] max = new int[DNAFLAG_ADD];
-		int[] min = new int[DNAFLAG_ADD];
-		Arrays.fill(max,-2);
-		Arrays.fill(min,-2);
 		String[] array = args.split(",");
 		if (array.length%3!=0){
 			throw new RuntimeException("Each contraint has 3 parts: base, min, and max");
 		}
+		
 		for(int k = 0; k < array.length; k+=3){
-			if (array[k].length()!=1){
-				throw new RuntimeException("Invalid base: "+array[k]);
-			}
-			int base = DnaDefinition.decodeBaseChar(array[k].charAt(0));
-			if (base == 0 || base >= DNAFLAG_ADD){
-				throw new RuntimeException("Invalid base: "+array[k]);
+			ArrayList<Integer> bases = new ArrayList();
+			for(char q : array[k].toCharArray()){
+				if (Character.isLetter(q)){
+					q = Character.toUpperCase(q);
+					int base = DnaDefinition.decodeBaseChar(q);
+					if (base == 0 || base >= DNAFLAG_ADD){
+						throw new RuntimeException("Invalid base: "+array[k]);
+					}
+					bases.add(base);
+				}
 			}
 			//pure base.
-			int num1 = new Integer(array[k+1]);
-			int num2 = new Integer(array[k+2]);
+			int num1 = parsePercent(array[k+1],domainLengths[i],false);
+			int num2 = parsePercent(array[k+2],domainLengths[i],true);
 			if (num1 < -1 || num2 < -1){
 				throw new RuntimeException("Bound values must be >= -1. -1 means no bound.");
 			}
 			if (num2 !=-1 && num1 != -1 && num2 < num1){
 				throw new RuntimeException("Invalid bound: max < min");
 			}
-			if (min[base]!=-2 || max[base]!=-2){
+			int[] bases2 = new int[bases.size()];
+			int count = 0;
+			for(int j : bases){
+				bases2[count++]=j;
+			}
+			boolean hadMin = dsc.setMinConstraint(num1, bases2);
+			boolean hadMax = dsc.setMaxConstraint(num2, bases2);
+			if (crashOnOverwrite && (hadMax||hadMin)){
 				throw new RuntimeException("Duplicate bounds for "+array[k]);
 			}
-			min[base] = num1;
-			max[base] = num2;
 		}
-		return new int[][]{min,max};
+	}
+	private int parsePercent(String percent, int of, boolean roundUp){
+		boolean isP = percent.endsWith("%");
+		boolean isF = percent.contains(".");
+		if (isP || isF){
+			double value;
+			if (isP){
+				value = new Double(percent.substring(0,percent.length()-1))/100.;	
+			} else {
+				//isF only
+				value = new Double(percent);
+			}
+			value *= of;
+			if (roundUp){
+				return (int) Math.ceil(value);
+			} else {
+				return (int) Math.floor(value);
+			}
+		}
+		return new Integer(percent);
 	}
 }

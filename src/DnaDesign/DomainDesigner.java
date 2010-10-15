@@ -203,11 +203,12 @@ public abstract class DomainDesigner {
 			}
 			sb.append("----------------");
 			sb.append(lR);
-			sb.append("Input Strands:");
+			sb.append("Molecular Substrands:");
 			sb.append(lR);	
 			for(String q : inputStrands){
-				String a = q.split("\\s+")[1]; //Erase the name
-				splitLoop: for(String subStrand : a.split("}")){
+				String a[] = q.split("\\s+");
+				boolean alreadyPrintedInMolecule = false;
+				splitLoop: for(String subStrand : a[1].split("}")){
 					DomainSequence ds = new DomainSequence();
 					ds.setDomains(subStrand,dsd);
 					for(DomainSequence g : alreadyPrintedSequences){
@@ -215,11 +216,17 @@ public abstract class DomainDesigner {
 							continue splitLoop;
 						}
 					}
+					if (!alreadyPrintedInMolecule){
+						//Print out the name of the molecule:
+						sb.append("Strands in molecule "+a[0]+":");
+						sb.append(lR);
+					}
+					alreadyPrintedInMolecule = true;
 					alreadyPrintedSequences.add(ds);
-					sb.append("["+subStrand.replaceAll("\\s+","").replace("[","")+"}");
-					sb.append(lR);
+					sb.append("\t"+"["+subStrand.replaceAll("\\s+","").replace("[","")+"}");
+					sb.append(lR+"\t");
 					printSequence(sb,r,ds,true);
-					sb.append(lR);
+					sb.append(lR+"\t");
 					printSequence(sb,r,ds,false);
 					sb.append(lR);
 				}
@@ -306,7 +313,9 @@ public abstract class DomainDesigner {
 	private double best_score;
 	private int num_mut_attempts = 0;
 	private String[] outputDomains;
-	private boolean waitForResume = false, abort = false;
+	private boolean waitForResume = false;
+
+	public boolean abort = false;
 
 	//End accessible to client.
 
@@ -451,18 +460,7 @@ public abstract class DomainDesigner {
 				if (mutate[i]==null){
 					SequenceCode newCode = SequenceCode.getDefaultSequenceCode();
 					DesignSequenceConstraints dsc = DesignSequenceConstraints.getDefaultConstraints();
-					
-					for(int base = 0; base < DNAFLAG_ADD; base++){
-						//Build the constraints by querying the DSD. Mix Default settings with DSD specification.
-						final int maxComponent = dsd.getMaxComponent(i,base);
-						final int minComponent = dsd.getMinComponent(i,base);
-						if (maxComponent!=-2){
-							dsc.setMaxConstraint(base, maxComponent);
-						}
-						if (minComponent!=-2){
-							dsc.setMinConstraint(base, minComponent);
-						}
-					}
+					dsd.loadConstraints(i,dsc,false);
 					newCode.setConstraints(dsc);
 					mutate[i] = newCode;
 				}
@@ -594,7 +592,7 @@ public abstract class DomainDesigner {
 		DomainDesignBlockDesignerImpl dbesign = new DomainDesignBlockDesignerImpl(num_domain,domain_length,mutableDomains,mutate,dsd,this);
 		dbesign.initialize(initialSeed, options.population_size.getState());
 		
-		if (false){ //The children, if this block is enabled, will start at a different position than the seed. 
+		if (true){ //The children, if this block is enabled, will start at a different position than the seed. 
 			PopulationDesignMember<DomainDesignPMemberImpl>[] a = dbesign.getPopulation();
 			for(PopulationDesignMember r2 : a){
 				DomainDesignPMemberImpl r = (DomainDesignPMemberImpl)r2;
@@ -604,12 +602,12 @@ public abstract class DomainDesigner {
 				//Initial score.
 				float current_score_in = 0;
 				deepFill(r.domain_markings,DNAMARKER_DONTMUTATE);
-				DIR.beginScoreReport();{
+				//DIR.beginScoreReport();{
 					for(ScorePenalty q : r.penalties){
 						current_score_in += q.getScore(r.domain, r.domain_markings);
 					}
-				}DIR.endScoreReport();
-				System.out.println("Initial score: "+current_score_in);			
+					//System.out.println("Initial score: "+current_score_in);
+				//}DIR.endScoreReport();			
 			}
 		}
 		
@@ -627,7 +625,7 @@ public abstract class DomainDesigner {
 			if (best_score <= endingThreshold){
 				break;
 			}
-			dbesign.runBlockIteration(endingThreshold);
+			dbesign.runBlockIteration(this,endingThreshold);
 			//Iteration complete.
 			resetDebugPenalty();
 			DomainDesignPMemberImpl q = dbesign.getBestPerformingChild();
@@ -757,7 +755,7 @@ public abstract class DomainDesigner {
 		int oneC = 0;
 		
 		//How many mutations will we try now?
-		int num_mut = Math.min(len,max_mutations);
+		int num_mut = Math.min(len*2,max_mutations);
 		//Count the reccomended bases to mutate
 		boolean SORT_MARKINGS = options.sort_markings.getState();
 		
@@ -777,6 +775,7 @@ public abstract class DomainDesigner {
 					oneC++;
 				}
 			}
+			oneC*=2;
 			num_mut = Math.min(num_mut,oneC);
 			if (SORT_MARKINGS) Arrays.sort(inplacePrioritySort_shared,0,oneC);
 			//Post condition: num_mut <= oneC

@@ -109,7 +109,7 @@ public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 	private void makeTable(){
 		//****References:***//
 		//Zucker's UNAFOLD parameters.
-		//The were taken from the following papers (I checked! They're there!)
+		//The were taken from the following papers
 		//Santa Lucia 1998
 		//Santa Lucia 1999
 		//Sort-of Zucker, 1999 (JMB) <--- this is RNA scores, but may have been extrapolated.

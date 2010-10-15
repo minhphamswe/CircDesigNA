@@ -156,7 +156,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		public double evalScoreSub(int[][] domain, int[][] domain_markings) {
 			double sum = 0;
 			for(int i = 0; i < domain.length; i++){
-				sum += flI.affectedSequenceInvalidScore(i, seqs, domain, domain_markings);
+				sum += flI.affectedSequenceInvalidScore(i, seqs, domain, domain_markings)*100;
 			}
 			return sum;
 		}

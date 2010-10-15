@@ -11,6 +11,7 @@ import static DnaDesign.DnaDefinition.T;
 import static DnaDesign.DnaDefinition.Z;
 import static DnaDesign.DnaDefinition.noFlags;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 public class DesignSequenceConstraints {
 
@@ -19,54 +20,108 @@ public class DesignSequenceConstraints {
 
 	public static DesignSequenceConstraints getDefaultConstraints() {
 		DesignSequenceConstraints defaults = new DesignSequenceConstraints();
-		defaults.setMaxConstraint(H, 0);
-		defaults.setMaxConstraint(P, 0);
-		defaults.setMaxConstraint(Z, 0);
-		defaults.setMaxConstraint(D, 0);
+		defaults.setMaxConstraint(0, H);
+		defaults.setMaxConstraint(0, P);
+		defaults.setMaxConstraint(0, Z);
+		defaults.setMaxConstraint(0, D);
 		return defaults;
 	}
 	//-1 means no upper bound
-	private int[] maxConstituents;
-	private int[] minConstituents;
+	//Format: int[b0...bn-1, constraint]
+	//So, int[{1 in A,T position},-1] in minConstituents means no lower bound on A+T
+	private static class Constraint{
+		private boolean[] regulates;
+		private int constraintValue;
+		public Constraint() {
+			regulates = new boolean[DNAFLAG_ADD];
+			Arrays.fill(regulates,false);
+			constraintValue = -1;
+		}
+		/**
+		 * Two constraints "overlap" if the regulated set of one is a subset of the other.
+		 */
+		public boolean equals(Object otherO){
+			if (!(otherO instanceof Constraint)){
+				return false;
+			}
+			Constraint other = (Constraint) otherO;
+			return isSubset(regulates,other.regulates)&&isSubset(other.regulates,regulates);
+		}
+		private boolean isSubset(boolean[] regulates2, boolean[] regulates3) {
+			for(int k = 0; k < regulates2.length; k++){
+				if (regulates2[k]&&!regulates3[k]){
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+	private ArrayList<Constraint> maxConstituents;
+	private ArrayList<Constraint> minConstituents;
 	//-1 means no lower bound
 	public DesignSequenceConstraints(){
-		maxConstituents = new int[DNAFLAG_ADD];
-		minConstituents = new int[DNAFLAG_ADD];
-		Arrays.fill(maxConstituents,-1);
-		Arrays.fill(minConstituents,-1);
+		maxConstituents = new ArrayList<Constraint>();
+		minConstituents = new ArrayList<Constraint>();
 	}
 	/**
 	 * -1 to set unconstrained
+	 * Returns true if a conflicting constraint existed, (and was overwritten)
 	 */
-	public void setMaxConstraint(int base, int maxVal){
-		base = DnaDefinition.noFlags(base);
-		maxConstituents[base] = maxVal;
+	public boolean setMaxConstraint(int maxVal, int ... base){
+		return addConstraint(maxConstituents,maxVal,base);
 	}
 	/**
 	 * -1 to set unconstrained
+	 * Returns true if a conflicting constraint existed, (and was overwritten)
 	 */
-	public void setMinConstraint(int base, int minVal){
-		base = DnaDefinition.noFlags(base);
-		minConstituents[base] = minVal;
+	public boolean setMinConstraint(int minVal, int ... base){
+		return addConstraint(minConstituents,minVal,base);
 	}
-	private int[] isValid_shared = new int[DNAFLAG_ADD];
+	/**
+	 * Returns true if an old entry was removed to add this constraint.
+	 */
+	private boolean addConstraint(ArrayList<Constraint> toSet, int maxVal, int[] base) {
+		if (base.length==0){
+			throw new RuntimeException("Invalid constraint, no bases");
+		}
+		Constraint made = new Constraint();
+		for(int i = 0; i < base.length; i++){
+			base[i] = DnaDefinition.noFlags(base[i]);
+			made.regulates[base[i]] = true;
+		}
+		made.constraintValue = maxVal;
+		boolean removed = toSet.remove(made);
+		toSet.add(made);
+		return removed;
+	}
 	/**
 	 * Not multithreaded.
 	 */
 	public boolean isValid(int[] domain){
-		Arrays.fill(isValid_shared,0);
-		for(int k = 0; k < domain.length; k++){
-			isValid_shared[DnaDefinition.noFlags(domain[k])]++;
-		}
-		for(int k = 0; k < DNAFLAG_ADD; k++){
-			if (isOutOfValidRange(k,isValid_shared[k])){
-				return false;
+		if (getBaseCounts(domain)){
+			for(int k = 0; k < DNAFLAG_ADD; k++){
+				if (isOutOfValidRange(k)){
+					return false;
+				}
 			}
 		}
 		return true;
 	}
-
-
+	/**
+	 * Modifies getBaseCounts_shared.
+	 */
+	private boolean getBaseCounts(int[] domain) {
+		return getBaseCounts(domain,-1);
+	}
+	private int[] getBaseCounts_shared = new int[DNAFLAG_ADD];
+	private boolean getBaseCounts(int[] domain, int ignoreIndex) {
+		Arrays.fill(getBaseCounts_shared,0);
+		for(int k = 0; k < domain.length; k++){
+			if (k==ignoreIndex) continue;
+			getBaseCounts_shared[DnaDefinition.noFlags(domain[k])]++;
+		}
+		return true;
+	}
 	/**
 	 * Tests whether a given flags are acceptable with a certain base.
 	 */
@@ -84,24 +139,42 @@ public class DesignSequenceConstraints {
 	}
 	
 
-	private boolean isOverValidMax(int base, int basecount){
-		if (maxConstituents[base]!=-1){
-			if (basecount > maxConstituents[base]){
-				return true;
+	private boolean isOverValidMax(int base){
+		return checkInvalidating(maxConstituents,base,true);
+	}
+	private boolean isUnderValidMin(int base){
+		return checkInvalidating(minConstituents,base,false);
+	}
+	/**
+	 * Assumes isValid_shared is filled with the base counts.
+	 */
+	private boolean checkInvalidating(ArrayList<Constraint> constraints, int base, boolean isMaxConstraint) {
+		base = noFlags(base);
+		for(Constraint q : constraints){
+			if (q.constraintValue!=-1){
+				if (q.regulates[base]){
+					int sum = 0;
+					for(int k = 0; k < DNAFLAG_ADD; k++){
+						if (q.regulates[k]){
+							sum += getBaseCounts_shared[k];
+						}
+					}
+					if (isMaxConstraint){
+						if (sum > q.constraintValue){
+							return true;
+						}
+					} else {
+						if (sum < q.constraintValue){
+							return true;
+						}
+					}
+				}
 			}
 		}
 		return false;
 	}
-	private boolean isUnderValidMin(int base, int basecount){
-		if (minConstituents[base]!=-1){
-			if (basecount < minConstituents[base]){
-				return true;
-			}
-		}
-		return false; 
-	}
-	private boolean isOutOfValidRange(int base, int basecount) {
-		return isUnderValidMin(base,basecount) || isOverValidMax(base, basecount);
+	private boolean isOutOfValidRange(int base) {
+		return isUnderValidMin(base) || isOverValidMax(base);
 	}
 	/**
 	 * Enumerates the possible mutations that could be made, without invalidating the sequence constraints.
@@ -166,10 +239,9 @@ public class DesignSequenceConstraints {
 			return false;
 		}
 		private boolean canMutateBySwapping() {
-			//TODO: check if a mutation is possible by swapping with some other base.
 			int oldBase = mut_new[j];
 			int oldBase_pure = (oldBase % DNAFLAG_ADD);
-			if (oldBase_pure==0){
+			if (oldBase_pure==DnaDefinition.NOBASE){
 				//Special case: don't swap "uninitialized" bases around (code 0)
 				return false; 
 			}
@@ -204,16 +276,20 @@ public class DesignSequenceConstraints {
 			int oldBase_pure = (oldBase % DNAFLAG_ADD);
 			int oldBase_flag = oldBase - oldBase_pure;
 			//Will replacing oldBase cause us to go under a minimum quota?
-			if (isOutOfValidRange(oldBase_pure,countBaseOccurrences(oldBase_pure)-1)){
-				return false;
-				//We can't remove it, it's keeping us above a quota.
+			if (getBaseCounts(mut_new,j)){ //Counts all BUT j
+				if (isUnderValidMin(oldBase_pure)){
+					//We can't remove it, it's keeping us above a quota.
+					return false;
+				}
 			}
 			int testBase = b_inBaseOrders;
 			//Count the number of occurrences of testBase, which is not the same as oldBase, so we can assume
-			//that the index j is irrelevent, and see if that count + 1 is out of range
-			int count = countBaseOccurrences(testBase);
-			if (isOutOfValidRange(testBase,count+1)){
-				return false;
+			//that the index j is irrelevent, and see if the incremented case is out of range
+			if (getBaseCounts(mut_new,j)){
+				getBaseCounts_shared[testBase]++;
+				if (isOverValidMax(testBase)){
+					return false;
+				}
 			}
 			if (!isAllowableBaseforFlags(oldBase_flag,testBase)){
 				return false;
@@ -221,20 +297,6 @@ public class DesignSequenceConstraints {
 			//Ok! this worked!
 			return true;
 		}
-		/**
-		 * Counts the occurrences of base in the domain.
-		 */
-		private int countBaseOccurrences(int base) {
-			base = DnaDefinition.noFlags(base);
-			int count = 0;
-			for(int i = 0; i < mut_new.length; i++){
-				if (DnaDefinition.noFlags(mut_new[i])==base){
-					count++;
-				}
-			}
-			return count;
-		}
-
 		/**
 		 * Resets (or initializes) the iterator on a certain domain, at position j.
 		 */
@@ -244,23 +306,25 @@ public class DesignSequenceConstraints {
 			i_inBaseOrders = -1;
 			isDirectMutation = true;
 			b_inBaseOrders = -1;
-			isUnderQuotaInBase = checkUnderQuota(mut_new,j);
+			isUnderQuotaInBase = checkUnderQuota(j);
 		}
 
-		private int checkUnderQuota(int[] mut_new2, int j) {
+		private int checkUnderQuota(int j) {
 			boolean hadUnderValid = false;
 			//Is mut_new[j] underquota?
-			if (isUnderValidMin(noFlags(mut_new[j]), countBaseOccurrences(noFlags(mut_new[j])))){
-				return UnderQuotaButImpossibleToChange;
-			}
-			for(int test_base : baseOrders){
-				if (noFlags(mut_new[j])==test_base){
-					continue; //These don't count.
+			if (getBaseCounts(mut_new)){
+				if (isUnderValidMin(noFlags(mut_new[j]))){
+					return UnderQuotaButImpossibleToChange;
 				}
-				if (isUnderValidMin(test_base, countBaseOccurrences(test_base))){
-					hadUnderValid = true;
-					if (isAllowableBaseforFlags(mut_new[j],test_base)){
-						return test_base;
+				for(int test_base : baseOrders){
+					if (noFlags(mut_new[j])==test_base){
+						continue; //These don't count.
+					}
+					if (isUnderValidMin(test_base)){
+						hadUnderValid = true;
+						if (isAllowableBaseforFlags(mut_new[j],test_base)){
+							return test_base;
+						}
 					}
 				}
 			}

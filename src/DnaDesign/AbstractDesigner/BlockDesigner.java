@@ -4,6 +4,8 @@ import java.util.Iterator;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import DnaDesign.DomainDesigner;
+
 /**
  * Possible other names: Equal Opportunity Designer, or Patient Designer
  * 
@@ -17,7 +19,7 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	private T fittest;
 	private int populationSize = 0;
 	private int iterations = 0;
-	private int param_iterationShortcut = -1;
+	private int param_iterationShortcut = 1000;
 	/**
 	 * Initializes this designer with one member, and numCopies-1 number of newly created members with that same seed.
 	 * Necessary before designing.
@@ -39,7 +41,7 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	/**
 	 * Break if any child is at least as optimal as endThreshold.
 	 */
-	public void runBlockIteration(double endThreshold){
+	public void runBlockIteration(DomainDesigner runner, double endThreshold){
 		TreeSet<T> blockIterationLevel = new TreeSet();
 		for(int k = 0; k < populationSize; k++){
 			blockIterationLevel.add(population_mutable[k]);
@@ -66,9 +68,13 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 			if (blockIterationLevel.size()<populationSize*.5){
 				break;
 			}
+			if(runner.abort){
+				break;
+			}
 			if (param_iterationShortcut>=0){
 				if (itrCount>param_iterationShortcut && populationSize-blockIterationLevel.size()>0){
 					//Someone made it through. Break;
+					System.err.println("Breaking iteration early.");
 					break;
 				}
 			}
