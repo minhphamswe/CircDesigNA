@@ -343,6 +343,26 @@ public class DomainStructureData {
 		public void handleSubConformation(int[] domainLengths, int[] domains) {
 			
 		}
+		
+		/**
+		 * Returns the "width" of this domain structure as seen by its parent.
+		 * For instance, a hairpin loop wants to know how wide a substructure is so it can calculate
+		 * the total circumference of the loop.
+		 */
+		public static int getOuterLevelSpace(DomainStructure q,int[] domainLengths, int[] domains) {
+			int circ = 0;
+			if (q instanceof HairpinStem){
+				circ+= 1; 
+			} else if (q instanceof SingleStranded){
+				SingleStranded s = (SingleStranded)q;
+				for(int p : q.sequencePartsInvolved){
+					circ += domainLengths[domains[p] & DNA_SEQ_FLAGSINVERSE];
+				}
+			} else if (q instanceof ThreePFivePOpenJunc){
+				circ += 2;
+			}
+			return circ;
+		}
 	}
 	public static class HairpinStem extends DomainStructure {
 		public HairpinStem(int ... whichDomain) {
@@ -361,36 +381,28 @@ public class DomainStructureData {
 					((HairpinStem)q).handleSubConformation(domainLengths,domains);
 				}
 			}
-			boolean isConnected = true;
 			if (subStructure.size()>1){
 				int index = 0;
 				loop:for(DomainStructure q : subStructure){
 					if (q instanceof ThreePFivePOpenJunc){
-						isConnected = false;
 						leftRightBreak = index;
 						break loop;
 					}
 					index++;
 				};
 			}
-			if (isConnected){
-				if (subStructure.size()==1 && (subStructure.get(0) instanceof HairpinStem)){
-					innerCurveCircumference = 0; //Just continue the stem
-				} else {
-					innerCurveCircumference = 0; //The "opening" of the hairpin takes up some of the ring
-					loop:for(DomainStructure q : subStructure){
-						if (q instanceof HairpinStem){
-							innerCurveCircumference += 2; 
-						} else if (q instanceof SingleStranded){
-							for(int p : q.sequencePartsInvolved){
-								innerCurveCircumference += domainLengths[domains[p] & DNA_SEQ_FLAGSINVERSE];
-							}
-						}
-					}
+			if (subStructure.size()==1 && (subStructure.get(0) instanceof HairpinStem)){
+				innerCurveCircumference = 0; //Just continue the stem
+			} else {
+				innerCurveCircumference = 0; //The "opening" of the hairpin takes up some of the ring
+				loop:for(DomainStructure q : subStructure){
+					innerCurveCircumference += getOuterLevelSpace(q,domainLengths,domains);
 				}
 			}
+			
 		}
 		
+
 		public String toString(){
 			StringBuffer sb = new StringBuffer();
 			String line = System.getProperty("line.separator");
