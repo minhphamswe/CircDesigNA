@@ -93,14 +93,14 @@ public class DomainDesignerImpl extends DomainDesigner{
 	/**
 	 * Penalize complementarity at the base of a hairpin loop
 	 */
-	public class HairpinOpeningPenalty extends ScorePenalty {
-		public HairpinOpeningPenalty(DomainSequence dsL, DomainSequence dsR, DesignIntermediateReporter dir){
+	public class HairpinOpening extends ScorePenalty {
+		public HairpinOpening(DomainSequence dsL, DomainSequence dsR, DesignIntermediateReporter dir){
 			super(dir);
 			this.ds = new DomainSequence[]{dsL,dsR};
 			chooseScore(dir);
 		}
 		public ScorePenalty clone() {
-			HairpinOpeningPenalty ci = new HairpinOpeningPenalty(ds[0],ds[1],dir);
+			HairpinOpening ci = new HairpinOpening(ds[0],ds[1],dir);
 			ci.old_score = old_score;
 			ci.cur_score = cur_score;
 			return ci;
@@ -133,17 +133,17 @@ public class DomainDesignerImpl extends DomainDesigner{
 	 * If we wish to use the validity checking as a penalty instead of an absolute condition,
 	 * use this.
 	 */
-	public class ValidSequenceScore extends ScorePenalty {
+	public class VariousSequencePenalties extends ScorePenalty {
 		private List<DomainSequence> seqs;
 
-		public ValidSequenceScore(List<DomainSequence> seqToSynthesize, DesignIntermediateReporter dir) {
+		public VariousSequencePenalties(List<DomainSequence> seqToSynthesize, DesignIntermediateReporter dir) {
 			super(dir);
 			seqs = seqToSynthesize;
 			//chooseScore(dir); Can't show up. Uses everybody.
 		}
 		
 		public ScorePenalty clone() {
-			ValidSequenceScore ci = new ValidSequenceScore(seqs,dir);
+			VariousSequencePenalties ci = new VariousSequencePenalties(seqs,dir);
 			ci.old_score = old_score;
 			ci.cur_score = cur_score;
 			return ci;
@@ -217,15 +217,23 @@ public class DomainDesignerImpl extends DomainDesigner{
 	}
 
 	public List<ScorePenalty> listPenalties(
-			List<DomainSequence> makeSingleStranded,
-			ArrayList<DomainSequence> preventComplementarity,
-			List<DomainSequence[]> hairpinLoops, DesignIntermediateReporter DIR) {
+			List<DomainSequence> singleStrandedRegions,
+			ArrayList<DomainSequence> hairpinStems,
+			List<DomainSequence[]> hairpinOpenings, DesignIntermediateReporter DIR) {
+		List<DomainSequence> makeSingleStranded = singleStrandedRegions;
+		List<DomainSequence> preventComplementarity = new ArrayList<DomainSequence>();
+		//Single strand prevention implies complementarity prevention
+		preventComplementarity.addAll(singleStrandedRegions);
+		preventComplementarity.addAll(hairpinStems);
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(preventComplementarity);
+		
+		
 		int i,k;
 		List<ScorePenalty> allScores = new ArrayList<ScorePenalty>();
-		allScores.add(new ValidSequenceScore(makeSingleStranded,DIR));
-		for(i = 0; i < hairpinLoops.size(); i++){
-			DomainSequence[] ds = hairpinLoops.get(i);
-			allScores.add(new HairpinOpeningPenalty(ds[0],ds[1],DIR));
+		allScores.add(new VariousSequencePenalties(makeSingleStranded,DIR));
+		for(i = 0; i < hairpinOpenings.size(); i++){
+			DomainSequence[] ds = hairpinOpenings.get(i);
+			allScores.add(new HairpinOpening(ds[0],ds[1],DIR));
 		}
 		for(i = 0; i < makeSingleStranded.size(); i++){
 			DomainSequence ds = makeSingleStranded.get(i); //Only contains singlestranded sequences

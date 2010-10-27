@@ -21,6 +21,7 @@ import DnaDesign.DomainStructureData.ThreePFivePOpenJunc;
  *
  */
 public class DomainDesigner_SharedUtils {
+	/*
 	public static void utilJunctionSplitter(List<DomainSequence> out, String toJunctionize, DomainStructureData dsd){
 		int[] bases = DomainDesigner_SharedUtils.utilReadSequence(toJunctionize,dsd);
 		for(int b = 0; b < bases.length; b++){
@@ -33,6 +34,7 @@ public class DomainDesigner_SharedUtils {
 			}
 		}
 	}
+	*/
 
 	public static int[] utilReadSequence(String toJunctionize, DomainStructureData dsd) {
 		toJunctionize = toJunctionize.replaceAll("[\\[}]","|").replaceAll("\\s+","");
@@ -188,12 +190,12 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 
-	public static void utilVanillaTargetFinder(DomainStructureData dsd,
+	public static void utilSingleStrandedFinder(DomainStructureData dsd,
 			ArrayList<DomainSequence> MustBeVanilla) {
 		ArrayList<Integer> freeList = new ArrayList<Integer>();
 		
 		for(DomainStructure ds : dsd.structures){
-			utilVanillaTargetFinder_R(dsd,ds,MustBeVanilla,freeList);
+			utilSingleStrandedFinder_R(dsd,ds,MustBeVanilla,freeList);
 		}
 		if (freeList.size()>0){
 			DomainSequence freeListD = new DomainSequence();
@@ -210,7 +212,7 @@ public class DomainDesigner_SharedUtils {
 	}
 	
 	
-	private static void utilVanillaTargetFinder_R(DomainStructureData dsd, DomainStructure ds,
+	private static void utilSingleStrandedFinder_R(DomainStructureData dsd, DomainStructure ds,
 			ArrayList<DomainSequence> MustBeVanilla, ArrayList<Integer> freeList) {
 
 		//TODO: free strands need to have "hairpins" in the middle.
@@ -223,7 +225,7 @@ public class DomainDesigner_SharedUtils {
 		if (ds instanceof HairpinStem){
 			ArrayList<Integer> subFree = new ArrayList();
 			for(DomainStructure g : ds.subStructure){
-				utilVanillaTargetFinder_R(dsd,g,MustBeVanilla,subFree);
+				utilSingleStrandedFinder_R(dsd,g,MustBeVanilla,subFree);
 			}	
 			if (subFree.size()>0){
 				DomainSequence freeListD = new DomainSequence();

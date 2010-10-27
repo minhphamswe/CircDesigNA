@@ -185,8 +185,8 @@ public class DomainStructureData {
 
 	
 	public static void readStructure(String moleculeName, String dnaString, DomainStructureData out){
-		//Tested and verified. Group 1 : Domain, with comp flag, Group 2: Structural flag
-		final Pattern regexp = Pattern.compile("(\\w+\\*?)(.*?)($|[\\|\\}\\[]+)");
+		//Tested and verified. Group 2 : Domain, with comp flag, Group 1 + Group 3: Structural flag
+		final Pattern regexp = Pattern.compile("(.*?)(\\w+\\*?)(.*?)($|[\\|\\}\\[]+)");
 		
 		out.moleculeName = moleculeName;
 		out.domains = null;
@@ -200,7 +200,7 @@ public class DomainStructureData {
 		int highestDomainUsed = -1;
 		while(m.find()){
 			try {
-				String domainName = m.group(1);
+				String domainName = m.group(2);
 				//Decode which domain, extract the "star" character (reverse complement flag)
 				int domainNameL = domainName.length();
 				if (domainName.endsWith("*")){
@@ -217,14 +217,12 @@ public class DomainStructureData {
 				highestDomainUsed = Math.max(highestDomainUsed,numberDomain);
 				whichDomainsInOrder.put(whichDomain,numberDomain2);
 
-				String match = m.group(2);
+				String match = m.group(1)+m.group(3);
 				if (match==null){
 					match = "";
 				}
 				String struct = match;
-				if (struct.length()==0 || struct.contains(".")){
-					out2.put(seqId,new SingleStranded(whichDomain));
-				} else if (struct.contains("(")){
+				if (struct.contains("(")){
 					out2.put(seqId,new SingleStranded(whichDomain));
 					parens.add(seqId);
 				} else if (struct.contains(")")){
@@ -250,9 +248,25 @@ public class DomainStructureData {
 						out2.remove(p);
 					}
 					out2.put(seqId, create);
+				} else {
+					//if (struct.length()==0 || struct.contains(".")){
+					out2.put(seqId,new SingleStranded(whichDomain));
 				}
-				if (m.group(3)!=null){
-					if (m.group(3).contains("}")){
+				final String delim = m.group(4);
+				if (delim!=null){
+					//Checking valid molecule "enders"
+					if (delim.contains("[")){
+						for(int k = 0; k < delim.length(); k++){
+							//Only valid use of '[' is after '}', except for the first character (taken care of above)
+							if (delim.charAt(k)=='[' && (k==0 || delim.charAt(k-1)!='}')){
+								throw new RuntimeException("Invalid structure: Use } before [.");
+							}
+						}
+					}
+					if (delim.matches("(.*)\\[(.*)\\}(.*)")){
+						throw new RuntimeException("Empty strand; no domains");
+					}
+					if (delim.contains("}")){
 						//3- end. 
 						out2.put(++seqId,new ThreePFivePOpenJunc());
 					}

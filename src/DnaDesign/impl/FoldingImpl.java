@@ -2,10 +2,12 @@ package DnaDesign.impl;
 
 import static DnaDesign.DnaDefinition.A;
 import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.displayBase;
 import static DnaDesign.DnaDefinition.G;
 import static DnaDesign.DnaDefinition.T;
+import static DnaDesign.DnaDefinition.displayBase;
 
+import java.awt.Point;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
@@ -472,6 +474,7 @@ public class FoldingImpl implements NAFolding{
 		int helixLength = 0;
 		MFE_numBasesPaired = 0;
 		MFE_longestHelixLength = 0;
+		MFE_pointlist.clear();
 		double overCount = 0;
 		while(true){
 			//Break condition:
@@ -485,6 +488,7 @@ public class FoldingImpl implements NAFolding{
 					break;
 				}
 			}
+			MFE_pointlist.add(new Point(bestI,bestJ));
 			boolean inHelix = false; //only if we go diagonally do we mark a duplex pair.
 			if (!isOnFringeOfMap){
 				double gamma1 = Smatrix[bestI+1][bestJ];
@@ -537,6 +541,33 @@ public class FoldingImpl implements NAFolding{
 	}
 
 	private int MFE_longestHelixLength = -1, MFE_numBasesPaired = -1;
+	private ArrayList<Point> MFE_pointlist = new ArrayList();
+	/**
+	 * WARNING: allocates a new matrix.
+	 */
+	public double[][] getNussinovMatrixScore(int len1, int len2) {
+		double[][] nussinovScores = new double[len1][len2];
+		for(int y = 0; y < len1; y++){
+			for(int x = 0; x < len2; x++){
+				nussinovScores[y][x] = sMatrix_shared[y][x];
+			}
+		}
+		return nussinovScores;
+	}
+	/**
+	 * WARNING: allocates a new matrix.
+	 */
+	public int[][][] getMFEStructureMatrix() {
+		return sdMatrix_shared;
+	}
+	/**
+	 * WARNING: allocates a new list.
+	 */
+	public ArrayList<Point> getTraceback() {
+		ArrayList<Point> toRet = new ArrayList<Point>();
+		toRet.addAll(MFE_pointlist);
+		return toRet;
+	}
 	public int getLongestHelixLength() {
 		return MFE_longestHelixLength;
 	}

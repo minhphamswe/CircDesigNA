@@ -81,37 +81,36 @@ public abstract class DomainDesigner {
 				final ArrayList<DomainSequence> MustBeVanilla = new ArrayList();
 				final ArrayList<DomainSequence[]> hairpinLoops = new ArrayList();
 				final ArrayList<DomainSequence> hairpinInnards = new ArrayList();
-				int num_domain = -1;
+				int num_domain = 0;
 				TreeMap<Integer, Integer> domain_length_t = new TreeMap<Integer, Integer>();
 				final DomainStructureData dsd = new DomainStructureData();
+				DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
+				num_domain = dsd.domainLengths.length;
 				for(int kq = 0; kq < inputStrands.size(); kq++){
 					String q = inputStrands.get(kq);
 					//DomainDesigner_SharedUtils.utilJunctionSplitter(theJunctions, q);
-					DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
 					String moleculeName = q.split("\\s+")[0];
 					String inputStrand = q.split("\\s+")[1];
 					DomainStructureData.readStructure(moleculeName, inputStrand, dsd);
 					if (dsd.structures==null){
 						throw new RuntimeException("Input strand invalid "+inputStrand);
 					}
-					DomainDesigner_SharedUtils.utilVanillaTargetFinder(dsd, MustBeVanilla);
+					DomainDesigner_SharedUtils.utilSingleStrandedFinder(dsd, MustBeVanilla);
 					DomainDesigner_SharedUtils.utilHairpinInternalsFinder(dsd, hairpinInnards);
 					DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsd, hairpinLoops);
 
-					num_domain = Math.max(num_domain,dsd.domainLengths.length-1);
-
-					for(int i = 0; i < dsd.domainLengths.length; i++){
-						int val = dsd.domainLengths[i];
-						if (val!=-1){
-							domain_length_t.put(i, val);
-						}
+				}
+				for(int i = 0; i < dsd.domainLengths.length; i++){
+					int val = dsd.domainLengths[i];
+					if (val!=-1){
+						domain_length_t.put(i, val);
 					}
 				}
-				if (num_domain==-1){
+				if (num_domain==0){
 					throw new RuntimeException("No valid molecules to design.");
 				}
 				
-				final int num_domain_2 = num_domain+1;
+				final int num_domain_2 = num_domain;
 				final int[] domain_length = new int[num_domain_2];
 
 				if (initial==null){
@@ -424,12 +423,6 @@ public abstract class DomainDesigner {
 			}
 		}
 		
-		//SANITY OF INPUT:
-		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSingleStranded);
-		hairpinInnards.addAll(makeSingleStranded);
-		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinInnards);
-		ArrayList<DomainSequence> preventComplementarity = hairpinInnards;
-		
 		/*
 		System.out.println(seqToSynthesize);
 		for(DomainSequence[] ds : hairpinLoops){
@@ -453,21 +446,6 @@ public abstract class DomainDesigner {
 			domain[i] = cDomain; //initialize to 0s
 			domain_markings[i] = new int[domain_length[i]];
 		}
-		//set up mutation strategy for all domains
-		for(int i = 0; i < num_domain; i++){
-			if (mutators!=null){
-				mutate[i] = mutators.get(i);
-				if (mutate[i]==null){
-					SequenceCode newCode = SequenceCode.getDefaultSequenceCode();
-					DesignSequenceConstraints dsc = DesignSequenceConstraints.getDefaultConstraints();
-					dsd.loadConstraints(i,dsc,false);
-					newCode.setConstraints(dsc);
-					mutate[i] = newCode;
-				}
-			} else {
-				throw new RuntimeException("Mutators cannot be null");
-			}
-		}
 
 		//Initial domains, introducing constraints.
 		if (initial!=null){
@@ -478,7 +456,7 @@ public abstract class DomainDesigner {
 				}
 			}
 		}
-		
+
 		ArrayList<Integer> mutableDomainsL = new ArrayList();
 		for(int i = 0; i < num_domain; i++){
 			boolean mutable = false;
@@ -494,6 +472,22 @@ public abstract class DomainDesigner {
 			}
 		}
 		
+		//set up mutation strategy for all domains
+		for(int i = 0; i < num_domain; i++){
+			if (mutators!=null){
+				mutate[i] = mutators.get(i);
+				if (mutate[i]==null){
+					SequenceCode newCode = SequenceCode.getDefaultSequenceCode();
+					DesignSequenceConstraints dsc = DesignSequenceConstraints.getDefaultConstraints();
+					dsd.loadConstraints(i,dsc,false);
+					newCode.setConstraints(dsc);
+					mutate[i] = newCode;
+				}
+			} else {
+				throw new RuntimeException("Mutators cannot be null");
+			}
+		}
+		
 		//Unconstrained initialization.
 		for(int i = 0; i < num_domain; i++){
 			if (options.rule_ccend_option.getState()){
@@ -503,7 +497,6 @@ public abstract class DomainDesigner {
 			//Will initialize unconstrained portion of domain
 			try {
 				pickInitialSequence(domain,i,mutate[i]);
-				
 			} catch (Throwable e){
 				throw new RuntimeException("Initial conditions were too strict for domain "+dsd.getDomainName(i));
 			}
@@ -541,7 +534,10 @@ public abstract class DomainDesigner {
 		*/
 
 		//List all score calculations.
-		List<ScorePenalty> allScores = listPenalties(makeSingleStranded,preventComplementarity,hairpinLoops,DIR);
+
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSingleStranded);
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinInnards);
+		List<ScorePenalty> allScores = listPenalties(makeSingleStranded,hairpinInnards,hairpinLoops,DIR);
 		System.out.println("Checking "+allScores.size()+" score elements");
 
 		if (allScores.isEmpty()){
@@ -660,9 +656,9 @@ public abstract class DomainDesigner {
 		return num_mut_attempts;
 	}
 	public abstract List<ScorePenalty> listPenalties(
-			List<DomainSequence> makeSingleStranded,
-			ArrayList<DomainSequence> preventComplementarity,
-			List<DomainSequence[]> hairpinLoops, DesignIntermediateReporter DIR) ;
+			List<DomainSequence> singleStrandedRegions,
+			ArrayList<DomainSequence> hairpinInnards,
+			List<DomainSequence[]> hairpinOpenings, DesignIntermediateReporter DIR) ;
 
 	public static final void deepFill(int[][] domain_markings, int i) {
 		for(int[] row : domain_markings){
