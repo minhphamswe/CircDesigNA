@@ -13,6 +13,10 @@ import static DnaDesign.DnaDefinition.noFlags;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+
+/**
+ * Defines the syntax for "Sequence Constraints".
+ */
 public class DesignSequenceConstraints {
 
 	public static final int GCL_FLAG =  0 + DNAFLAG_ADD;

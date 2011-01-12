@@ -1,19 +1,7 @@
 package DnaDesign;
 
-import static DnaDesign.DesignSequenceConstraints.LOCK_FLAG;
-import static DnaDesign.DnaDefinition.A;
-import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.D;
-import static DnaDesign.DnaDefinition.DNAFLAG_ADD;
-import static DnaDesign.DnaDefinition.G;
-import static DnaDesign.DnaDefinition.H;
-import static DnaDesign.DnaDefinition.P;
-import static DnaDesign.DnaDefinition.T;
-
-
 /**
- * This class defines the bases.
- * I needed a place to hold the various properties of DNA.
+ * This class defines the syntax / encoding of DNA, and provides some basic properties (complement)
  */
 public class DnaDefinition {
 	//Explicit definition of DNA: Mapping from a subset of Z to all of DNA

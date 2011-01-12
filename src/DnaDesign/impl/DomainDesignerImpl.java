@@ -12,6 +12,9 @@ import DnaDesign.DomainDesigner_SharedUtils;
 import DnaDesign.DomainSequence;
 import DnaDesign.NAFolding;
 
+/**
+ * Implementation of DomainDesigner
+ */
 public class DomainDesignerImpl extends DomainDesigner{
 
 

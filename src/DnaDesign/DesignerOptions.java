@@ -2,12 +2,19 @@ package DnaDesign;
 
 import DnaDesign.DDSeqDesigner.SeqDesignerOption;
 
-public class DesignerOptions {
 
+/**
+ * A basic set of options for controlling the sequence designer.
+ */
+public class DesignerOptions {
+	/**
+	 * Sets up the default set of options.
+	 */
 	public static DesignerOptions getDefaultOptions() {
 		return new DesignerOptions();
 	}
 	
+
 	public final SeqDesignerOption.Boolean rule_ccend_option = new SeqDesignerOption.Boolean(){
 		public String getDescription() {
 			return "Force domains to begin / end with G or C, where not specified";
@@ -75,11 +82,8 @@ public class DesignerOptions {
 		}
 	};
 	
-	
-
 	//Make sure to update this please.
 	public final SeqDesignerOption[] options = new SeqDesignerOption[]{
 			rule_ccend_option, sort_markings, end_score_threshold, population_size,
 	};
-
 }

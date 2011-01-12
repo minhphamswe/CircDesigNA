@@ -1,7 +1,15 @@
 package DnaDesign.impl;
 
-import DnaDesign.DesignerCode;
+import java.util.Scanner;
 
+import DnaDesign.DesignerCode;
+import DnaDesign.DnaDefinition;
+
+import static DnaDesign.DnaDefinition.displayBase;
+/**
+ * Mutation strategy which allows mutation by swapping out equivalent codons (useful for protein manipulation, without changing
+ * protein code)
+ */
 public class CodonCode implements DesignerCode{
 	public boolean isValid(int[][] domain, int whichDomain) {
 		return domain[whichDomain].length%3==0;
@@ -110,10 +118,20 @@ public class CodonCode implements DesignerCode{
 		int[] out = domain[mutdomain];
 		//Code duplicated from decodeAmino
 		int pow8 = pow8(out,i);
-		char amino = forwardTable[pow8];
-		
-		//k.
-		int[] possible = reverseTable[amino];
+		char amino;
+		int[] possible;
+		try {
+			amino = forwardTable[pow8];
+
+			//k.
+			possible = reverseTable[amino];
+			if (possible.length==0){
+				throw new RuntimeException();
+			}
+		} catch (Throwable e){
+			String codon = displayBase(out[i])+displayBase(out[i+1])+displayBase(out[i+2]);
+			throw new RuntimeException("No such codon: "+codon);
+		}
 		if (possible.length==1){
 			//throw new RuntimeException("Amino "+amino+" has just one codon!");
 			return false; //We can't change this base.
@@ -132,17 +150,121 @@ public class CodonCode implements DesignerCode{
 		out[i+2] = (newPow8)&7;
 		return true;
 	}
-	private char[] forwardTable = new char[512];
-	private int[][] reverseTable = new int['Z'][0];
-	private void writeCodon(int power8Rep, char base){
-		int[] newReverseTable = new int[reverseTable[base].length+1];
-		System.arraycopy(reverseTable[base],0,newReverseTable,0,newReverseTable.length-1);
-		newReverseTable[newReverseTable.length-1] = power8Rep;
-		reverseTable[base] = newReverseTable;
+	private char[] forwardTable;
+	private int[][] reverseTable;
+	private void writeCodon(int power8Rep, char base, boolean oneWayLookup){
+		if (!oneWayLookup){ //If onewaylookup is on, then this base will be converted but never created
+			int[] newReverseTable = new int[reverseTable[base].length+1];
+			System.arraycopy(reverseTable[base],0,newReverseTable,0,newReverseTable.length-1);
+			newReverseTable[newReverseTable.length-1] = power8Rep;
+			reverseTable[base] = newReverseTable;
+		} else {
+			//This happens when we want a large table for compatibility, and a small one for optimization
+		}
 		//Forward
 		forwardTable[power8Rep] = base;
 	}
-	{
+	public CodonCode() {
+		this(defaultTable);
+	}
+	public CodonCode(String customCodonCode) {
+		forwardTable = new char[512];
+		reverseTable = new int['Z'][0];
+		myTable = customCodonCode;
+		parseTable(myTable,false);
+		parseTable(defaultTable,true);
+	}
+	private void parseTable(String table, boolean oneWayLookup){
+		Scanner in = new Scanner(table);
+		while(in.hasNextLine()){
+			String line = in.nextLine().trim();
+			if (line.length()>0){
+				String[] line2 = line.split("\\s+");
+				if (line2[0].length()==3){
+					if (line2[1].length()==1){
+						int[] array = new int[3];
+						for(int i = 0; i < 3; i++){
+							array[i] = DnaDefinition.decodeBaseChar(line2[0].charAt(i));
+						}
+						int pow8 = pow8(array, 0);
+						writeCodon(pow8, line2[1].charAt(0),oneWayLookup);
+					} else {
+						throw new RuntimeException("Invalid one-letter amino: "+line2[1]);
+					}
+				} else {
+					throw new RuntimeException("Invalid codon: "+line2[0]);
+				}
+			}
+		}
+	}
+	private String myTable;
+	public static final String defaultTable = 
+		"GCA A\n"+
+		"GCC A\n"+
+		"GCG A\n"+
+		"GCT A\n"+
+		"TGT C\n"+
+		"TGC C\n"+
+		"GAC D\n"+
+		"GAT D\n"+
+		"GAA E\n"+
+		"GAG E\n"+
+		"TTC F\n"+
+		"TTT F\n"+
+		"GGA G\n"+
+		"GGC G\n"+
+		"GGG G\n"+
+		"GGT G\n"+
+		"CAC H\n"+
+		"CAT H\n"+
+		"TAA *\n"+
+		"TAG *\n"+
+		"TGA *\n"+
+		"ATA I\n"+
+		"ATC I\n"+
+		"ATT I\n"+
+		"AAA K\n"+
+		"AAG K\n"+
+		"CTA L\n"+
+		"CTC L\n"+
+		"CTG L\n"+
+		"CTT L\n"+
+		"TTA L\n"+
+		"TTG L\n"+
+		"ATG M\n"+
+		"AAC N\n"+
+		"AAT N\n"+
+		"CCA P\n"+
+		"CCC P\n"+
+		"CCG P\n"+
+		"CCT P\n"+
+		"CAA Q\n"+
+		"CAG Q\n"+
+		"AGA R\n"+
+		"CGA R\n"+
+		"AGG R\n"+
+		"CGC R\n"+
+		"CGG R\n"+
+		"CGT R\n"+
+		"AGC S\n"+
+		"TCA S\n"+
+		"TCC S\n"+
+		"AGT S\n"+
+		"TCG S\n"+
+		"TCT S\n"+
+		"ACA T\n"+
+		"ACC T\n"+
+		"ACG T\n"+
+		"ACT T\n"+
+		"GTA V\n"+
+		"GTC V\n"+
+		"GTG V\n"+
+		"GTT V\n"+
+		"TGG W\n"+
+		"TAC Y\n"+
+		"TAT Y\n"+
+		"";
+	/*{
 		writeCodon(98,'A');
 		writeCodon(100,'A');
 		writeCodon(97,'A');
@@ -207,5 +329,5 @@ public class CodonCode implements DesignerCode{
 		writeCodon(201,'W');
 		writeCodon(212,'Y');
 		writeCodon(211,'Y');
-	}
+	}*/
 }

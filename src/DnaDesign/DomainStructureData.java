@@ -15,6 +15,9 @@ import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * The structural tree derived from a molecule description string (see the BNF grammar)
+ */
 public class DomainStructureData {
 	public int[] domainLengths;
 	public DomainStructure[] structures;
@@ -430,6 +433,9 @@ public class DomainStructureData {
 	public static class SingleStranded extends DomainStructure {
 		public SingleStranded(int ... whichDomain) {
 			super(whichDomain);
+			if (whichDomain.length>1){
+				System.out.println("MultisingleStrand");
+			}
 		}
 		public void addSubStructure(DomainStructure q) {
 			throw new RuntimeException("Cannot add to Single Stranded Structures");
@@ -445,6 +451,85 @@ public class DomainStructureData {
 			throw new RuntimeException("Cannot add to 3'-5' junc");
 		}
 	}	
+	public String toString(){
+		String lineS = System.getProperty("line.separator");
+		StringBuffer sb = new StringBuffer();
+		for(int k = 0; k < structures.length; k++){
+			sb.append(structures[k].toString());
+			if (k+1<structures.length){
+				sb.append(lineS);
+			}
+		}
+		return sb.toString();
+	}
+	
+	private static class getStructureString_helperClass{
+		private StringBuffer sb;
+		private boolean lastWasThreePrime = true, lastWasItem = false;
+		private DomainStructureData dsd;
+		public getStructureString_helperClass(DomainStructureData dsd){
+			this.dsd = dsd;
+			sb = new StringBuffer();
+			openStructure();
+		}
+		private void openStructure() {
+			if (lastWasThreePrime){
+				sb.append("[");
+			}
+			lastWasThreePrime = false;
+			if (lastWasItem){
+				sb.append("|");
+			}
+			lastWasItem = false;
+		}
+		public String toString(){
+			return sb.toString();
+		}
+		public void previsit(DomainStructure q) {
+			if (q instanceof SingleStranded){
+				openStructure();
+				sb.append(dsd.getDomainName(dsd.domains[q.sequencePartsInvolved[0]]));
+				lastWasItem = true;
+			}
+			if (q instanceof HairpinStem){
+				openStructure();
+				sb.append("(");
+				sb.append(dsd.getDomainName(dsd.domains[q.sequencePartsInvolved[0]]));
+				lastWasItem = true;
+			}
+			if (q instanceof ThreePFivePOpenJunc){
+				lastWasItem = false;
+				openStructure();
+				sb.append("}");
+				lastWasThreePrime = true;
+			}
+		}
+		public void postvisit(DomainStructure q) {
+			//Only has effect on hairpin loops, which have a pre- and post- part.
+			//That is, all other actions occur on the previsit.
+			if (q instanceof HairpinStem){
+				openStructure();
+				sb.append(dsd.getDomainName(dsd.domains[q.sequencePartsInvolved[1]]));
+				sb.append(")");
+				lastWasItem = true;
+			}
+		}
+	}
+	public static String getStructureString(DomainStructureData in){
+		getStructureString_helperClass out = new getStructureString_helperClass(in);
+		for(DomainStructure q : in.structures){
+			getStructureString_r(q,out);
+		}
+		return out.toString();
+	}
+	private static void getStructureString_r(DomainStructure q, getStructureString_helperClass out) {
+		out.previsit(q);
+		for(DomainStructure d : q.subStructure){
+			getStructureString_r(d,out);
+		}
+		out.postvisit(q);
+	}
+
 	public int getDomainLength(int i) {
 		return domainLengths[domains[i]&DNA_SEQ_FLAGSINVERSE];
 	}

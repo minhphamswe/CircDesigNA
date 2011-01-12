@@ -21,8 +21,8 @@ public class PairscoreImplTest {
 			DomainStructureData dsd = new DomainStructureData();
 			seqS.setDomains(0, dsd);
 			seq2S.setDomains(1, dsd);
-			String Seq1 = null;//"GTGTTCTTGA";
-			String Seq2 = null;//"GAGAGGTGGAA";
+			String Seq1 = "ATGCATGC";//"GTGTTCTTGA";
+			String Seq2 = "TACGTACG";//"GAGAGGTGGAA";
 			int seqLength1 = (int)(Math.random()*10+10);
 			int seqLength2 = (int)(Math.random()*10+10);
 			if (Seq1!=null){

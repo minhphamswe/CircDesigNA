@@ -4,6 +4,7 @@ import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Scanner;
@@ -16,9 +17,10 @@ import DnaDesign.DomainStructureData.SingleStranded;
 import DnaDesign.DomainStructureData.ThreePFivePOpenJunc;
 
 /**
- * Somewhat legacy. GUI Translator class.
- * @author Benjamin
- *
+ * Utilities for 
+ * 1) Walking down the structural tree of molecules looking for certain motifs (used for generating penalties)
+ * 2) Cleaning up the output when reporting a solution set (not repeating strands which are equal)
+ * 3) "Duplicate System" feature (for analysis purposes)
  */
 public class DomainDesigner_SharedUtils {
 	/*
@@ -47,8 +49,10 @@ public class DomainDesigner_SharedUtils {
 		}
 		String[] commands = toJunctionize.split("[|]");
 		int[] bases = new int[commands.length];
+		Pattern c = Pattern.compile("[^\\w|*]");
 		for(int i = 0; i < bases.length; i++){
-			commands[i] = commands[i].replaceAll("[^\\w|*]","");
+			Matcher matcher = c.matcher(commands[i]);
+			commands[i] = matcher.replaceAll("");
 			if (commands[i].charAt(commands[i].length()-1)=='*'){
 				bases[i] = dsd.nameMap.get(commands[i].substring(0,commands[i].length()-1));
 				bases[i] |= DNA_COMPLEMENT_FLAG;
@@ -76,16 +80,18 @@ public class DomainDesigner_SharedUtils {
 
 	public static void utilHairpinClosingFinder(DomainStructureData dsd,
 			ArrayList<DomainSequence[]> hairpins) {
-
 		DomainStructure[] dsH = new DomainStructure[3];
 		for(int i = 0; i < dsd.structures.length; i++){
+			//Cyclic rotate in current structure. In other words, sliding window of length 3.
+			//Current pointer is [1].
 			dsH[2] = dsd.structures[i];
 			for(int k = 0; k < 2; k++){
-				dsH[k] = dsH[k+1];
+				dsH[k] = dsH[k+1]; 
 			}
 			if (i+1 < dsd.structures.length){
 				dsH[2] = dsd.structures[i+1];
 			}
+			
 			utilHairpinClosingFinder_R(dsd,dsH,hairpins);
 			//From now on, put in last.
 		}
@@ -103,11 +109,13 @@ public class DomainDesigner_SharedUtils {
 			//null instanceof is always false
 			if (ds[0] instanceof SingleStranded && ds[2] instanceof SingleStranded){
 				//Surrounded by singles - add score.
+				//System.out.println("Found hairpin opening score");
 				addHairpinLoopOpening(ds[2],ds[0],hairpins,dsd);
 			}
 			boolean isBroken = false;
 			DomainStructure[] dsH = new DomainStructure[3];
 			for(int i = 0; i < ds[1].subStructure.size(); i++){
+				//Slding window of length 3, current index is [1].
 				DomainStructure g = dsH[2] = ds[1].subStructure.get(i);
 				for(int k = 0; k < 2; k++){
 					dsH[k] = dsH[k+1];
@@ -126,6 +134,7 @@ public class DomainDesigner_SharedUtils {
 				DomainStructure left = ds[1].subStructure.get(0);
 				DomainStructure right = ds[1].subStructure.get(ds[1].subStructure.size()-1);
 				if (left instanceof SingleStranded && right instanceof SingleStranded){
+					//System.out.println("Found hairpin loop score");
 					addHairpinLoopOpening(left,right,hairpins,dsd);
 				}
 			}

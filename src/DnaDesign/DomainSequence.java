@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import DnaDesign.DomainStructureData.DomainStructure;
 
 
+/**
+ * An abstraction of a DNA strand, interpreted as a list of domains.
+ */
 public class DomainSequence {
 	public static final int DNA_COMPLEMENT_FLAG = 0x8000;
 	public static final int DNA_SEQ_FLAGSINVERSE = ~(DNA_COMPLEMENT_FLAG);

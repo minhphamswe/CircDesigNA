@@ -14,6 +14,9 @@ import java.util.Scanner;
 import DnaDesign.DnaDefinition;
 import DnaDesign.ExperimentDatabase;
 
+/**
+ * The actual Experimental Parameters Database.
+ */
 public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 	public ExperimentalDuplexParamsImpl(){
 		makeTable();

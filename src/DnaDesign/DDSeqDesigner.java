@@ -1,5 +1,12 @@
 package DnaDesign;
 
+
+/**
+ * A model of a running sequence designer (compiler). It is designed to provide real-time updates
+ * about its state.
+ * 
+ * This API is used by the graphic user interface to display the real-time state of the designer.
+ */
 public interface DDSeqDesigner<T extends DesignerOptions> {
 	public interface SeqDesignerOption{
 		public String getDescription();

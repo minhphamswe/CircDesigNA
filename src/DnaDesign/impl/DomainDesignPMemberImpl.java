@@ -6,6 +6,9 @@ import java.util.List;
 import DnaDesign.AbstractDesigner.PopulationDesignMember;
 import DnaDesign.DomainDesigner.ScorePenalty;
 
+/**
+ * Concrete population member.
+ */
 public class DomainDesignPMemberImpl extends PopulationDesignMember<DomainDesignPMemberImpl>{
 	public DomainDesignPMemberImpl designerCopyConstructor() {
 		return new DomainDesignPMemberImpl(null, null, null, null);

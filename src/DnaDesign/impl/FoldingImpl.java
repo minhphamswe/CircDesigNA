@@ -446,7 +446,7 @@ public class FoldingImpl implements NAFolding{
 		}
 		
 		//Traceback?
-		double overCount = foldSingleStranded_traceBack(len1,len2,Smatrix,Cmatrix,gamma3mat,bestI,bestJ,seq,seq2,domain,domain_markings,true);
+		double overCount = foldSingleStranded_traceBack(len1,len2,Smatrix,Cmatrix,gamma3mat,bestI,bestJ,seq,seq2,domain,domain_markings,!fullMatrix);
 		
 		if (debugLCSAlgorithm){
 			for(int k = 0; k < len1; k++){

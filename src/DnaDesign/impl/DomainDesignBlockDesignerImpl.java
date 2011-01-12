@@ -11,6 +11,9 @@ import DnaDesign.DomainStructureData;
 import DnaDesign.AbstractDesigner.BlockDesigner;
 import DnaDesign.DomainDesigner.ScorePenalty;
 
+/**
+ * Implementation of BlockDesigner
+ */
 public class DomainDesignBlockDesignerImpl extends BlockDesigner<DomainDesignPMemberImpl>{
 	
 	public DomainDesignBlockDesignerImpl(int num_domain, int[] domain_length, int[] mutableDomains, DesignerCode[] mutators, DomainStructureData dsd, DomainDesigner domainDesigner){

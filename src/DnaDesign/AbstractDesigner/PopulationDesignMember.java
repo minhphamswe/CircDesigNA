@@ -1,5 +1,8 @@
 package DnaDesign.AbstractDesigner;
 
+/**
+ * A population member for a genetic algorithm inspired designer.
+ */
 public abstract class PopulationDesignMember<T extends PopulationDesignMember> implements Comparable<T> {
 	//Population design members are sorted by number in the population.
 	protected int myID = 0;
