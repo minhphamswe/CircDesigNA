@@ -17,7 +17,7 @@ public class FoldingImplTest1 {
 			FoldingImpl fl = new FoldingImpl();
 			DomainSequence seqS = new DomainSequence();
 			DomainStructureData dsd = new DomainStructureData();
-			seqS.setDomains(0, dsd);
+			seqS.setDomains(0, null);
 			int[][] domain = new int[1][];
 			String seq = "GTGATAGA";
 			int seqLength;

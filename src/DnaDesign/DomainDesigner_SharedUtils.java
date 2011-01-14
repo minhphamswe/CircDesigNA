@@ -4,17 +4,17 @@ import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import DnaDesign.DomainStructureData.DomainStructure;
-import DnaDesign.DomainStructureData.HairpinStem;
-import DnaDesign.DomainStructureData.SingleStranded;
-import DnaDesign.DomainStructureData.ThreePFivePOpenJunc;
+import DnaDesign.DomainStructureBNFTree.DomainStructure;
+import DnaDesign.DomainStructureBNFTree.HairpinStem;
+import DnaDesign.DomainStructureBNFTree.SingleStranded;
+import DnaDesign.DomainStructureBNFTree.ThreePFivePOpenJunc;
 
 /**
  * Utilities for 
@@ -77,9 +77,10 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 
-
-	public static void utilHairpinClosingFinder(DomainStructureData dsd,
-			ArrayList<DomainSequence[]> hairpins) {
+	/**
+	 * (first 2 bases of hairpinLoops[0]) against (last 2 bases of hairpinLoops[1])
+	 * */
+	public static void utilHairpinClosingFinder(DomainStructureBNFTree dsd, ArrayList<DomainSequence[]> hairpins) {
 		DomainStructure[] dsH = new DomainStructure[3];
 		for(int i = 0; i < dsd.structures.length; i++){
 			//Cyclic rotate in current structure. In other words, sliding window of length 3.
@@ -100,7 +101,7 @@ public class DomainDesigner_SharedUtils {
 			utilHairpinClosingFinder_R(dsd,dsH,hairpins);
 		}
 	}
-	private static void utilHairpinClosingFinder_R(DomainStructureData dsd,
+	private static void utilHairpinClosingFinder_R(DomainStructureBNFTree dsd,
 			DomainStructure ds[], ArrayList<DomainSequence[]> hairpins) {
 		if (ds[1].subStructure.isEmpty()){
 			return;
@@ -142,7 +143,7 @@ public class DomainDesigner_SharedUtils {
 	}
 
 	private static void addHairpinLoopOpening(DomainStructure left,
-			DomainStructure right, ArrayList<DomainSequence[]> hairpins, DomainStructureData dsd) {
+			DomainStructure right, ArrayList<DomainSequence[]> hairpins, DomainStructureBNFTree dsd) {
 		DomainSequence leftS = new DomainSequence();
 		DomainSequence rightS = new DomainSequence();
 		leftS.setDomains(left,dsd);
@@ -165,12 +166,12 @@ public class DomainDesigner_SharedUtils {
 		return false;
 	}
 
-	public static void utilHairpinInternalsFinder(DomainStructureData dsd, ArrayList<DomainSequence> hairpinInnards) {
+	public static void utilHairpinInternalsFinder(DomainStructureBNFTree dsd, ArrayList<DomainSequence> hairpinInnards) {
 		for(DomainStructure ds : dsd.structures){
 			utilHairpinInternalsFinder_R(dsd,ds,hairpinInnards);
 		}
 	}
-	private static void utilHairpinInternalsFinder_R(DomainStructureData dsd, DomainStructure ds, ArrayList<DomainSequence> hairpinInnards) {
+	private static void utilHairpinInternalsFinder_R(DomainStructureBNFTree dsd, DomainStructure ds, ArrayList<DomainSequence> hairpinInnards) {
 		if (ds instanceof HairpinStem){
 			DomainStructure bottomStem = null;
 			ArrayList<Integer> left = new ArrayList();
@@ -199,7 +200,10 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 
-	public static void utilSingleStrandedFinder(DomainStructureData dsd,
+	/**
+	 * Finds domain sequences that are in danger of forming secondary structure.
+	 */
+	public static void utilSingleStrandedFinder(DomainStructureBNFTree dsd,
 			ArrayList<DomainSequence> MustBeVanilla) {
 		ArrayList<Integer> freeList = new ArrayList<Integer>();
 		
@@ -215,13 +219,13 @@ public class DomainDesigner_SharedUtils {
 		//Check!
 		for(DomainSequence q : MustBeVanilla){
 			if (checkComplementary(q,q)){
-				throw new RuntimeException("Sequence "+q.toString(dsd)+" contains internal complementarity.");
+				throw new RuntimeException("Sequence "+q.toString(dsd.getDomainDefs())+" contains internal complementarity.");
 			}
 		}
 	}
 	
 	
-	private static void utilSingleStrandedFinder_R(DomainStructureData dsd, DomainStructure ds,
+	private static void utilSingleStrandedFinder_R(DomainStructureBNFTree dsd, DomainStructure ds,
 			ArrayList<DomainSequence> MustBeVanilla, ArrayList<Integer> freeList) {
 
 		//TODO: free strands need to have "hairpins" in the middle.
@@ -367,6 +371,160 @@ public class DomainDesigner_SharedUtils {
 		return toRet;
 	}
 
+	//Algorithms using the Polymer Graph. 
+	
+	public static void utilSingleStrandedFinder(DomainPolymerGraph dsg, ArrayList<DomainSequence> mustBeVanilla) {
+		LinkedList<ArrayList<Integer>> singleStrandedLoops = new LinkedList();
+		singleStrandedLoops.push(new ArrayList());
+		for(int k = 0; k < dsg.length(); k++){
+			int domain = dsg.getDomain(k);
+			int pair = dsg.getDomainPair(k);
+			if (pair<0){
+				singleStrandedLoops.peek().add(domain);
+			} else {
+				if (pair < k){
+					//Loop ending. pop stack.
+					ArrayList<Integer> closedCircuit = singleStrandedLoops.pop();
+					//Need to assume that all molecules end in a 3prime end...
+					addSingleStrandedClosedLoop(closedCircuit,mustBeVanilla, dsg);
+				} else {
+					//Loop beginning. push stack.
+					singleStrandedLoops.push(new ArrayList());
+				}
+			}
+		}
+		addSingleStrandedClosedLoop(singleStrandedLoops.pop(),mustBeVanilla, dsg);
+		if (!singleStrandedLoops.isEmpty()){
+			throw new RuntimeException("Assertion error utilSingleStrandedFinder polymergraph");
+		}
+	}
 
+	/**
+	 * Returns any generalized single stranded regions of the complexes.
+	 */
+	private static void addSingleStrandedClosedLoop(ArrayList<Integer> closedCircuit,ArrayList<DomainSequence> mustBeVanilla, AbstractComplex dsd) {
+		LinkedList<Integer> ThreePrimeEnds = new LinkedList();
+		int ct = 0;
+		for(Integer q : closedCircuit){
+			if (q < 0){
+				ThreePrimeEnds.add(ct);
+			}
+			ct++;
+		}
+		if (ct > 0){
+			if (ThreePrimeEnds.isEmpty()){
+				//Just a single, circular domainsequence
+				DomainSequence made = new DomainSequence();
+				made.setDomains(closedCircuit, dsd);
+				made.setCircular(true);
+				mustBeVanilla.add(made);
+			} else {
+				//Start at each of the 3 prime ends, and wrap around to the next.
+				int firstIndex = ThreePrimeEnds.getFirst();
+				int endIndex = ((firstIndex+1)%closedCircuit.size());
+				ArrayList<Integer> subArray = new ArrayList();
+				boolean wrapAroundCheck = false;
+				for(int t = endIndex; ; t = (t+1)%closedCircuit.size()){
+					if (t==endIndex){
+						if (wrapAroundCheck){
+							break;
+						}
+						wrapAroundCheck = true;
+					}
+					int domain = closedCircuit.get(t);
+					if (domain < 0){
+						if (!subArray.isEmpty()){
+							DomainSequence newSeq = new DomainSequence();
+							newSeq.setDomains(subArray, dsd);
+							mustBeVanilla.add(newSeq);
+							subArray.clear();
+						}
+					} else {
+						subArray.add(domain);
+					}
+				}
+				if (!subArray.isEmpty()){
+					throw new RuntimeException("Assertion error. addSingleStrandedClosedLoop");
+				}
+			}
+		}
+	}
 
+	/**
+	 * Returns domainsequences which are paired in some molecule. This is, in a way, complementary to the "find singleStranded" function
+	 * but it does not have the same complexity of "close" domains (only strictly adjacent on a single strand are considered)
+	 */
+	public static void utilHairpinInternalsFinder(DomainPolymerGraph dsg, ArrayList<DomainSequence> hairpinInnards) {
+		ArrayList<Integer> runningHairpin = new ArrayList();
+		for(int k = 0; k < dsg.length(); k++){
+			int domain = dsg.getDomain(k);
+			int pair = dsg.getDomainPair(k);
+			if (pair >= 0){
+				runningHairpin.add(domain);
+			}
+			//Condition to terminate running hairpin
+			if (pair < 0 || !(k+1 < dsg.length())){
+				if (!runningHairpin.isEmpty()){
+					DomainSequence pairedSequence = new DomainSequence();
+					pairedSequence.setDomains(runningHairpin,dsg);
+					hairpinInnards.add(pairedSequence);
+					runningHairpin.clear();
+				}
+			}
+		}
+	}
+
+	/**
+	 * Add pairs in terms of 
+	 * (first 2 bases of hairpinLoops[0]) against (last 2 bases of hairpinLoops[1])
+	 */
+	public static void utilHairpinClosingFinder(DomainPolymerGraph dsg, ArrayList<DomainSequence[]> hairpinLoops) {
+		//Only add the hairpin closings on the closing of the hairpin (so when the later partner domain is encountered)
+		for(int k = 0; k < dsg.length(); k++){
+			int domain = dsg.getDomain(k);
+			if (domain<0){
+				continue; //Only care about hairpin domains.
+			}
+			int pair = dsg.getDomainPair(k);
+			if (pair >= 0 && pair < k){ //only care about hairpin closing-domains
+				if (pair > 0 && (k+1)<dsg.length()){
+					//Ok, can (pair-1) and (k+1) pair?
+					if (canPair(dsg,pair-1) && canPair(dsg,k+1)){
+						DomainSequence left = new DomainSequence();
+						left.setDomains(dsg.getDomain(pair-1), dsg);
+						DomainSequence right = new DomainSequence();
+						right.setDomains(dsg.getDomain(k+1), dsg);
+						hairpinLoops.add(new DomainSequence[]{right,left});
+					}
+				}
+				if (k > 0 && (pair+1)<dsg.length()){
+					//How about the "inside": (pair+1) and (k-1).
+					if (canPair(dsg,pair+1) && canPair(dsg,k-1)){
+						DomainSequence left = new DomainSequence();
+						left.setDomains(dsg.getDomain(pair+1), dsg);
+						DomainSequence right = new DomainSequence();
+						right.setDomains(dsg.getDomain(k-1), dsg);
+						hairpinLoops.add(new DomainSequence[]{left,right}); //Note the reversal. Its confusing.
+					}
+				}
+			}
+		}
+	}
+
+	private static boolean canPair(DomainPolymerGraph dsg, int i) {
+		//A valid domain and not paired.
+		return ( dsg.getDomain(i)>=0 ) && (dsg.getDomainPair(i) < 0);
+	}
+
+	public static void utilPairsOfDomainsFinder(DomainPolymerGraph dsg, ArrayList<DomainSequence> pairsOfDomains) {
+		for(int k = 0; k < dsg.length()-1; k++){
+			int domain1 = dsg.getDomain(k);
+			int domain2 = dsg.getDomain(k+1);
+			if (domain1 >=0 && domain2 >= 0){
+				DomainSequence newSeq = new DomainSequence();
+				newSeq.setDomains(domain1, domain2, dsg);
+				pairsOfDomains.add(newSeq);
+			}
+		}
+	}
 }

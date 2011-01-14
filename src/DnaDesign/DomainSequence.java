@@ -1,8 +1,9 @@
 package DnaDesign;
 
 import java.util.ArrayList;
+import java.util.List;
 
-import DnaDesign.DomainStructureData.DomainStructure;
+import DnaDesign.DomainStructureBNFTree.DomainStructure;
 
 
 /**
@@ -19,15 +20,22 @@ public class DomainSequence {
 	public int[] domainList = new int[2];
 	public int numDomains = 0;
 	private String moleculeName;
+	private boolean circular = false;
 	public String getMoleculeName(){
 		return moleculeName;
 	}
-	private void setFromDSD(DomainStructureData dsd){
+	private void setFromComplex(AbstractComplex dsd){
 		if (dsd==null){
 			this.moleculeName = "???";
 			return;
 		}
-		this.moleculeName = dsd.moleculeName;
+		this.moleculeName = dsd.getMoleculeName();
+	}
+	public void setCircular(boolean circular){
+		this.circular = circular;
+	}
+	public boolean isCircular(){
+		return circular;
 	}
 	public void appendMoleculeNames(DomainSequence seq) {
 		ArrayList<String> current = new ArrayList();
@@ -48,32 +56,32 @@ public class DomainSequence {
 		}
 		moleculeName = sb.toString();
 	}
-	public void setDomains(int a, DomainStructureData dsd) {
-		setFromDSD(dsd);
+	public void setDomains(int a, AbstractComplex dsd) {
+		setFromComplex(dsd);
 		numDomains = 1;
 		domainList[0] = a;
 	}
-	public void setDomains(int a, int b, DomainStructureData dsd) {
-		setFromDSD(dsd);
+	public void setDomains(int a, int b, AbstractComplex dsd) {
+		setFromComplex(dsd);
 		numDomains = 2;
 		domainList[0] = a;
 		domainList[1] = b;
 	}
-	public void setDomains(ArrayList<Integer> freeList, DomainStructureData dsd) {
-		setFromDSD(dsd);
+	public void setDomains(List<Integer> freeList, AbstractComplex dsd) {
+		setFromComplex(dsd);
 		domainList = new int[freeList.size()];
 		numDomains = freeList.size();
 		for(int k = 0 ; k < numDomains; k++){
 			domainList[k] = freeList.get(k);
 		}
 	}
-	public void setDomains(String subStrand, DomainStructureData dsd) {
-		setFromDSD(dsd);
+	public void setDomains(String subStrand, DomainStructureData dsd, AbstractComplex dsg) {
+		setFromComplex(dsg);
 		domainList = DomainDesigner_SharedUtils.utilReadSequence(subStrand,dsd);
 		numDomains = domainList.length;
 	}
-	public void setDomains(DomainStructure ds,DomainStructureData dsd) {
-		setFromDSD(dsd);
+	public void setDomains(DomainStructure ds, DomainStructureBNFTree dsd) {
+		setFromComplex(dsd);
 		domainList = new int[ds.sequencePartsInvolved.length];
 		for(int i = 0; i < domainList.length; i++){
 			int k = ds.sequencePartsInvolved[i];
@@ -166,6 +174,9 @@ public class DomainSequence {
 			if (i+1<numDomains){
 				sb.append("|");
 			}
+		}
+		if (isCircular()){
+			sb.append(" (circular)");
 		}
 		return sb.toString();
 	}

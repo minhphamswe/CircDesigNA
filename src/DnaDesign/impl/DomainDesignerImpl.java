@@ -221,39 +221,62 @@ public class DomainDesignerImpl extends DomainDesigner{
 
 	public List<ScorePenalty> listPenalties(
 			List<DomainSequence> singleStrandedRegions,
-			ArrayList<DomainSequence> hairpinStems,
-			List<DomainSequence[]> hairpinOpenings, DesignIntermediateReporter DIR) {
-		List<DomainSequence> makeSingleStranded = singleStrandedRegions;
+			List<DomainSequence> hairpinStems,
+			List<DomainSequence[]> hairpinOpenings, 
+			List<DomainSequence> adjacentPairs, DesignIntermediateReporter DIR) {
+
+		List<ScorePenalty> allScores = new ArrayList<ScorePenalty>();
+		
 		List<DomainSequence> preventComplementarity = new ArrayList<DomainSequence>();
-		//Single strand prevention implies complementarity prevention
-		preventComplementarity.addAll(singleStrandedRegions);
-		preventComplementarity.addAll(hairpinStems);
+		//Add pairs of adjacent domains to prevent complementarity?
+		preventComplementarity.addAll(adjacentPairs);
+		
+		List<DomainSequence> makeSingleStranded = singleStrandedRegions;
+		makeSingleStranded.addAll(hairpinStems);
+		
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSingleStranded);
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(preventComplementarity);
 		
-		
-		int i,k;
-		List<ScorePenalty> allScores = new ArrayList<ScorePenalty>();
+		//Todo: varioussequencepenalties needs to work on whole input strands
 		allScores.add(new VariousSequencePenalties(makeSingleStranded,DIR));
-		for(i = 0; i < hairpinOpenings.size(); i++){
+		
+		//Remove duplicates in hairpin openings
+		for(int i = 0; i < hairpinOpenings.size(); i++){
 			DomainSequence[] ds = hairpinOpenings.get(i);
-			allScores.add(new HairpinOpening(ds[0],ds[1],DIR));
+			boolean shouldAdd = true;
+			for(int j = i+1; j < hairpinOpenings.size(); j++){
+				DomainSequence[] other = hairpinOpenings.get(j);
+				boolean same = true;
+				for(int k = 0; k < other.length; k++){
+					if (!ds[k].equals(other[k])){
+						same = false; break;
+					}
+				}
+				if (same){
+					shouldAdd = false;
+					break;
+				}
+			}
+			if (shouldAdd){
+				allScores.add(new HairpinOpening(ds[0],ds[1],DIR));
+			}
 		}
-		for(i = 0; i < makeSingleStranded.size(); i++){
-			DomainSequence ds = makeSingleStranded.get(i); //Only contains singlestranded sequences
+		for(int i = 0; i < makeSingleStranded.size(); i++){
+			DomainSequence ds = makeSingleStranded.get(i);
 			//Secondary structure avoidance.
 			if (!DomainDesigner_SharedUtils.checkComplementary(ds, ds) || ALLOW_COMPLEMENTARY_SCORES){
 				allScores.add(new SelfFold(ds,DIR));
 			}
 		}
-		for(i = 0; i < preventComplementarity.size(); i++){
-			DomainSequence ds = preventComplementarity.get(i); //singlestrands U hairpin insides.
+		for(int i = 0; i < preventComplementarity.size(); i++){
+			DomainSequence ds = preventComplementarity.get(i);
 			if (!designSSonly){
 				//Dimerization
 				if (!DomainDesigner_SharedUtils.checkComplementary(ds, ds)|| ALLOW_COMPLEMENTARY_SCORES){
 					allScores.add(new CrossInteraction(ds,ds,DIR,false));
 				}
 				//Crosstalk.
-				for(k = i+1; k < preventComplementarity.size(); k++){ //Do only upper triangle
+				for(int k = i+1; k < preventComplementarity.size(); k++){ //Do only upper triangle
 					DomainSequence ds2 = preventComplementarity.get(k);
 					if ((!DomainDesigner_SharedUtils.checkComplementary(ds, ds2)|| ALLOW_COMPLEMENTARY_SCORES) && ds != ds2){
 						allScores.add(new CrossInteraction(ds2,ds,DIR,false));

@@ -22,7 +22,7 @@ public class CloverTRnaFoldTest {
 		}
 		DomainStructureData dsd = new DomainStructureData();
 		DomainSequence ds = new DomainSequence();
-		ds.setDomains(0, dsd);
+		ds.setDomains(0, null);
 		System.out.println(na.foldSingleStranded(ds, domain, domainMark));
 	}
 }

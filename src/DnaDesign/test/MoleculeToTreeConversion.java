@@ -4,18 +4,30 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Scanner;
 
+import DnaDesign.AbstractComplex;
+import DnaDesign.DomainPolymerGraph;
+import DnaDesign.DomainStructureBNFTree;
 import DnaDesign.DomainStructureData;
 
 public class MoleculeToTreeConversion {
 	public static void main(String[] args){
-		Collection<DomainStructureData> dsd = getInputTree(2);
-		for(DomainStructureData ds : dsd){
-			System.out.println(DomainStructureData.getStructureString(ds)+"=");
+		Collection<AbstractComplex> dsd = getInputTree(2, GRAPH);
+		for(AbstractComplex ds : dsd){
+			System.out.println(ds.getStructureString()+"=");
+			if (ds instanceof DomainPolymerGraph){
+				DomainPolymerGraph ds2 = (DomainPolymerGraph)ds;
+				Collection<Integer> getStrandRotations = ds2.getStrandRotations();
+				for(int k : getStrandRotations){
+					DomainPolymerGraph rotation = ds2.getRotation(ds2.getMoleculeName()+"x"+k,k);
+					System.out.println(rotation.getStructureString());
+				}
+			}
 			System.out.println(ds);
 			System.out.println("////////");
 		}
 	}
-	public static Collection<DomainStructureData> getInputTree(int numTrees){
+	private static final int BNF = 0, GRAPH = 1, BOTH = 2;
+	public static Collection<AbstractComplex> getInputTree(int numTrees, int structureForm){
 		Scanner in = new Scanner(System.in);
 		System.out.println("Enter in the domain defs, END when finished");
 		StringBuffer domainDefs = new StringBuffer();
@@ -28,7 +40,9 @@ public class MoleculeToTreeConversion {
 			domainDefs.append("\n");
 		}
 		String domainDefsBlock = domainDefs.toString();
-		ArrayList<DomainStructureData> list = new ArrayList();
+		ArrayList<AbstractComplex> list = new ArrayList();
+		DomainStructureData dsd = new DomainStructureData();
+		DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
 		for(int i = 0 ;i < numTrees; i++){
 			System.out.println("Enter the molecule to be converted to a tree");
 			String mol;
@@ -40,10 +54,26 @@ public class MoleculeToTreeConversion {
 			}
 			String[] mol2 = mol.split("\\s+");
 			mol = mol2[mol2.length-1];
-			DomainStructureData dsd = new DomainStructureData();
-			dsd.readDomainDefs(domainDefsBlock, dsd);
-			DomainStructureData.readStructure("A",mol,dsd);
-			list.add(dsd);
+			AbstractComplex dsg;
+			switch(structureForm){
+			case BNF:
+				dsg = new DomainStructureBNFTree(dsd);
+				DomainStructureBNFTree.readStructure("A",mol,(DomainStructureBNFTree) dsg);
+				list.add(dsg);
+				break;
+			case GRAPH:
+				dsg = new DomainPolymerGraph(dsd);
+				DomainPolymerGraph.readStructure("A",mol,(DomainPolymerGraph)dsg);
+				list.add(dsg);
+				break;
+			case BOTH:
+				dsg = new DomainStructureBNFTree(dsd);
+				DomainStructureBNFTree.readStructure("A",mol,(DomainStructureBNFTree) dsg);
+				list.add(dsg);
+				dsg = new DomainPolymerGraph(dsd);
+				DomainPolymerGraph.readStructure("A",mol,(DomainPolymerGraph)dsg);
+				list.add(dsg);
+			}
 		}
 		return list;
 	}

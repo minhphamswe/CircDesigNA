@@ -90,9 +90,12 @@ public abstract class DomainDesigner {
 				final ArrayList<DomainSequence> MustBeVanilla = new ArrayList();
 				final ArrayList<DomainSequence[]> hairpinLoops = new ArrayList();
 				final ArrayList<DomainSequence> hairpinInnards = new ArrayList();
+				final ArrayList<DomainSequence> pairsOfDomains = new ArrayList();
+				
 				int num_domain = 0;
 				TreeMap<Integer, Integer> domain_length_t = new TreeMap<Integer, Integer>();
 				final DomainStructureData dsd = new DomainStructureData();
+				DomainPolymerGraph dsg = new DomainPolymerGraph(dsd);
 				DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
 				num_domain = dsd.domainLengths.length;
 				for(int kq = 0; kq < inputStrands.size(); kq++){
@@ -100,13 +103,14 @@ public abstract class DomainDesigner {
 					//DomainDesigner_SharedUtils.utilJunctionSplitter(theJunctions, q);
 					String moleculeName = q.split("\\s+")[0];
 					String inputStrand = q.split("\\s+")[1];
-					DomainStructureData.readStructure(moleculeName, inputStrand, dsd);
-					if (dsd.structures==null){
+					DomainPolymerGraph.readStructure(moleculeName, inputStrand, dsg);
+					if (dsg.length()==0){
 						throw new RuntimeException("Input strand invalid "+inputStrand);
 					}
-					DomainDesigner_SharedUtils.utilSingleStrandedFinder(dsd, MustBeVanilla);
-					DomainDesigner_SharedUtils.utilHairpinInternalsFinder(dsd, hairpinInnards);
-					DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsd, hairpinLoops);
+					DomainDesigner_SharedUtils.utilSingleStrandedFinder(dsg, MustBeVanilla);
+					DomainDesigner_SharedUtils.utilHairpinInternalsFinder(dsg, hairpinInnards);
+					DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsg, hairpinLoops);
+					DomainDesigner_SharedUtils.utilPairsOfDomainsFinder(dsg, pairsOfDomains);
 				}
 				for(int i = 0; i < dsd.domainLengths.length; i++){
 					int val = dsd.domainLengths[i];
@@ -162,7 +166,7 @@ public abstract class DomainDesigner {
 						timesToRun--;
 						errorResult = null;
 						try {
-							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, MustBeVanilla,mutators,hairpinLoops,hairpinInnards,dir, dsd));
+							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, MustBeVanilla,mutators,hairpinLoops,hairpinInnards,pairsOfDomains,dir, dsd));
 						} catch (Throwable e){
 							e.printStackTrace();
 							errorResult = "Could not start designer: " +e.getMessage()+"";//ensure nonnull
@@ -222,7 +226,7 @@ public abstract class DomainDesigner {
 				boolean alreadyPrintedInMolecule = false;
 				splitLoop: for(String subStrand : a[1].split("}")){
 					DomainSequence ds = new DomainSequence();
-					ds.setDomains(subStrand,dsd);
+					ds.setDomains(subStrand,dsd,null);
 					for(DomainSequence g : alreadyPrintedSequences){
 						if (g.equals(ds)){
 							continue splitLoop;
@@ -419,7 +423,7 @@ public abstract class DomainDesigner {
 	 * @param hairpinInnards 
 	 * @param dsd 
 	 */
-	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> makeSingleStranded, Map<Integer, DesignerCode> mutators, List<DomainSequence[]> hairpinLoops, ArrayList<DomainSequence> hairpinInnards, DesignIntermediateReporter DIR, DomainStructureData dsd) {
+	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> makeSingleStranded, Map<Integer, DesignerCode> mutators, List<DomainSequence[]> hairpinLoops, ArrayList<DomainSequence> hairpinInnards, ArrayList<DomainSequence> adjacentPairs, DesignIntermediateReporter DIR, DomainStructureData dsd) {
 		while (waitForResume && !abort){
 			try {
 				Thread.sleep(100);
@@ -544,7 +548,8 @@ public abstract class DomainDesigner {
 		//Enumerate penalty scores (see FoldingImplTestGUI for a visual of this process) via "listPenalties"
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSingleStranded);
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinInnards);
-		List<ScorePenalty> allScores = listPenalties(makeSingleStranded,hairpinInnards,hairpinLoops,DIR);		
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(adjacentPairs);
+		List<ScorePenalty> allScores = listPenalties(makeSingleStranded,hairpinInnards,hairpinLoops,adjacentPairs,DIR);		
 		System.out.println("Discovered "+allScores.size()+" score elements");
 		if (allScores.isEmpty()){
 			throw new RuntimeException("No scores to optimize : Algorithm has nothing to do!");
@@ -669,8 +674,9 @@ public abstract class DomainDesigner {
 	}
 	public abstract List<ScorePenalty> listPenalties(
 			List<DomainSequence> singleStrandedRegions,
-			ArrayList<DomainSequence> hairpinInnards,
-			List<DomainSequence[]> hairpinOpenings, DesignIntermediateReporter DIR) ;
+			List<DomainSequence> hairpinInnards,
+			List<DomainSequence[]> hairpinOpenings, 
+			List<DomainSequence> pairsAdjacent, DesignIntermediateReporter DIR) ;
 
 	public static final void deepFill(int[][] domain_markings, int i) {
 		for(int[] row : domain_markings){

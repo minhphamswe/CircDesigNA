@@ -372,5 +372,5 @@ public class DesignSequenceConstraints {
 			mut_new[j] = mut_new[j] - noFlags(mut_new[j]) + noFlags(mut_new[swapIndex]);
 			mut_new[swapIndex] = mut_new[swapIndex] - noFlags(mut_new[swapIndex]) + noFlags(tmp);
 		}
-	}	
+	}
 }
