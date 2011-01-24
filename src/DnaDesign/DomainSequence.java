@@ -31,6 +31,9 @@ public class DomainSequence {
 		}
 		this.moleculeName = dsd.getMoleculeName();
 	}
+	/**
+	 * Marks the "circular" flag on this domain sequence.
+	 */
 	public void setCircular(boolean circular){
 		this.circular = circular;
 	}
@@ -152,10 +155,35 @@ public class DomainSequence {
 		}
 		throw new ArrayIndexOutOfBoundsException(i);
 	}
+	public int domainAt(int i, int[][] domain) {
+		int q = i, r = 0;
+		int[] d;
+		for(r = 0; r < numDomains; r++){
+			d = domain[domainList[r] & DNA_SEQ_FLAGSINVERSE];
+			if (q < d.length){
+				return domainList[r];
+			}
+			q-= d.length;
+		}
+		throw new ArrayIndexOutOfBoundsException(i);
+	}
+	public int offsetInto(int i, int[][] domain) {
+		int q = i, r = 0;
+		int[] d;
+		for(r = 0; r < numDomains; r++){
+			d = domain[domainList[r] & DNA_SEQ_FLAGSINVERSE];
+			if (q < d.length){
+				return q;
+			}
+			q-= d.length;
+		}
+		throw new ArrayIndexOutOfBoundsException(i);
+	}
 	/**
 	 * Returns true if this sequence contains domain i, or its complement.
 	 */
 	public boolean contains(int i) {
+		i &= DNA_SEQ_FLAGSINVERSE;
 		for(int k = 0; k < numDomains; k++){
 			if ((domainList[k] & DNA_SEQ_FLAGSINVERSE) == i){
 				return true;
@@ -202,5 +230,26 @@ public class DomainSequence {
 			}
 		}
 		return true;
+	}
+	public boolean isSubsequenceOf(DomainSequence q) {
+		int len1 = numDomains;
+		int len2 = q.numDomains;
+		for(int i = 0; i < len2; i++){
+			boolean isSubsequence = true;
+			for(int j = 0; j < len1; j++){
+				if (i+j>=len2){
+					isSubsequence = false;
+					break;
+				}
+				if (q.domainList[i+j]!=domainList[j]){
+					isSubsequence = false;
+					break;
+				}
+			}
+			if (isSubsequence){
+				return true;
+			}
+		}
+		return false;
 	}
 }

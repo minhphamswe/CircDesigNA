@@ -63,14 +63,14 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 						}
 						qb.remove();
 					} else {
-						//need to backup.
+						//a backup was performed.
+					}
+					if(runner.abort){
+						break;
 					}
 				}
 			//}
 			if (blockIterationLevel.size()<populationSize*.5){
-				break;
-			}
-			if(runner.abort){
 				break;
 			}
 			if (param_iterationShortcut>=0){

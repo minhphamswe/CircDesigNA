@@ -77,6 +77,21 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 
+	public static void utilRemoveSubsequences(
+			List<DomainSequence> seqs) {
+		ListIterator<DomainSequence> itr = seqs.listIterator();
+		big: while(itr.hasNext()){
+			DomainSequence seq = itr.next();
+			for(DomainSequence q : seqs){
+				if (q!=seq && seq.isSubsequenceOf(q)){
+					q.appendMoleculeNames(seq);
+					itr.remove();
+					continue big;
+				}
+			}
+		}
+	}
+
 	/**
 	 * (first 2 bases of hairpinLoops[0]) against (last 2 bases of hairpinLoops[1])
 	 * */
@@ -516,6 +531,29 @@ public class DomainDesigner_SharedUtils {
 		return ( dsg.getDomain(i)>=0 ) && (dsg.getDomainPair(i) < 0);
 	}
 
+	/**
+	 * Returns a 1 if the loop (i,j) is a loop connecting a base of a domain to the corresponding base in its reverse complement, and 0 otherwise. 
+	 */
+	public static int isAlignedAndShouldPair(DomainSequence ds1,
+			int i, DomainSequence ds2, int j, int[][] domains) {
+		int domain1 = ds1.domainAt(i, domains);
+		int domain2 = ds2.domainAt(j, domains);
+		if (areComplementary(domain1,domain2)){
+			int domain = domain1 & DNA_SEQ_FLAGSINVERSE;
+			
+			int offset1 = ds1.offsetInto(i, domains);
+			int offset2 = ds2.offsetInto(j, domains);
+			if (offset1 == (domains[domain].length - 1 - offset2)){
+				return 1;
+			}
+		}
+		return 0;
+	}
+	
+	private static boolean areComplementary(int domain1, int domain2) {
+		return (domain1 ^ DNA_COMPLEMENT_FLAG)==domain2;
+	}
+
 	public static void utilPairsOfDomainsFinder(DomainPolymerGraph dsg, ArrayList<DomainSequence> pairsOfDomains) {
 		for(int k = 0; k < dsg.length()-1; k++){
 			int domain1 = dsg.getDomain(k);
@@ -525,6 +563,34 @@ public class DomainDesigner_SharedUtils {
 				newSeq.setDomains(domain1, domain2, dsg);
 				pairsOfDomains.add(newSeq);
 			}
+		}
+	}
+
+	public static void utilSingleDomainsWithOverlap(DomainPolymerGraph dsg,
+			ArrayList<DomainSequence> singleDomainsWithOverlap,
+			int overlap_length) {
+		for(int k = 0; k < dsg.length(); k++){
+			int domain1 = dsg.getDomain(k);
+			if (domain1<0) continue; //End of strand
+			int leftOverlap = overlap_length;
+			int rightOverlap = overlap_length;
+			LinkedList<Integer> overlapSequence = new LinkedList<Integer>();
+			for (int domainLeft = k-1; domainLeft>=0 && leftOverlap>0; domainLeft--){
+				int lDomain = dsg.getDomain(domainLeft);
+				if (lDomain<0) break; //End of strand
+				overlapSequence.addFirst(lDomain);
+				leftOverlap -= dsg.getDomainDefs().domainLengths[lDomain & DNA_SEQ_FLAGSINVERSE];
+			}
+			overlapSequence.add(domain1);
+			for(int domainRight = k+1; domainRight<dsg.length() && rightOverlap>0; domainRight++){
+				int rDomain = dsg.getDomain(domainRight);
+				if (rDomain<0) break; //End of strand
+				overlapSequence.add(rDomain);
+				rightOverlap -= dsg.getDomainDefs().domainLengths[rDomain & DNA_SEQ_FLAGSINVERSE];
+			}
+			DomainSequence toAdd = new DomainSequence();
+			toAdd.setDomains(overlapSequence, dsg);
+			singleDomainsWithOverlap.add(toAdd);
 		}
 	}
 }

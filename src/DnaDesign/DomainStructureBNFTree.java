@@ -11,6 +11,16 @@ import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * A much less useful representation of a domain structure than the polymer graph.
+ * 
+ * This one does NOT generalize to pseudoknotted structures. It is also not obvious how to
+ * perform "cyclic rotations" on this tree-type structure.
+ * 
+ * Thus, it is used very little except for the graphics routines, where it is convenient.
+ * 
+ * @author Benjamin
+ */
 public class DomainStructureBNFTree implements AbstractComplex{
 	private DomainStructureData domainDefs;
 	public String moleculeName;

@@ -15,11 +15,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
- * Defines the syntax for "Sequence Constraints".
+ * Defines the syntax for "Sequence Constraints". Includes a scheme for mutating bases such that the sequence remains in the
+ * sequence space.
  */
 public class DesignSequenceConstraints {
 
 	public static final int GCL_FLAG =  0 + DNAFLAG_ADD;
+	/**
+	 * Use ADDITION, not bitwise oring, when applying flags.
+	 */
 	public static final int LOCK_FLAG = GCL_FLAG + DNAFLAG_ADD;
 
 	public static DesignSequenceConstraints getDefaultConstraints() {

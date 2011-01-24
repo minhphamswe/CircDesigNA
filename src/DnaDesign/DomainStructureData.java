@@ -13,7 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The structural tree derived from a molecule description string (see the BNF grammar)
+ * The information parsed from the DomainDefs block is encoded in an object of this class.
  */
 public class DomainStructureData {
 	/**
@@ -240,7 +240,7 @@ public class DomainStructureData {
 	}
 
 	
-	private int parsePercent(String percent, int of, boolean roundUp){
+	private static int parsePercent(String percent, int of, boolean roundUp){
 		boolean isP = percent.endsWith("%");
 		boolean isF = percent.contains(".");
 		if (isP || isF){

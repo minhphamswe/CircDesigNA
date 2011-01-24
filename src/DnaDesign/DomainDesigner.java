@@ -63,14 +63,14 @@ public abstract class DomainDesigner {
 		private boolean finished = false;
 		
 		DomainDesigner r;
-		private List<String> inputStrands;
+		private List<String> inputMolecules;
 		private String domainDefsBlock,customCodonCode;
 		private Map<Integer, String> lock;
 		private Map<Integer, String> initial;
 		private Map<Integer, DesignerCode> mutators;
 		private DesignIntermediateReporter dir;
 		public DomainDesigner_Public(List<String> inputStrands, String domainDefsBlock, String customCodonCode, Map<Integer, String> lock, Map<Integer, String> initial, Map<Integer, DesignerCode> mutators){
-			this.inputStrands = inputStrands;
+			this.inputMolecules = inputStrands;
 			this.domainDefsBlock = domainDefsBlock;
 			this.lock = lock;
 			this.initial = initial;
@@ -87,30 +87,22 @@ public abstract class DomainDesigner {
 		 */
 		private Runnable runOnStart = new Runnable(){
 			public void run(){			
-				final ArrayList<DomainSequence> MustBeVanilla = new ArrayList();
-				final ArrayList<DomainSequence[]> hairpinLoops = new ArrayList();
-				final ArrayList<DomainSequence> hairpinInnards = new ArrayList();
-				final ArrayList<DomainSequence> pairsOfDomains = new ArrayList();
 				
+				//Read domainDefs
 				int num_domain = 0;
 				TreeMap<Integer, Integer> domain_length_t = new TreeMap<Integer, Integer>();
 				final DomainStructureData dsd = new DomainStructureData();
-				DomainPolymerGraph dsg = new DomainPolymerGraph(dsd);
 				DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
 				num_domain = dsd.domainLengths.length;
-				for(int kq = 0; kq < inputStrands.size(); kq++){
-					String q = inputStrands.get(kq);
+				
+				//Read molecules
+				final AbstractDomainDesignTarget designTarget = new AbstractDomainDesignTarget(dsd);
+				for(int kq = 0; kq < inputMolecules.size(); kq++){
+					String q = inputMolecules.get(kq);
 					//DomainDesigner_SharedUtils.utilJunctionSplitter(theJunctions, q);
 					String moleculeName = q.split("\\s+")[0];
 					String inputStrand = q.split("\\s+")[1];
-					DomainPolymerGraph.readStructure(moleculeName, inputStrand, dsg);
-					if (dsg.length()==0){
-						throw new RuntimeException("Input strand invalid "+inputStrand);
-					}
-					DomainDesigner_SharedUtils.utilSingleStrandedFinder(dsg, MustBeVanilla);
-					DomainDesigner_SharedUtils.utilHairpinInternalsFinder(dsg, hairpinInnards);
-					DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsg, hairpinLoops);
-					DomainDesigner_SharedUtils.utilPairsOfDomainsFinder(dsg, pairsOfDomains);
+					designTarget.addTargetStructure(moleculeName,inputStrand);
 				}
 				for(int i = 0; i < dsd.domainLengths.length; i++){
 					int val = dsd.domainLengths[i];
@@ -166,7 +158,7 @@ public abstract class DomainDesigner {
 						timesToRun--;
 						errorResult = null;
 						try {
-							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, MustBeVanilla,mutators,hairpinLoops,hairpinInnards,pairsOfDomains,dir, dsd));
+							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, mutators, designTarget, dir, dsd));
 						} catch (Throwable e){
 							e.printStackTrace();
 							errorResult = "Could not start designer: " +e.getMessage()+"";//ensure nonnull
@@ -221,7 +213,7 @@ public abstract class DomainDesigner {
 			sb.append(lR);
 			sb.append("Molecular Substrands:");
 			sb.append(lR);	
-			for(String q : inputStrands){
+			for(String q : inputMolecules){
 				String a[] = q.split("\\s+");
 				boolean alreadyPrintedInMolecule = false;
 				splitLoop: for(String subStrand : a[1].split("}")){
@@ -253,7 +245,7 @@ public abstract class DomainDesigner {
 		private void printSequence(StringBuffer sb, DomainDesigner r2, DomainSequence ds, boolean withSeperator) {
 			if (withSeperator)
 				sb.append("[");
-			for(int k = 0; k < ds.domainList.length; k++){
+			for(int k = 0; k < ds.numDomains; k++){
 				String domain = r.outputDomains[ds.domainList[k] & DNA_SEQ_FLAGSINVERSE];
 				if ((ds.domainList[k] & DNA_COMPLEMENT_FLAG)!=0){
 					domain = revComp(domain);
@@ -410,9 +402,22 @@ public abstract class DomainDesigner {
 		}
 		public abstract ScorePenalty clone();
 		public abstract double evalScoreSub(int[][] domain, int[][] domain_markings);
-		public abstract boolean affectedBy(int domain);
+		public boolean affectedBy(int domain){
+			for(DomainSequence q : getSeqs()){
+				if (q.contains(domain)){
+					return true;
+				}
+			}
+			return false;
+		}
 		public abstract DomainSequence[] getSeqs();
-		public abstract int getNumDomainsInvolved();
+		public int getNumDomainsInvolved(){
+			int sum = 0;
+			for(DomainSequence q : getSeqs()){
+				sum += q.numDomains;
+			}
+			return sum;
+		}
 		public abstract int getPriority();
 	}
 	
@@ -423,7 +428,7 @@ public abstract class DomainDesigner {
 	 * @param hairpinInnards 
 	 * @param dsd 
 	 */
-	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, List<DomainSequence> makeSingleStranded, Map<Integer, DesignerCode> mutators, List<DomainSequence[]> hairpinLoops, ArrayList<DomainSequence> hairpinInnards, ArrayList<DomainSequence> adjacentPairs, DesignIntermediateReporter DIR, DomainStructureData dsd) {
+	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, Map<Integer, DesignerCode> mutators, AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, DomainStructureData dsd) {
 		while (waitForResume && !abort){
 			try {
 				Thread.sleep(100);
@@ -435,19 +440,6 @@ public abstract class DomainDesigner {
 		System.out.println("           CircDesigNA");
 		System.out.println("----------------------------------");
 		System.out.println("Designer started on "+new Date());
-		
-		
-		/*
-		System.out.println(seqToSynthesize);
-		for(DomainSequence[] ds : hairpinLoops){
-			System.out.print(Arrays.toString(ds));
-		}
-		System.out.println();
-		*/
-		//DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinLoops);
-		
-		//System.out.println(seqToSynthesize.size());
-
 		
 		//Domains to be designed. The integer type is being used to hold DNA bases,
 		//with additional metadata (multiples of 10 are added to mean certain things)
@@ -546,10 +538,7 @@ public abstract class DomainDesigner {
 		*/
 
 		//Enumerate penalty scores (see FoldingImplTestGUI for a visual of this process) via "listPenalties"
-		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSingleStranded);
-		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinInnards);
-		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(adjacentPairs);
-		List<ScorePenalty> allScores = listPenalties(makeSingleStranded,hairpinInnards,hairpinLoops,adjacentPairs,DIR);		
+		List<ScorePenalty> allScores = listPenalties(designTarget,DIR);		
 		System.out.println("Discovered "+allScores.size()+" score elements");
 		if (allScores.isEmpty()){
 			throw new RuntimeException("No scores to optimize : Algorithm has nothing to do!");
@@ -673,10 +662,7 @@ public abstract class DomainDesigner {
 		return num_mut_attempts;
 	}
 	public abstract List<ScorePenalty> listPenalties(
-			List<DomainSequence> singleStrandedRegions,
-			List<DomainSequence> hairpinInnards,
-			List<DomainSequence[]> hairpinOpenings, 
-			List<DomainSequence> pairsAdjacent, DesignIntermediateReporter DIR) ;
+			AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR) ;
 
 	public static final void deepFill(int[][] domain_markings, int i) {
 		for(int[] row : domain_markings){
@@ -714,30 +700,6 @@ public abstract class DomainDesigner {
 			break;
 		}
 		
-		/*
-		int lessATthanGC = 0;
-		for(int i = 0; i < domain.length; i++){
-			if (domain[i] >= DNAFLAG_ADD){
-				lessATthanGC+=isGClessAT(domain[i]);
-			}
-		}
-		for(int i = 0; i < domain.length; i++){
-			int newBase = 0;
-			if (i > 0){
-				newBase = (((domain[i-1]%DNAFLAG_ADD))%2); //Ensure alternating
-			}
-			if (Math.abs(lessATthanGC)>0){
-				newBase = newBase==0?T:A;
-			} else { 
-				newBase = newBase==0?G:C;
-			}
-			if (domain[i]==0){
-				domain[i] = newBase;
-
-				lessATthanGC+=isGClessAT(domain[i]);
-			}
-		}
-		*/
 	}
 
 
@@ -774,7 +736,7 @@ public abstract class DomainDesigner {
 			int[] domain_length, int[][] domain_markings, DesignerCode mutator, int min_mutations, int max_mutations) {
 		int len = domain_length[mut_domain];
 
-		//Count the ones
+		//Count the bases to mutate (1's in the "markings" array)
 		int oneC = 0;
 		
 		//How many mutations will we try now?
@@ -925,8 +887,11 @@ public abstract class DomainDesigner {
 	//x1: locked. x2: GCLG / GCLC flag.
 	
 	public static int getLockedBase(char charAt) {
-		return decodeConstraintChar(charAt)%DNAFLAG_ADD+DNAFLAG_ADD*1;
+		return noFlags(decodeConstraintChar(charAt))+LOCK_FLAG;
 	}
+	/**
+	 * String wrapping. Used for outputting large strings.
+	 */
 	private static String wrap(String q, int i){
 		StringBuffer out = new StringBuffer();
 		for(int d = 0; d < q.length(); d+=i){

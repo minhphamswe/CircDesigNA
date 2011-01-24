@@ -56,8 +56,8 @@ public class PairscoreImplTest {
 			}
 			for(int k = 0; k < domainMark.length; k++)Arrays.fill(domainMark[k],0);
 			for(int k = 0; k < domainMark2.length; k++)Arrays.fill(domainMark2[k],0);
-			final double viaMatrix = fl.pairscore_viaMatrix(seqS, seq2S, domain, domainMark);
-			final double viaUnafold = fl.pairscore_viaUnafold(seqS, seq2S, domain, domainMark2);
+			final double viaMatrix = fl.mfeHybridDeltaG_viaMatrix(seqS, seq2S, domain, domainMark);
+			final double viaUnafold = fl.mfeHybridDeltaG_viaUnafold(seqS, seq2S, domain, domainMark2);
 			//System.out.println(Arrays.deepToString(domainMark));
 			if ((viaUnafold-viaMatrix)>2){
 				System.out.println(Arrays.deepToString(domainMark));

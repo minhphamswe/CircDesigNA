@@ -7,6 +7,12 @@ import static DnaDesign.DnaDefinition.T;
 import static DnaDesign.DnaDefinition.displayBase;
 
 import java.awt.Point;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -38,7 +44,13 @@ public class FoldingImpl implements NAFolding{
 	/**
 	 * Use Unafold to evaluate selffolding score?
 	 */
-	private boolean FOLD_VIA_UNAFOLD = false;
+	private int mfeMODE = SELF;
+	private int pairPrMODE = NUPACK;
+	private static final int NUPACK = 0, VIENNARNA=1, UNAFOLD=2, SELF=3;
+
+	private static final String absPathToHybridSSMinMod =  "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-ss-min.exe\" -q ";
+	private static final String absPathToHybridMinMod = "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-min.exe\" -q ";
+	
 	int rule_4g, rule_6at;
 	{
 		//DEFAULTS:
@@ -182,18 +194,18 @@ public class FoldingImpl implements NAFolding{
 		return sumResult;
 	}
 
-	public double pairscore(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] problemAreas) {
-		if (FOLD_VIA_UNAFOLD){
+	public double mfeHybridDeltaG(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] problemAreas) {
+		if (mfeMODE==UNAFOLD){
 			//0 is the target (so shift the score to make it 0) for unafold delta G output 
-			return Math.max(pairscore_viaUnafold(seq1, seq2, domain, problemAreas) - (0), -1);
+			return Math.max(mfeHybridDeltaG_viaUnafold(seq1, seq2, domain, problemAreas) - (0), -1);
 		} else {
-			return Math.max(pairscore_viaMatrix(seq1,seq2,domain,problemAreas) - (0), 0) ;
+			return Math.max(mfeHybridDeltaG_viaMatrix(seq1,seq2,domain,problemAreas) - (0), 0) ;
 		}
 	}
 
 	
-	public double foldSingleStranded(DomainSequence seq, int[][] domain, int[][] domain_markings){
-		if (FOLD_VIA_UNAFOLD){
+	public double mfeSSDeltaG(DomainSequence seq, int[][] domain, int[][] domain_markings){
+		if (mfeMODE==UNAFOLD){
 			//0 is the target (so shift the score to make it 0) for unafold delta G output 
 			return Math.max(foldSingleStranded_viaUnafold(seq, domain, domain_markings) - (0),-1);
 		} else {
@@ -225,7 +237,7 @@ public class FoldingImpl implements NAFolding{
 			gamma3mat_shared = new double[len1][len2];
 		}
 	}
-	public double pairscore_viaUnafold(DomainSequence ds, DomainSequence ds2, int[][] domain, int[][] domain_markings) {
+	public double mfeHybridDeltaG_viaUnafold(DomainSequence ds, DomainSequence ds2, int[][] domain, int[][] domain_markings) {
 		StringBuffer create = new StringBuffer();
 		int len = ds.length(domain);
 		for(int k = 0; k < len; k++){
@@ -290,10 +302,6 @@ public class FoldingImpl implements NAFolding{
 		}
 		throw new RuntimeException();
 	}
-	
-	private static final String absPathToHybridSSMinMod =  "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-ss-min.exe\" -q ";
-	private static final String absPathToHybridMinMod = "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-min.exe\" -q ";
-	
 	public double foldSingleStranded_viaUnafold(DomainSequence seq, int[][] domain, int[][] domain_markings) {
 		StringBuffer create = new StringBuffer();
 		int len = seq.length(domain);
@@ -374,7 +382,7 @@ public class FoldingImpl implements NAFolding{
 			}
 		}		
 	}
-	public double pairscore_viaMatrix(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings) {
+	public double mfeHybridDeltaG_viaMatrix(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings) {
 		return foldNA_viaMatrix(seq1, seq2, domain, domain_markings, true);
 	}
 	public double foldSingleStranded_viaMatrix(DomainSequence seq, int[][] domain, int[][] domain_markings) {
@@ -679,5 +687,103 @@ public class FoldingImpl implements NAFolding{
 	private double max(double gamma1, double gamma2, double gamma3) {
 		return Math.max(Math.max(gamma1,gamma2),gamma3); 
 	}
+	
+	//// Pair Probability functions - Currently not implemented or used.
+	
+	public void pairPrHybrid(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain) {
+		if (pairPrMODE==NUPACK){
+			pairPr_viaNUPACK(pairsOut, new DomainSequence[]{seq1,seq2}, domain);
+		}
+	}
 
+	public void pairPrSS(double[][] pairsOut, DomainSequence seq, int[][] domain) {
+		if (pairPrMODE==NUPACK){
+			pairPr_viaNUPACK(pairsOut, new DomainSequence[]{seq}, domain);
+		}
+	}
+	private static int ct = 0;
+	private NupackRuntime NUPACKLINK = null;
+	private static class NupackRuntime {
+		public Process exec;
+		public Scanner in;
+		public PrintWriter out;
+		public void finalize() {
+			exec.destroy();
+			in.close();
+			out.close();
+		}
+	}
+	public void pairPr_viaNUPACK(double[][] pairsOut, DomainSequence[] seqs, int[][] domain) {
+		try {
+			System.out.println("Going to nupack"+ct++);
+			
+			if (NUPACKLINK==null){
+				NUPACKLINK = new NupackRuntime();
+				NUPACKLINK.exec = Runtime.getRuntime().exec("/home/Benjamin/Code/C/nupack3.0/bin/pairs -T 37 -material dna -cutoff 0.001 -multi", new String[]{"NUPACKHOME=/home/Benjamin/Code/C/nupack3.0"});
+				NUPACKLINK.out = new PrintWriter(new OutputStreamWriter(new BufferedOutputStream(NUPACKLINK.exec.getOutputStream())));
+				NUPACKLINK.in = new Scanner(new BufferedInputStream(NUPACKLINK.exec.getInputStream()));
+			}
+
+			NUPACKLINK.out.println("output");
+			NUPACKLINK.out.println(seqs.length);
+			
+			int N = 0;
+			for(int i = 0; i < seqs.length; i++){
+				int seqLen = seqs[i].length(domain);
+				for(int k = 0; k < seqLen; k++){
+					NUPACKLINK.out.print(DnaDefinition.displayBase(seqs[i].base(k, domain)));
+				}
+				N += seqLen;
+				NUPACKLINK.out.println();
+			}
+			//Clear probability matrix
+			for(int i = 0; i < N; i++){
+				for(int j = 0; j < N+1; j++){
+					pairsOut[i][j] = 0;
+				}
+			}
+			for(int i = 0; i < seqs.length; i++){
+				NUPACKLINK.out.print((i+1)+" ");
+			}
+			NUPACKLINK.out.println();
+			
+			if (true){
+				while(NUPACKLINK.in.hasNextLine()){
+					String line = NUPACKLINK.in.nextLine();
+					System.out.println(line);
+					if (line.equals("DONE")){
+						break;
+					}
+				}
+			}
+			
+			Scanner in2;
+			if (seqs.length==1){
+				in2 = new Scanner(new File("output.ppairs"));
+			} else {
+				in2 = new Scanner(new File("output.epairs"));
+			}
+			while(in2.hasNextLine()){
+				String line[] = in2.nextLine().trim().split("\\s+");
+				if (line.length==3){
+					if (line[0].startsWith("%")){
+						continue;
+					}
+					int iB = new Integer(line[0])-1;
+					int jB = new Integer(line[1])-1;
+					pairsOut[iB][jB] = new Double(line[2]);
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		/*
+		for(int k = 0; k < length1; k++){
+			for(int j = k; j < length1; j++){
+				pairsOut[k][j] = Math.random();
+				pairsOut[j][k] = Math.random(); 
+			}	
+		}
+		*/
+	}
 }

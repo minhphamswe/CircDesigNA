@@ -2,9 +2,10 @@ package DnaDesign.impl;
 
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
+import DnaDesign.AbstractDomainDesignTarget;
 import DnaDesign.DesignIntermediateReporter;
 import DnaDesign.DnaDefinition;
 import DnaDesign.DomainDesigner;
@@ -16,18 +17,6 @@ import DnaDesign.NAFolding;
  * Implementation of DomainDesigner
  */
 public class DomainDesignerImpl extends DomainDesigner{
-
-
-	/**
-	 * Use the evaluator only to remove ss, don't care about dimers and so forth.
-	 */
-	private boolean designSSonly = false;
-	/**
-	 * Treshold ("green light" score) and weight for single stranded, hybridization scores.
-	 * Todo: actual genetic algorithm that adjusts these over time.
-	 */
-	private double singleStrand_Threshold = 0.0, hybridStrands_Threshold = 0;
-	private double singleStrand_Weight = 4.0, hybridStrands_Weight = 1.0;
 	
 	private NAFolding flI;
 	/**
@@ -38,55 +27,38 @@ public class DomainDesignerImpl extends DomainDesigner{
 	 * If designSSonly is true, only SingleStrandedAssurance will be used; As a result, crosstalk and dimerization may occur
 	 * in solution candidates.
 	 */
-	public DomainDesignerImpl(NAFolding foldingImpl, boolean designSSonly) {
-		this.designSSonly = designSSonly;
+	public DomainDesignerImpl(NAFolding foldingImpl) {
 		this.flI = foldingImpl;
 	}
 
-	public DomainDesignerImpl(FoldingImpl foldingImpl) {
-		this(foldingImpl,false);
-	}
-
-	public class CrossInteraction extends ScorePenalty { 
-		public CrossInteraction(DomainSequence ds, DomainSequence ds2, DesignIntermediateReporter dir, boolean invert){
+	public class MFEHybridScore extends ScorePenalty { 
+		private boolean entropicBonus = false;
+		public MFEHybridScore(DomainSequence ds, DomainSequence ds2, DesignIntermediateReporter dir, boolean b){
 			super(dir);
 			this.ds = new DomainSequence[]{ds,ds2};
-			for(DomainSequence q : getSeqs()){
-				numDomains += q.numDomains;
-			}
-			numDomains /= getSeqs().length;
 			chooseScore(dir);
-			invertScore = invert;
+			entropicBonus = b;
 		}		
-		private boolean invertScore;
 		public int getPriority(){
-			return 2;
+			return 0;
 		}
-		private int numDomains;
 		private DomainSequence[] ds;
+		//This seems too low.
+		private final double BIMOLECULAR = -.513;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double deltaG = (flI.pairscore(ds[0],ds[1],domain,null)-hybridStrands_Threshold)*hybridStrands_Weight;
+			double deltaG = (flI.mfeHybridDeltaG(ds[0],ds[1],domain,null))+(entropicBonus?-BIMOLECULAR:0);
 			int longestHelixLength = flI.getLongestHelixLength();
 			int numBasesPaired = flI.getNumBasesPaired();
 			double normal = longestHelixLength*numBasesPaired;
 			//Compute the length of the longest helix found.
 			normal = normal*Math.max(0,deltaG);
-			if (invertScore){
-				return -normal+50; //Scores will go negative very quickly.
-			}
 			return normal;
-		}
-		public boolean affectedBy(int domain) {
-			return ds[0].contains(domain) || ds[1].contains(domain);
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
 		}
-		public int getNumDomainsInvolved() {
-			return numDomains;
-		}
 		public ScorePenalty clone() {
-			CrossInteraction ci = new CrossInteraction(ds[0],ds[1],dir,invertScore);
+			MFEHybridScore ci = new MFEHybridScore(ds[0],ds[1],dir,entropicBonus);
 			ci.old_score = old_score;
 			ci.cur_score = cur_score;
 			return ci;
@@ -159,7 +131,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		public double evalScoreSub(int[][] domain, int[][] domain_markings) {
 			double sum = 0;
 			for(int i = 0; i < domain.length; i++){
-				sum += flI.affectedSequenceInvalidScore(i, seqs, domain, domain_markings)*100;
+				sum += flI.affectedSequenceInvalidScore(i, seqs, domain, domain_markings);
 			}
 			return sum;
 		}
@@ -169,7 +141,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 
 		public int getPriority() {
-			return 2;
+			return 1;
 		}
 
 		public DomainSequence[] getSeqs() {
@@ -177,16 +149,10 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 	}
 	
-	//TODO: deliberate paring score.
-	
 	public class SelfFold extends ScorePenalty { 
 		public SelfFold(DomainSequence ds, DesignIntermediateReporter dir){
 			super(dir);
 			this.ds = new DomainSequence[]{ds};
-			for(DomainSequence q : getSeqs()){
-				numDomains += q.numDomains;
-			}
-			numDomains /= getSeqs().length;
 			chooseScore(dir);
 		}
 		public ScorePenalty clone() {
@@ -195,95 +161,177 @@ public class DomainDesignerImpl extends DomainDesigner{
 			ci.cur_score = cur_score;
 			return ci;
 		}
-
-		private int numDomains;
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double deltaG = (flI.foldSingleStranded(ds[0],domain,domain_markings)-singleStrand_Threshold)*singleStrand_Weight;
+			double deltaG = (flI.mfeSSDeltaG(ds[0],domain,domain_markings));
 			int longestHelixLength = flI.getLongestHelixLength();
 			int numBasesPaired = flI.getNumBasesPaired();
 			double normal = longestHelixLength*numBasesPaired;
 			return normal*Math.max(0,deltaG);
 		}
 		public int getPriority(){
-			return 1;
-		}
-		public boolean affectedBy(int domain) {
-			return ds[0].contains(domain);
+			return 0;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
 		}
-		public int getNumDomainsInvolved() {
-			return numDomains;
+	}
+	
+	public class LocalDefectSSScore extends ScorePenalty {
+		private DomainSequence[] ds;
+		private AbstractDomainDesignTarget target;
+		private double[][] probBuffer;
+		public LocalDefectSSScore(DomainSequence ds,
+				DesignIntermediateReporter dir, AbstractDomainDesignTarget designTarget) {
+			super(dir);
+			this.ds = new DomainSequence[]{ds};
+			this.target = designTarget;
+			chooseScore(dir);
+		}
+		public ScorePenalty clone() {
+			LocalDefectSSScore ci = new LocalDefectSSScore(ds[0],dir,target);
+			ci.old_score = old_score;
+			ci.cur_score = cur_score;
+			return ci;
+		}
+		private double[][] expandCapacity(double[][] probBuffer2, int length1,
+				int length2) {
+			length2++; //One extra column for unpaired
+			if (probBuffer2!=null){
+				if (probBuffer2.length >= length1 && probBuffer2[0].length >= length2){
+					return probBuffer2;
+				}
+			}
+			return new double[length1][length2];
+		}
+		public double evalScoreSub(int[][] domain, int[][] domain_markings) {
+			int length1 = ds[0].length(domain);
+			probBuffer = expandCapacity(probBuffer,length1,length1);
+			flI.pairPrSS(probBuffer, ds[0], domain);
+			
+			double expectedMisPairedBases = 0;
+			for(int i = 0; i < length1; i++){
+				for(int j = i+1; j < length1; j++){
+					if (0==DomainDesigner_SharedUtils.isAlignedAndShouldPair(ds[0], i, ds[0], j, domain)){
+						expectedMisPairedBases += probBuffer[i][j];
+						if (probBuffer[i][j] > .001){
+							ds[0].mark(i, domain, domain_markings);
+							ds[0].mark(j, domain, domain_markings);
+						}
+					}
+				}
+			}
+			
+			return expectedMisPairedBases;
+		}
+		public int getPriority() {
+			return 1;
+		}
+		public DomainSequence[] getSeqs() {
+			return ds;
+		}
+	}
+	public class PairDefectScore extends ScorePenalty {
+		private DomainSequence[] ds;
+		private double[][] probBuffer;
+		private boolean entropicBonus;
+		private AbstractDomainDesignTarget target;
+		public PairDefectScore(DomainSequence ds2, DomainSequence ds3,DesignIntermediateReporter dir, boolean onSameMolecule, AbstractDomainDesignTarget designTarget) {
+			super(dir);
+			ds = new DomainSequence[]{ds2,ds3};
+			chooseScore(dir);
+			entropicBonus = onSameMolecule;
+			this.target = designTarget;
+		}
+		public ScorePenalty clone() {
+			PairDefectScore ci = new PairDefectScore(ds[0],ds[1],dir,entropicBonus,target);
+			ci.old_score = old_score;
+			ci.cur_score = cur_score;
+			return ci;
+		}
+		public double evalScoreSub(int[][] domain, int[][] domain_markings) {
+			int length1 = ds[0].length(domain);
+			int length2 = ds[1].length(domain);
+			int N = length1+length2;
+			probBuffer = expandCapacity(probBuffer,N,N+1);
+			flI.pairPrHybrid(probBuffer, ds[0], ds[1], domain);
+			
+			double expectedMisPairedBases = 0;
+			for(int i = 0; i < N; i++){
+				for(int j = i+1; j < N; j++){
+					DomainSequence sI = (i < length1?ds[0] : ds[1]);
+					int iInSi = (i < length1?i : i - length1);
+					DomainSequence sJ = (j < length1?ds[0] : ds[1]);
+					int jInSJ = (j < length1?j : j - length1);
+					if (0==DomainDesigner_SharedUtils.isAlignedAndShouldPair(sI, iInSi, sJ, jInSJ, domain)){
+						expectedMisPairedBases += probBuffer[i][j];
+						if (probBuffer[i][j] > .001){
+							sI.mark(iInSi, domain, domain_markings);
+							sJ.mark(jInSJ, domain, domain_markings);
+						}
+					}
+				}
+			}
+			
+			return expectedMisPairedBases;
+		}
+		private double[][] expandCapacity(double[][] probBuffer2, int length1,
+				int length2) {
+			length2++; //One extra column for unpaired
+			if (probBuffer2!=null){
+				if (probBuffer2.length >= length1 && probBuffer2[0].length >= length2){
+					return probBuffer2;
+				}
+			}
+			return new double[length1][length2];
+		}
+		public int getPriority() {
+			return 2;
+		}
+		public DomainSequence[] getSeqs() {
+			return ds;
 		}
 	}
 
 	public List<ScorePenalty> listPenalties(
-			List<DomainSequence> singleStrandedRegions,
-			List<DomainSequence> hairpinStems,
-			List<DomainSequence[]> hairpinOpenings, 
-			List<DomainSequence> adjacentPairs, DesignIntermediateReporter DIR) {
+			AbstractDomainDesignTarget designTarget,
+			DesignIntermediateReporter DIR) {
+		
+		List<DomainSequence> rawStrands = designTarget.wholeStrands;
+		List<DomainSequence> eachDomainWithOverhang = designTarget.singleDomainsWithOverlap;
+		
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(rawStrands);
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(eachDomainWithOverhang);
 
-		List<ScorePenalty> allScores = new ArrayList<ScorePenalty>();
+		DomainDesigner_SharedUtils.utilRemoveSubsequences(eachDomainWithOverhang);
 		
-		List<DomainSequence> preventComplementarity = new ArrayList<DomainSequence>();
-		//Add pairs of adjacent domains to prevent complementarity?
-		preventComplementarity.addAll(adjacentPairs);
+		List<ScorePenalty> allScores = new LinkedList<ScorePenalty>();
+		allScores.add(new VariousSequencePenalties(rawStrands,DIR));
 		
-		List<DomainSequence> makeSingleStranded = singleStrandedRegions;
-		makeSingleStranded.addAll(hairpinStems);
-		
-		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSingleStranded);
-		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(preventComplementarity);
-		
-		//Todo: varioussequencepenalties needs to work on whole input strands
-		allScores.add(new VariousSequencePenalties(makeSingleStranded,DIR));
-		
-		//Remove duplicates in hairpin openings
-		for(int i = 0; i < hairpinOpenings.size(); i++){
-			DomainSequence[] ds = hairpinOpenings.get(i);
-			boolean shouldAdd = true;
-			for(int j = i+1; j < hairpinOpenings.size(); j++){
-				DomainSequence[] other = hairpinOpenings.get(j);
-				boolean same = true;
-				for(int k = 0; k < other.length; k++){
-					if (!ds[k].equals(other[k])){
-						same = false; break;
-					}
-				}
-				if (same){
-					shouldAdd = false;
-					break;
-				}
-			}
-			if (shouldAdd){
-				allScores.add(new HairpinOpening(ds[0],ds[1],DIR));
-			}
-		}
-		for(int i = 0; i < makeSingleStranded.size(); i++){
-			DomainSequence ds = makeSingleStranded.get(i);
-			//Secondary structure avoidance.
-			if (!DomainDesigner_SharedUtils.checkComplementary(ds, ds) || ALLOW_COMPLEMENTARY_SCORES){
-				allScores.add(new SelfFold(ds,DIR));
-			}
-		}
-		for(int i = 0; i < preventComplementarity.size(); i++){
-			DomainSequence ds = preventComplementarity.get(i);
-			if (!designSSonly){
+		for(int i = 0; i < eachDomainWithOverhang.size(); i++){
+			DomainSequence ds = eachDomainWithOverhang.get(i);
+			//Secondary Structure Formation
+			if (DomainDesigner_SharedUtils.checkComplementary(ds, ds)){
+				allScores.add(new LocalDefectSSScore(ds, DIR, designTarget));	
 				//Dimerization
-				if (!DomainDesigner_SharedUtils.checkComplementary(ds, ds)|| ALLOW_COMPLEMENTARY_SCORES){
-					allScores.add(new CrossInteraction(ds,ds,DIR,false));
-				}
-				//Crosstalk.
-				for(int k = i+1; k < preventComplementarity.size(); k++){ //Do only upper triangle
-					DomainSequence ds2 = preventComplementarity.get(k);
-					if ((!DomainDesigner_SharedUtils.checkComplementary(ds, ds2)|| ALLOW_COMPLEMENTARY_SCORES) && ds != ds2){
-						allScores.add(new CrossInteraction(ds2,ds,DIR,false));
-					}
+				allScores.add(new PairDefectScore(ds, ds, DIR, false, designTarget));
+			} else {
+				allScores.add(new SelfFold(ds, DIR));
+				allScores.add(new MFEHybridScore(ds, ds, DIR, false));
+			}
+
+			//Hybridization
+			for(int k = i+1; k < eachDomainWithOverhang.size(); k++){ //Do only upper triangle
+				DomainSequence ds2 = eachDomainWithOverhang.get(k);
+				boolean sameMol = ds.getMoleculeName().equals(ds2.getMoleculeName());
+				if (DomainDesigner_SharedUtils.checkComplementary(ds, ds2)){
+					allScores.add(new PairDefectScore(ds, ds2, DIR, sameMol, designTarget));
+				} else {
+					allScores.add(new MFEHybridScore(ds, ds2, DIR, sameMol));
 				}
 			}
 		}
+		
 		return allScores;
 	}
 }
