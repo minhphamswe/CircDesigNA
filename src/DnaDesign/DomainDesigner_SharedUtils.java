@@ -11,6 +11,7 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
 import DnaDesign.DomainStructureBNFTree.DomainStructure;
 import DnaDesign.DomainStructureBNFTree.HairpinStem;
 import DnaDesign.DomainStructureBNFTree.SingleStranded;
@@ -62,6 +63,38 @@ public class DomainDesigner_SharedUtils {
 		}
 		return bases;
 	}
+
+
+	public static void utilRemoveDuplicateSequences(
+			ArrayList<HairpinClosingTarget> hairpinClosings) {
+		ListIterator<HairpinClosingTarget> itr = hairpinClosings.listIterator();
+		big: while(itr.hasNext()){
+			HairpinClosingTarget seq = itr.next();
+			for(HairpinClosingTarget q : hairpinClosings){
+				if (q!=seq && q.equals(seq)){
+					for(int i = 0; i < q.stemAndOpening.length; i++){
+						q.stemAndOpening[i].appendMoleculeNames(seq.stemAndOpening[i]);	
+					}
+					itr.remove();
+					continue big;
+				}
+			}
+		}
+	}
+	
+	private static boolean equalsSequenceArray(DomainSequence[] q,
+			DomainSequence[] seq) {
+		if (q.length!=seq.length){
+			return false;
+		}
+		for(int i = 0; i < seq.length; i++){
+			if (!q[i].equals(seq[i])){
+				return false;
+			}
+		}
+		return true;
+	}
+
 
 	public static void utilRemoveDuplicateSequences(List<DomainSequence> seqToSynthesize) {
 		ListIterator<DomainSequence> itr = seqToSynthesize.listIterator();
@@ -489,11 +522,7 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 
-	/**
-	 * Add pairs in terms of 
-	 * (first 2 bases of hairpinLoops[0]) against (last 2 bases of hairpinLoops[1])
-	 */
-	public static void utilHairpinClosingFinder(DomainPolymerGraph dsg, ArrayList<DomainSequence[]> hairpinLoops) {
+	public static void utilHairpinClosingFinder(DomainPolymerGraph dsg, ArrayList<HairpinClosingTarget> hairpinLoops) {
 		//Only add the hairpin closings on the closing of the hairpin (so when the later partner domain is encountered)
 		for(int k = 0; k < dsg.length(); k++){
 			int domain = dsg.getDomain(k);
@@ -502,24 +531,26 @@ public class DomainDesigner_SharedUtils {
 			}
 			int pair = dsg.getDomainPair(k);
 			if (pair >= 0 && pair < k){ //only care about hairpin closing-domains
+				int pairDomain = dsg.getDomain(pair);
 				if (pair > 0 && (k+1)<dsg.length()){
 					//Ok, can (pair-1) and (k+1) pair?
 					if (canPair(dsg,pair-1) && canPair(dsg,k+1)){
-						DomainSequence left = new DomainSequence();
-						left.setDomains(dsg.getDomain(pair-1), dsg);
-						DomainSequence right = new DomainSequence();
-						right.setDomains(dsg.getDomain(k+1), dsg);
-						hairpinLoops.add(new DomainSequence[]{right,left});
+						hairpinLoops.add(new HairpinClosingTarget(dsg.getDomain(pair-1),
+																	pairDomain,
+																	domain,
+																	dsg.getDomain(k+1),
+																	true,dsg));
 					}
 				}
 				if (k > 0 && (pair+1)<dsg.length()){
 					//How about the "inside": (pair+1) and (k-1).
 					if (canPair(dsg,pair+1) && canPair(dsg,k-1)){
-						DomainSequence left = new DomainSequence();
-						left.setDomains(dsg.getDomain(pair+1), dsg);
-						DomainSequence right = new DomainSequence();
-						right.setDomains(dsg.getDomain(k-1), dsg);
-						hairpinLoops.add(new DomainSequence[]{left,right}); //Note the reversal. Its confusing.
+						hairpinLoops.add(new HairpinClosingTarget(
+								pairDomain,
+								dsg.getDomain(pair+1),
+								dsg.getDomain(k-1),
+								domain,
+								false,dsg));
 					}
 				}
 			}
@@ -531,6 +562,7 @@ public class DomainDesigner_SharedUtils {
 		return ( dsg.getDomain(i)>=0 ) && (dsg.getDomainPair(i) < 0);
 	}
 
+	
 	/**
 	 * Returns a 1 if the loop (i,j) is a loop connecting a base of a domain to the corresponding base in its reverse complement, and 0 otherwise. 
 	 */
@@ -591,6 +623,17 @@ public class DomainDesigner_SharedUtils {
 			DomainSequence toAdd = new DomainSequence();
 			toAdd.setDomains(overlapSequence, dsg);
 			singleDomainsWithOverlap.add(toAdd);
+		}
+	}
+
+	public static void utilSingleDomainsFinder(DomainPolymerGraph dsg,
+			ArrayList<DomainSequence> singleDomains) {
+		for(int k = 0; k < dsg.length(); k++){
+			int domain1 = dsg.getDomain(k);
+			if (domain1<0) continue; //End of strand
+			DomainSequence toAdd = new DomainSequence();
+			toAdd.setDomains(domain1, dsg);
+			singleDomains.add(toAdd);
 		}
 	}
 }

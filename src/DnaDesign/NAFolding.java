@@ -8,6 +8,10 @@ import java.util.List;
  * mfeHybridDeltaG: Locate the minimum free energy structure formed by the interaction of 2 strands ("hybridization energy"), and
  * return its delta G.
  * 
+ * helixDeltaG : the free energy of a straight helix of two aligned sequences. Not necessarily the MFE score!
+ * Use markLeft, markRight to denote the regions where the domain_markings array will be affected (indexed by the first sequence)
+ * Use offsetJ to shift the alignment of the second sequence on the first. Positive values shift the second sequence to the right. 
+ * 
  * mfeSSDeltaG: Locate the minimum free energy conformation of a single nucleic acid strand ("secondary structure energy"), and
  * return its delta G.
  * 
@@ -37,4 +41,5 @@ public interface NAFolding {
 	public int getNumBasesPaired();
 	public void pairPrHybrid(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain);
 	public void pairPrSS(double[][] pairsOut, DomainSequence seq1, int[][] domain);
+	public double helixDeltaG(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset);
 }

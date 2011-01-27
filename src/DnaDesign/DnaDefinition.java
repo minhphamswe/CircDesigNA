@@ -9,11 +9,11 @@ public class DnaDefinition {
 	//A number guaranteed to be bigger than the largest base.
 	public static final int DNAFLAG_ADD = Z+1;
 	//Blech. to get rid of.
-	public static final double GCstr = 2;
-	public static final double ATstr = 1;
+	public static final double GCstr = -2;
+	public static final double ATstr = -1;
 	public static final double DHstr = GCstr;
 	public static final double PZstr = GCstr;
-	public static final double GTstr = 0.1;
+	public static final double GTstr = -0.1;
 	//Binding score function.
 	//TODO Delete this thing. 
 	public static final double bindScore(int a, int b){

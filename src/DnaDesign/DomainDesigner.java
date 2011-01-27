@@ -389,6 +389,9 @@ public abstract class DomainDesigner {
 			return cur_score - old_score;
 		}
 		protected void chooseScore(DesignIntermediateReporter dir) {
+			if (dir==null){
+				return;
+			}
 			DomainSequence[] ds = getSeqs();
 			if (ds.length==0){
 				return;

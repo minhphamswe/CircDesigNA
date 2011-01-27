@@ -2,6 +2,7 @@ package DnaDesign.impl;
 
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -12,6 +13,7 @@ import DnaDesign.DomainDesigner;
 import DnaDesign.DomainDesigner_SharedUtils;
 import DnaDesign.DomainSequence;
 import DnaDesign.NAFolding;
+import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
 
 /**
  * Implementation of DomainDesigner
@@ -32,12 +34,12 @@ public class DomainDesignerImpl extends DomainDesigner{
 	}
 
 	public class MFEHybridScore extends ScorePenalty { 
-		private boolean entropicBonus = false;
-		public MFEHybridScore(DomainSequence ds, DomainSequence ds2, DesignIntermediateReporter dir, boolean b){
+		private boolean entropicPenalty = false;
+		public MFEHybridScore(DomainSequence ds, DomainSequence ds2, DesignIntermediateReporter dir, boolean sameMolecule){
 			super(dir);
 			this.ds = new DomainSequence[]{ds,ds2};
 			chooseScore(dir);
-			entropicBonus = b;
+			entropicPenalty = !sameMolecule;
 		}		
 		public int getPriority(){
 			return 0;
@@ -46,19 +48,19 @@ public class DomainDesignerImpl extends DomainDesigner{
 		//This seems too low.
 		private final double BIMOLECULAR = -.513;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double deltaG = (flI.mfeHybridDeltaG(ds[0],ds[1],domain,null))+(entropicBonus?-BIMOLECULAR:0);
-			int longestHelixLength = flI.getLongestHelixLength();
-			int numBasesPaired = flI.getNumBasesPaired();
-			double normal = longestHelixLength*numBasesPaired;
+			double deltaG = (flI.mfeHybridDeltaG(ds[0],ds[1],domain,null))+(entropicPenalty?-BIMOLECULAR:0);
+			//int longestHelixLength = flI.getLongestHelixLength();
+			//int numBasesPaired = flI.getNumBasesPaired();
+			//double normal = longestHelixLength*numBasesPaired;
 			//Compute the length of the longest helix found.
-			normal = normal*Math.max(0,deltaG);
-			return normal;
+			//normal = normal*Math.max(0,deltaG);
+			return -deltaG;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
 		}
 		public ScorePenalty clone() {
-			MFEHybridScore ci = new MFEHybridScore(ds[0],ds[1],dir,entropicBonus);
+			MFEHybridScore ci = new MFEHybridScore(ds[0],ds[1],dir,entropicPenalty);
 			ci.old_score = old_score;
 			ci.cur_score = cur_score;
 			return ci;
@@ -69,13 +71,16 @@ public class DomainDesignerImpl extends DomainDesigner{
 	 * Penalize complementarity at the base of a hairpin loop
 	 */
 	public class HairpinOpening extends ScorePenalty {
-		public HairpinOpening(DomainSequence dsL, DomainSequence dsR, DesignIntermediateReporter dir){
+		private HairpinClosingTarget hairpin;
+		private int markLeft = -1, markRight, jOffset;
+		public HairpinOpening(HairpinClosingTarget hairpin, DesignIntermediateReporter dir){
 			super(dir);
-			this.ds = new DomainSequence[]{dsL,dsR};
+			this.ds = hairpin.stemAndOpening;
+			this.hairpin = hairpin;
 			chooseScore(dir);
 		}
 		public ScorePenalty clone() {
-			HairpinOpening ci = new HairpinOpening(ds[0],ds[1],dir);
+			HairpinOpening ci = new HairpinOpening(hairpin,dir);
 			ci.old_score = old_score;
 			ci.cur_score = cur_score;
 			return ci;
@@ -85,16 +90,34 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			for(int k = 0; k < 2; k++){
-				if (DnaDefinition.bindScore(ds[0].base(k, domain),ds[1].base(ds[1].length(domain)-1-k, domain))>0){
-					return 1;
+			if (markLeft==-1){
+				int start = 0;
+				int end = hairpin.stemAndOpening[0].length(domain);
+				if (hairpin.outside){
+					int middle = hairpin.stemAndOpening[0].length(domain)-hairpin.stemOnly[0].length(domain);
+					markLeft = 0;
+					markRight = middle;
+					jOffset = 0; //Aligned at the left position.
+				} else {
+					int middle = hairpin.stemOnly[0].length(domain);
+					markLeft = middle;
+					markRight = end;
+					//Aligned at the right, so offset j by the difference
+					jOffset = hairpin.stemAndOpening[0].length(domain)-hairpin.stemAndOpening[1].length(domain);
 				}
 			}
-			return 0;
+			double StemAndOpeningScore =flI.helixDeltaG(hairpin.stemAndOpening[0],hairpin.stemAndOpening[1],domain,domain_markings,markLeft,markRight,jOffset); 
+			double OnlyStem =flI.helixDeltaG(hairpin.stemOnly[0],hairpin.stemOnly[1],domain,domain_markings,0,0,0); 
+			double deltaDeltaG = StemAndOpeningScore - OnlyStem;
+			return -deltaDeltaG;
 		}
 		public boolean affectedBy(int domain) {
-			return (ds[0].domainList[0]& DNA_SEQ_FLAGSINVERSE)==domain ||
-			(ds[1].domainList[ds[1].domainList.length-1]& DNA_SEQ_FLAGSINVERSE)==domain;
+			for(int i = 0; i < ds.length; i++){
+				if (ds[i].contains(domain)){
+					return true;
+				}
+			}
+			return false;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
@@ -164,10 +187,11 @@ public class DomainDesignerImpl extends DomainDesigner{
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			double deltaG = (flI.mfeSSDeltaG(ds[0],domain,domain_markings));
-			int longestHelixLength = flI.getLongestHelixLength();
-			int numBasesPaired = flI.getNumBasesPaired();
-			double normal = longestHelixLength*numBasesPaired;
-			return normal*Math.max(0,deltaG);
+			return -deltaG;
+			//int longestHelixLength = flI.getLongestHelixLength();
+			//int numBasesPaired = flI.getNumBasesPaired();
+			//double normal = longestHelixLength*numBasesPaired;
+			//return normal*Math.max(0,-deltaG);
 		}
 		public int getPriority(){
 			return 0;
@@ -297,39 +321,48 @@ public class DomainDesignerImpl extends DomainDesigner{
 			AbstractDomainDesignTarget designTarget,
 			DesignIntermediateReporter DIR) {
 		
-		List<DomainSequence> rawStrands = designTarget.wholeStrands;
-		List<DomainSequence> eachDomainWithOverhang = designTarget.singleDomainsWithOverlap;
+		ArrayList<DomainSequence> rawStrands = designTarget.wholeStrands;
+		ArrayList<DomainSequence> makeSS = new ArrayList();
+		makeSS.addAll(designTarget.generalizedSingleStranded);
+		makeSS.addAll(designTarget.singleDomains);
+		ArrayList<HairpinClosingTarget> hairpinClosings = designTarget.hairpinClosings;
 		
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(rawStrands);
-		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(eachDomainWithOverhang);
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSS);
 
-		DomainDesigner_SharedUtils.utilRemoveSubsequences(eachDomainWithOverhang);
+		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinClosings);
 		
 		List<ScorePenalty> allScores = new LinkedList<ScorePenalty>();
 		allScores.add(new VariousSequencePenalties(rawStrands,DIR));
 		
-		for(int i = 0; i < eachDomainWithOverhang.size(); i++){
-			DomainSequence ds = eachDomainWithOverhang.get(i);
+		for(int i = 0; i < makeSS.size(); i++){
+			DomainSequence ds = makeSS.get(i);
 			//Secondary Structure Formation
 			if (DomainDesigner_SharedUtils.checkComplementary(ds, ds)){
+				/*
 				allScores.add(new LocalDefectSSScore(ds, DIR, designTarget));	
 				//Dimerization
 				allScores.add(new PairDefectScore(ds, ds, DIR, false, designTarget));
+				*/
 			} else {
 				allScores.add(new SelfFold(ds, DIR));
-				allScores.add(new MFEHybridScore(ds, ds, DIR, false));
+				allScores.add(new MFEHybridScore(ds, ds, DIR, ds.numDomains==1));
 			}
 
 			//Hybridization
-			for(int k = i+1; k < eachDomainWithOverhang.size(); k++){ //Do only upper triangle
-				DomainSequence ds2 = eachDomainWithOverhang.get(k);
+			for(int k = i+1; k < makeSS.size(); k++){ //Do only upper triangle
+				DomainSequence ds2 = makeSS.get(k);
 				boolean sameMol = ds.getMoleculeName().equals(ds2.getMoleculeName());
 				if (DomainDesigner_SharedUtils.checkComplementary(ds, ds2)){
-					allScores.add(new PairDefectScore(ds, ds2, DIR, sameMol, designTarget));
+					//allScores.add(new PairDefectScore(ds, ds2, DIR, sameMol, designTarget));
 				} else {
-					allScores.add(new MFEHybridScore(ds, ds2, DIR, sameMol));
+					allScores.add(new MFEHybridScore(ds, ds2, DIR, sameMol || (ds.numDomains==1 && ds2.numDomains==1)));
 				}
 			}
+		}
+		
+		for(HairpinClosingTarget hairpin : hairpinClosings){
+			allScores.add(new HairpinOpening(hairpin, DIR));
 		}
 		
 		return allScores;
