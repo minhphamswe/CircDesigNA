@@ -499,10 +499,11 @@ public class FoldingImpl implements NAFolding{
 	private double foldSingleStranded_traceBack(int len1, int len2, double[][] Smatrix, double[][] Cmatrix, double[][] gamma3mat, int bestI,
 			int bestJ, DomainSequence seq, DomainSequence seq2,
 			int[][] domain, int[][] domain_markings, boolean isSingleStrandFold) {
-		int helixLength = 0;
+		int helixLength = 1;
 		MFE_numBasesPaired = 0;
 		MFE_longestHelixLength = 0;
 		MFE_pointlist.clear();
+		boolean inHelix = true;
 		while(true){
 			//Break condition:
 			//System.out.println(bestI+" "+bestJ);
@@ -515,44 +516,46 @@ public class FoldingImpl implements NAFolding{
 					break;
 				}
 			}
-			MFE_pointlist.add(new Point(bestI,bestJ));
-			boolean inHelix = false; //only if we go diagonally do we mark a duplex pair.
-			if (!isOnFringeOfMap){
-				double gamma1 = Smatrix[bestI+1][bestJ];
-				double gamma2 = Smatrix[bestI][bestJ-1];
-				double gamma3 = Smatrix[bestI+1][bestJ-1];
-				double best = min(gamma1,gamma2,gamma3);
-				//This is like the Zuker algorithm, we are keeping a matrix that
-				//maintains the MFE delta G under the assumption that the pair was made
-				if (gamma3mat[bestI][bestJ]<best){
-					inHelix=true;
-				}
-				else if (gamma1 == best){
-					//Go there.
-					bestI++;
-				}
-				else if (gamma2 == best){
-					//Go there.
-					bestJ--;
-				}
-				else if (gamma3==best){
-					inHelix = true;
-				} 
-				else {
-					throw new RuntimeException("Assertion failure. foldSingleStranded_traceback in best check");
-				}
-			} else {
-				inHelix = true; //Go ahead and check the last guy.
-			}
 			if (inHelix){
-				helixLength ++;
-				MFE_longestHelixLength = Math.max(MFE_longestHelixLength,helixLength);
 				//Mark condition:
 				if (DnaDefinition.bindScore(seq.base(bestI,domain), seq2.base(bestJ,domain)) < 0){
 					//Complementary pair in traceback. mark.
 					seq.mark(bestI, domain, domain_markings);
 					seq2.mark(bestJ, domain, domain_markings);
 				}
+			}
+			MFE_pointlist.add(new Point(bestI,bestJ));
+			if (isOnFringeOfMap){
+				break;
+			}
+			inHelix = false;
+			double gamma1 = Smatrix[bestI+1][bestJ];
+			double gamma2 = Smatrix[bestI][bestJ-1];
+			double gamma3 = Smatrix[bestI+1][bestJ-1];
+			double best = min(gamma1,gamma2,gamma3);
+			//This is like the Zuker algorithm, we are keeping a matrix that
+			//maintains the MFE delta G under the assumption that the pair was made
+			//if (gamma3mat[bestI][bestJ]<best){
+			//	inHelix=true;
+			//}
+			//else 
+			if (gamma3==best){
+				inHelix = true;
+			} else 
+			if (gamma1 == best){
+				//Go there.
+				bestI++;
+			}
+			else if (gamma2 == best){
+				//Go there.
+				bestJ--;
+			}
+			else {
+				throw new RuntimeException("Assertion failure. foldSingleStranded_traceback in best check");
+			}
+			if (inHelix){
+				helixLength ++;
+				MFE_longestHelixLength = Math.max(MFE_longestHelixLength,helixLength);
 				//Go helix!
 				bestI++;
 				bestJ--;
@@ -560,7 +563,7 @@ public class FoldingImpl implements NAFolding{
 			} else {
 				helixLength = 0;
 			}
-		}
+		}	
 		double overCount = 0;
 		if (MFE_longestHelixLength==1){
 			overCount += foldSingleStranded_oneBaseScore;

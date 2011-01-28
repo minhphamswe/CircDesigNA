@@ -167,13 +167,28 @@ public class DomainSequence {
 		}
 		throw new ArrayIndexOutOfBoundsException(i);
 	}
-	public int offsetInto(int i, int[][] domain) {
+	/**
+	 * 
+	 * @param i
+	 * @param domain
+	 * @param offsetIntoUncomplemented - if true, the offset is into the uncomplemented version of the base.
+	 * If false, the offset is calculated into a domain of the form in which it appears in this domainsequence.
+	 */
+	public int offsetInto(int i, int[][] domain, boolean offsetIntoUncomplemented) {
 		int q = i, r = 0;
 		int[] d;
 		for(r = 0; r < numDomains; r++){
 			d = domain[domainList[r] & DNA_SEQ_FLAGSINVERSE];
 			if (q < d.length){
-				return q;
+				if (offsetIntoUncomplemented){
+					if ((domainList[r] & DNA_COMPLEMENT_FLAG) != 0){
+						return d.length-1-q;
+					} else {
+						return q;
+					}
+				} else {
+					return q;
+				}
 			}
 			q-= d.length;
 		}

@@ -573,8 +573,8 @@ public class DomainDesigner_SharedUtils {
 		if (areComplementary(domain1,domain2)){
 			int domain = domain1 & DNA_SEQ_FLAGSINVERSE;
 			
-			int offset1 = ds1.offsetInto(i, domains);
-			int offset2 = ds2.offsetInto(j, domains);
+			int offset1 = ds1.offsetInto(i, domains,false); //Don't uncomplement - give offset 
+			int offset2 = ds2.offsetInto(j, domains,false);
 			if (offset1 == (domains[domain].length - 1 - offset2)){
 				return 1;
 			}

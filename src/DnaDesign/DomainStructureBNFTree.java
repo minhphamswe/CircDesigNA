@@ -29,6 +29,7 @@ public class DomainStructureBNFTree implements AbstractComplex{
 	public int[] domains;
 	//Tree view of the molecule (used only for displaying the molecule)
 	public DomainStructure[] structures;
+	public int outerCurveCircum = -1;
 	
 	public DomainStructureBNFTree(DomainStructureData domainDefs){
 		this.domainDefs = domainDefs;
@@ -136,7 +137,9 @@ public class DomainStructureBNFTree implements AbstractComplex{
 			out.domains[q.getKey()] = q.getValue();
 		}
 		out.structures = new DomainStructure[out2.size()];
+		out.outerCurveCircum = 0;
 		int i = 0;
+		boolean hasHairpin= false;
 		for(DomainStructure struct : out2.values()){
 			//Top level substructures - recursively handle subconformation
 			out.structures[i]=struct;
@@ -145,7 +148,16 @@ public class DomainStructureBNFTree implements AbstractComplex{
 			}
 			i++;
 			struct.handleSubConformation(out.domainDefs.domainLengths,out.domains);
-		}		
+			
+			if (struct instanceof HairpinStem){
+				hasHairpin = true;
+			}
+			out.outerCurveCircum += struct.getOuterLevelSpace(struct,out.domainDefs.domainLengths,out.domains);
+		}	
+		if (!hasHairpin){
+			//Linear structure
+			out.outerCurveCircum = -1;
+		}
 		return;
 	}
 	
