@@ -42,4 +42,5 @@ public interface NAFolding {
 	public void pairPrHybrid(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain);
 	public void pairPrSS(double[][] pairsOut, DomainSequence seq1, int[][] domain);
 	public double helixDeltaG(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset);
+	public double mfeNoDiagonalPairing(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings);
 }

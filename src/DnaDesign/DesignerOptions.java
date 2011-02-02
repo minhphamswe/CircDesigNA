@@ -82,8 +82,25 @@ public class DesignerOptions {
 		}
 	};
 	
+	public final SeqDesignerOption.Integer selfSimilarityPenalty = new SeqDesignerOption.Integer(){
+		public String getDescription() {
+			return "Minimum length of domain to apply \"Self Similarity\" penalty to. Negative input disables.";
+		}
+		public int getDefaultState(){
+			return 8;
+		}
+		private int minimumForSelfSimilarity = getDefaultState(); 
+		public int getState() {
+			return minimumForSelfSimilarity;
+		}
+		public synchronized void setState(int newVal) {
+			this.minimumForSelfSimilarity = newVal;
+		}
+	};
+
+	
 	//Make sure to update this please.
 	public final SeqDesignerOption[] options = new SeqDesignerOption[]{
-			rule_ccend_option, sort_markings, end_score_threshold, population_size,
+			rule_ccend_option, sort_markings, end_score_threshold, population_size, selfSimilarityPenalty
 	};
 }

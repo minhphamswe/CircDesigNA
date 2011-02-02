@@ -41,6 +41,11 @@ public class DomainStructureData {
 	private Map<Integer, String> compositionConstraints = new TreeMap();
 	private static final int FLAG_CONSERVEAMINOS = 2;
 	private Map<Integer, Integer> otherRuleFlags = new TreeMap();
+	private Map<Integer, String> reprintArguments = new TreeMap();
+
+	public String getArguments(int k) {
+		return reprintArguments.get(k);
+	}
 	/**
 	 * Returns the constraint for the NONCOMPLEMENTED version of this domain.
 	 * You must handle complementation yourself in handling the constraints!
@@ -75,7 +80,6 @@ public class DomainStructureData {
 		for(k = 0; k < domainLengths.size(); k++){
 			out.domainLengths[k] = domainLengths.get(k);
 			//Test the seq constraints
-			//Don't use Default, this prevents us from crashing on conflicting definition.
 			DesignSequenceConstraints dsc = new DesignSequenceConstraints();
 			out.loadConstraints(k, dsc, true);
 		}
@@ -98,6 +102,7 @@ public class DomainStructureData {
 		out.nameMap.put(domainID,k);
 		int seqIndex = 1;
 		int seqLen = -1;
+		String argsCumulativeString = "";
 		if (line[1].matches("\\d+")){
 			//We have length map (optional)
 			seqIndex = 2;
@@ -105,6 +110,7 @@ public class DomainStructureData {
 		}
 		//Sequence constraints...
 		if (line.length>seqIndex){
+			//Parse the initial character block, if we have one.
 			//Regions of characters enclosed in square bracket will be lowercased, meaning "lock".
 			if (line[seqIndex].charAt(0)!='-'){
 				StringBuffer constraintParsed = new StringBuffer();
@@ -141,12 +147,14 @@ public class DomainStructureData {
 				}
 				seqIndex++;
 			}
+			//Parse arguments.
 			//Do we have flags?
 			int flagSum = 0;
 			Pattern decodeArg = Pattern.compile("\\-(\\w+)(\\((.*)\\))?");
 			for(int flag = seqIndex; flag < line.length; flag++){
 				Matcher m = decodeArg.matcher(line[flag]);
 				if(m.find()){
+					argsCumulativeString += line[flag]+" ";
 					String paramName = m.group(1);
 					try {
 						String args = m.group(3);
@@ -182,6 +190,7 @@ public class DomainStructureData {
 		if (seqLen < 2){
 			throw new RuntimeException("1-base domains not allowed for now.");
 		}
+		out.reprintArguments.put(k,argsCumulativeString);
 		return k;
 	}
 

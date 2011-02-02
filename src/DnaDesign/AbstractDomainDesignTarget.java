@@ -11,6 +11,7 @@ import java.util.ArrayList;
 public class AbstractDomainDesignTarget {
 	public AbstractDomainDesignTarget(DomainStructureData dsd){
 		this.dsd = dsd;
+		
 	}
 	public ArrayList<DomainSequence> wholeStrands = new ArrayList();
 	public ArrayList<DomainSequence> generalizedSingleStranded = new ArrayList();
@@ -48,6 +49,17 @@ public class AbstractDomainDesignTarget {
 			}
 			stemAndOpening = new DomainSequence[]{sA1,sA2};
 			stemOnly = new DomainSequence[]{s1,s2};
+		}
+		public String toString(int[][] domain){
+			StringBuffer toRet = new StringBuffer();
+			for(int i = 0; i < stemAndOpening.length; i++){
+				toRet.append("Hairpin "+i+" ");
+				for(int j = 0; j < stemAndOpening[i].length(domain); j++){
+					toRet.append(DnaDefinition.displayBase(stemAndOpening[i].base(j, domain)));
+				}
+				toRet.append("\n");
+			}
+			return toRet.toString();
 		}
 		public boolean equals(Object other){
 			if (!(other instanceof HairpinClosingTarget)){

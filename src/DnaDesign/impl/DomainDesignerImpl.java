@@ -1,14 +1,12 @@
 package DnaDesign.impl;
 
-import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
-
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
 import DnaDesign.AbstractDomainDesignTarget;
 import DnaDesign.DesignIntermediateReporter;
-import DnaDesign.DnaDefinition;
+import DnaDesign.DesignerOptions;
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainDesigner_SharedUtils;
 import DnaDesign.DomainSequence;
@@ -42,19 +40,19 @@ public class DomainDesignerImpl extends DomainDesigner{
 			entropicPenalty = !sameMolecule;
 		}		
 		public int getPriority(){
-			return 0;
+			return 2;
 		}
 		private DomainSequence[] ds;
 		//This seems too low.
 		private final double BIMOLECULAR = -.513;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double deltaG = (flI.mfeHybridDeltaG(ds[0],ds[1],domain,null))+(entropicPenalty?-BIMOLECULAR:0);
+			double deltaG = (flI.mfeHybridDeltaG(ds[0],ds[1],domain,domain_markings))+(entropicPenalty?-BIMOLECULAR:0);
 			//int longestHelixLength = flI.getLongestHelixLength();
 			//int numBasesPaired = flI.getNumBasesPaired();
 			//double normal = longestHelixLength*numBasesPaired;
 			//Compute the length of the longest helix found.
 			//normal = normal*Math.max(0,deltaG);
-			return -deltaG;
+			return Math.max(-deltaG,0);
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
@@ -86,7 +84,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return ci;
 		}
 		public int getPriority(){
-			return 0;
+			return 1;
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
@@ -109,6 +107,10 @@ public class DomainDesignerImpl extends DomainDesigner{
 			double StemAndOpeningScore =flI.helixDeltaG(hairpin.stemAndOpening[0],hairpin.stemAndOpening[1],domain,domain_markings,markLeft,markRight,jOffset); 
 			double OnlyStem =flI.helixDeltaG(hairpin.stemOnly[0],hairpin.stemOnly[1],domain,domain_markings,0,0,0); 
 			double deltaDeltaG = StemAndOpeningScore - OnlyStem;
+			if (deltaDeltaG > 0){
+				System.err.println("Stem+Opening increased delta g  (?)");
+				System.err.println(hairpin.toString(domain));
+			}
 			return -deltaDeltaG;
 		}
 		public boolean affectedBy(int domain) {
@@ -124,6 +126,45 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 		public int getNumDomainsInvolved() {
 			return 2;
+		}
+	}
+	
+	/**
+	 * TODO:
+	 * Calculate the Expected Minimum Free Energy for a random string of length N, and subtract that
+	 * from this measure. Floor to zero to catch exceptional cases.
+	 */
+	public class SelfSimilarityScore extends ScorePenalty {
+		public SelfSimilarityScore(DomainSequence domain, DesignIntermediateReporter dir){
+			super(dir);
+			DomainSequence revComp = new DomainSequence();
+			domain.makeReverseComplement(revComp);
+			ds = new DomainSequence[]{domain, revComp};
+			chooseScore(dir);
+		}
+		public ScorePenalty clone() {
+			SelfSimilarityScore ci = new SelfSimilarityScore(ds[0],dir);
+			ci.old_score = old_score;
+			ci.cur_score = cur_score;
+			return ci;
+		}
+		public int getPriority(){
+			return 2;
+		}
+		private DomainSequence[] ds;
+		public double evalScoreSub(int[][] domain, int[][] domain_markings){
+			double deltaG = flI.mfeNoDiagonalPairing(ds[0], ds[1], domain, null);
+			deltaG += ds[0].length(domain)/2; //Heuristic!?
+			return Math.max(0,-deltaG);
+		}
+		public boolean affectedBy(int domain) {
+			return ds[0].contains(domain);
+		}
+		public DomainSequence[] getSeqs() {
+			return ds;
+		}
+		public int getNumDomainsInvolved() {
+			return ds[0].numDomains;
 		}
 	}
 	
@@ -164,7 +205,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 
 		public int getPriority() {
-			return 1;
+			return 0;
 		}
 
 		public DomainSequence[] getSeqs() {
@@ -187,14 +228,14 @@ public class DomainDesignerImpl extends DomainDesigner{
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			double deltaG = (flI.mfeSSDeltaG(ds[0],domain,domain_markings));
-			return -deltaG;
+			return Math.max(0,-deltaG);
 			//int longestHelixLength = flI.getLongestHelixLength();
 			//int numBasesPaired = flI.getNumBasesPaired();
 			//double normal = longestHelixLength*numBasesPaired;
 			//return normal*Math.max(0,-deltaG);
 		}
 		public int getPriority(){
-			return 0;
+			return 2;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
@@ -249,7 +290,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return expectedMisPairedBases;
 		}
 		public int getPriority() {
-			return 1;
+			return 2;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
@@ -319,7 +360,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 
 	public List<ScorePenalty> listPenalties(
 			AbstractDomainDesignTarget designTarget,
-			DesignIntermediateReporter DIR) {
+			DesignIntermediateReporter DIR, int[][] domain2, DesignerOptions options) {
 		
 		ArrayList<DomainSequence> rawStrands = designTarget.wholeStrands;
 		ArrayList<DomainSequence> makeSS = new ArrayList();
@@ -363,6 +404,18 @@ public class DomainDesignerImpl extends DomainDesigner{
 		
 		for(HairpinClosingTarget hairpin : hairpinClosings){
 			allScores.add(new HairpinOpening(hairpin, DIR));
+		}
+		
+		if (options.selfSimilarityPenalty.getState() >= 0){
+			//Only do each domain once.
+			List<DomainSequence> domainsOnceApiece = new ArrayList();
+			domainsOnceApiece.addAll(designTarget.singleDomains);
+			DomainDesigner_SharedUtils.utilRemoveDuplicateOrComplementaryDomains(domainsOnceApiece);
+			for(DomainSequence domain : domainsOnceApiece){
+				if (domain2[domain.domainList[0] & DomainSequence.DNA_SEQ_FLAGSINVERSE].length >= options.selfSimilarityPenalty.getState()){
+					allScores.add(new SelfSimilarityScore(domain, DIR));
+				}
+			}
 		}
 		
 		return allScores;

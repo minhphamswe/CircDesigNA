@@ -82,6 +82,21 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 	
+	public static void utilRemoveDuplicateOrComplementaryDomains(List<DomainSequence> seqs) {
+		ListIterator<DomainSequence> itr = seqs.listIterator();
+		big: while(itr.hasNext()){
+			DomainSequence seq = itr.next();
+			for(DomainSequence q : seqs){
+				if (q!=seq && ((q.domainList[0] & DNA_SEQ_FLAGSINVERSE)==(seq.domainList[0] & DNA_SEQ_FLAGSINVERSE))){
+					q.appendMoleculeNames(seq);	
+					itr.remove();
+					continue big;
+				}
+			}
+		}
+		
+	}
+	
 	private static boolean equalsSequenceArray(DomainSequence[] q,
 			DomainSequence[] seq) {
 		if (q.length!=seq.length){

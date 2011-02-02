@@ -236,6 +236,7 @@ public class DesignSequenceConstraints {
 				if (testBase==oldBase_pure){
 					continue; //This wouldn't be a changing mutation.
 				}
+				//
 				if (isDirectMutation = canMutateBaseDirectly()){
 					return isDirectMutation;
 				}
@@ -279,25 +280,28 @@ public class DesignSequenceConstraints {
 			}
 			return false;
 		}
+		/**
+		 * This method assumes that the values in getBaseCounts_shared do NOT include the addition
+		 * of base j. (In other words, remove its contribution before calling this method)
+		 */
 		private boolean canMutateBaseDirectly(){
 			int oldBase = mut_new[j];
 			int oldBase_pure = (oldBase % DNAFLAG_ADD);
 			int oldBase_flag = oldBase - oldBase_pure;
 			//Will replacing oldBase cause us to go under a minimum quota?
-			if (getBaseCounts(mut_new,j)){ //Counts all BUT j
-				if (isUnderValidMin(oldBase_pure)){
-					//We can't remove it, it's keeping us above a quota.
-					return false;
-				}
+			if (isUnderValidMin(oldBase_pure)){
+				//We can't remove it, it's keeping us above a quota.
+				return false;
 			}
 			int testBase = b_inBaseOrders;
 			//Count the number of occurrences of testBase, which is not the same as oldBase, so we can assume
 			//that the index j is irrelevent, and see if the incremented case is out of range
-			if (getBaseCounts(mut_new,j)){
-				getBaseCounts_shared[testBase]++;
-				if (isOverValidMax(testBase)){
-					return false;
-				}
+			int old_test_ct = getBaseCounts_shared[testBase]; 
+			getBaseCounts_shared[testBase]++;
+			boolean isOverValidMax = isOverValidMax(testBase);
+			getBaseCounts_shared[testBase] = old_test_ct;
+			if (isOverValidMax){
+				return false;
 			}
 			if (!isAllowableBaseforFlags(oldBase_flag,testBase)){
 				return false;
@@ -314,7 +318,11 @@ public class DesignSequenceConstraints {
 			i_inBaseOrders = -1;
 			isDirectMutation = true;
 			b_inBaseOrders = -1;
+			//Invalidates base counts
 			isUnderQuotaInBase = checkUnderQuota(j);
+			
+			//Get base counts.
+			getBaseCounts(mut_new,j);
 		}
 
 		private int checkUnderQuota(int j) {

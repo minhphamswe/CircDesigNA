@@ -26,4 +26,9 @@ public interface ExperimentDatabase {
 	 * Returns the dangle penalty for base D, on 3primeEnd, where X,Y are the terminal pair of the helix.
 	 */
 	public double getDanglePenalty(int X, int Y, int D, boolean PrimeEnd);
+	
+	/**
+	 * Returns the delta G bonus for the association of numStrands strands at T kelvin.
+	 */
+	public double getDeltaGAssoc(int numStrands, double T);
 }

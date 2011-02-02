@@ -159,6 +159,8 @@ public abstract class DomainDesigner {
 						errorResult = null;
 						try {
 							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, mutators, designTarget, dir, dsd));
+						} catch (OutOfMemoryError e){
+							errorResult = "Could not start designer: " +e.getMessage()+"\nJava ran out of memory! Strategies to fix:\n\t1) Reduce the population size.\n\t2)Download this applet, and run it with the argument -Xmx700 from the command line.";//ensure nonnull
 						} catch (Throwable e){
 							e.printStackTrace();
 							errorResult = "Could not start designer: " +e.getMessage()+"";//ensure nonnull
@@ -207,6 +209,10 @@ public abstract class DomainDesigner {
 				sb.append("[");
 				sb.append(r.outputDomains[k]);
 				sb.append("]");
+				String arg = dsd.getArguments(k);
+				if (arg.length()>0){
+					sb.append("\t"+dsd.getArguments(k));	
+				}
 				sb.append(lR);
 			}
 			sb.append("----------------");
@@ -328,7 +334,7 @@ public abstract class DomainDesigner {
 			ret += LOCK_FLAG;
 		};
 		return ret;
-}
+	}
 	
 	//Constructor
 	
@@ -541,7 +547,7 @@ public abstract class DomainDesigner {
 		*/
 
 		//Enumerate penalty scores (see FoldingImplTestGUI for a visual of this process) via "listPenalties"
-		List<ScorePenalty> allScores = listPenalties(designTarget,DIR);		
+		List<ScorePenalty> allScores = listPenalties(designTarget,DIR,domain,options);		
 		System.out.println("Discovered "+allScores.size()+" score elements");
 		if (allScores.isEmpty()){
 			throw new RuntimeException("No scores to optimize : Algorithm has nothing to do!");
@@ -665,7 +671,7 @@ public abstract class DomainDesigner {
 		return num_mut_attempts;
 	}
 	public abstract List<ScorePenalty> listPenalties(
-			AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR) ;
+			AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, int[][] domain, DesignerOptions options2) ;
 
 	public static final void deepFill(int[][] domain_markings, int i) {
 		for(int[] row : domain_markings){
@@ -682,6 +688,9 @@ public abstract class DomainDesigner {
 				throw new RuntimeException("Initial constraints were too strict.");
 			}
 			for(int j = 0; j < domain[mut_domain].length; j++){
+				if (noFlags(domain[mut_domain][j])!=0){
+					continue; //Initial base. Leave it.
+				}
 				if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
 					mutator.mutateToOther(domain,mut_domain,j);
 				} else {
@@ -774,6 +783,7 @@ public abstract class DomainDesigner {
 			num_mut = int_urn(min_mutations,num_mut);
 		} else {
 			//Was not able to mutate.
+			System.err.println("O!");
 			return false;
 		}
 		

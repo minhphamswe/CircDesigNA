@@ -139,7 +139,7 @@ public class DomainStructureBNFTree implements AbstractComplex{
 		out.structures = new DomainStructure[out2.size()];
 		out.outerCurveCircum = 0;
 		int i = 0;
-		boolean hasHairpin= false;
+		int numHairpinsOnOuterLoop = 0;
 		for(DomainStructure struct : out2.values()){
 			//Top level substructures - recursively handle subconformation
 			out.structures[i]=struct;
@@ -150,11 +150,11 @@ public class DomainStructureBNFTree implements AbstractComplex{
 			struct.handleSubConformation(out.domainDefs.domainLengths,out.domains);
 			
 			if (struct instanceof HairpinStem){
-				hasHairpin = true;
+				numHairpinsOnOuterLoop++;
 			}
 			out.outerCurveCircum += struct.getOuterLevelSpace(struct,out.domainDefs.domainLengths,out.domains);
 		}	
-		if (!hasHairpin){
+		if (numHairpinsOnOuterLoop < 2){
 			//Linear structure
 			out.outerCurveCircum = -1;
 		}

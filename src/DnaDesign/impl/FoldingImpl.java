@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
@@ -358,25 +359,41 @@ public class FoldingImpl implements NAFolding{
 	 * @param seq2 
 	 */
 	private void foldSingleStranded_makeCMatrix(DomainSequence seq, DomainSequence seq2, int len1,int len2, int[][] domain){
-		double[][] Cmatrix = compMatrix_shared; // complementarity matrix
 		double[][] Smatrix = sMatrix_shared; // score matrix
 		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
 		// NxN complementarities. 
 		for (int i = 0; i < len1; i++) {
 			for (int j = 0; j < len2; j++) {
-				int base1 = seq.base(i,domain);
-				int base2 = seq2.base(j,domain);
+				//int base1 = seq.base(i,domain);
+				//int base2 = seq2.base(j,domain);
 				Smatrix[i][j] = 0;
 				SDmatrix[i][j][0] = 0;
 				SDmatrix[i][j][1] = 0;
 			}
 		}		
 	}
+	
+	
+	
+	public double mfeNoDiagonalPairing(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings){
+		FoldNA_viaMatrix_Options mfeNoDiagonalPairsOpt = new FoldNA_viaMatrix_Options();
+		mfeNoDiagonalPairsOpt.foldFullMatrix = true;
+		mfeNoDiagonalPairsOpt.suppressDiagonalScores = true;
+		//Run the generic folding algorithm under these conditions
+		return foldNA_viaMatrix(domainSequence, domainSequence2, domain, domain_markings, mfeNoDiagonalPairsOpt);
+	}
+	
 	public double mfeHybridDeltaG_viaMatrix(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings) {
-		return foldNA_viaMatrix(seq1, seq2, domain, domain_markings, true);
+		FoldNA_viaMatrix_Options mfeHybridDeltaG_viaMatrix_opt = new FoldNA_viaMatrix_Options();
+		mfeHybridDeltaG_viaMatrix_opt.foldFullMatrix = true;
+		//Run the generic folding algorithm under these conditions
+		return foldNA_viaMatrix(seq1, seq2, domain, domain_markings, mfeHybridDeltaG_viaMatrix_opt);
 	}
 	public double foldSingleStranded_viaMatrix(DomainSequence seq, int[][] domain, int[][] domain_markings) {
-		return foldNA_viaMatrix(seq, seq, domain, domain_markings, false);
+		FoldNA_viaMatrix_Options foldSingleStranded_viaMatrix_opt = new FoldNA_viaMatrix_Options();
+		foldSingleStranded_viaMatrix_opt.foldFullMatrix = false;
+		//Run the generic folding algorithm under these conditions
+		return foldNA_viaMatrix(seq, seq, domain, domain_markings, foldSingleStranded_viaMatrix_opt);
 	}
 
 	public double helixDeltaG(DomainSequence seq, DomainSequence seq2, int[][] domain, int[][] domain_markings, int markStart, int markEnd, int jOffset) {
@@ -408,9 +425,20 @@ public class FoldingImpl implements NAFolding{
 		}
 		return best;
 	}
-	public double foldNA_viaMatrix(DomainSequence seq, DomainSequence seq2, int[][] domain, int[][] domain_markings, boolean fullMatrix) {
+	public static class FoldNA_viaMatrix_Options {
+		//True for hybridizations (versus self folding)
+		public boolean foldFullMatrix;
+		//Used for the "Self Similarity" Check.
+		public boolean suppressDiagonalScores;
+	}
+	public double foldNA_viaMatrix(DomainSequence seq, DomainSequence seq2, int[][] domain, int[][] domain_markings, FoldNA_viaMatrix_Options options) {
 		int len1 = seq.length(domain);
 		int len2 = seq2.length(domain);
+		if (options.suppressDiagonalScores){
+			if (len1!=len2){
+				throw new RuntimeException("Diagonal scores can only suppressed when folding strands of equal length");
+			}
+		}
 		ensureSharedMatrices(len1,len2);
 		foldSingleStranded_makeCMatrix(seq,seq2,len1,len2,domain);
 		double[][] Cmatrix = compMatrix_shared; // complementarity matrix
@@ -420,19 +448,18 @@ public class FoldingImpl implements NAFolding{
 		
 		double score = 0;
 		int bestI = -1, bestJ = -1;
-		//Positive delta G.
-		//LCS, use eParams to do intelligent weighting.
-		int minHairpinSize = 1+3; //Only used in singlestranding.
+		//Only used in the single stranded version
+		int minHairpinSize = 1+3;
 		//Calculate looping bounds.
 		int i;
-		if (fullMatrix){
+		if (options.foldFullMatrix){
 			i = len1-1;
 		} else {
 			i = (len1-1)-minHairpinSize;
 		}
 		for(; i >= 0; i--){
 			int j;
-			if (fullMatrix){
+			if (options.foldFullMatrix){
 				j = 0;
 			} else {
 				j = i+minHairpinSize;
@@ -444,9 +471,20 @@ public class FoldingImpl implements NAFolding{
 				double gamma2 = foldSingleStranded_calcGamma2(i,j,Smatrix,SDmatrix);
 				//Helix, + dummy score if new helix, - dummy score if 2nd base, + nn score is length >= 2.
 				//If beginning new helix, have to add the score of the last loop.
-				double gamma3 = foldSingleStranded_calcGamma3(len1,len2,seq,seq2,domain,i,j,Smatrix,SDmatrix,true);
+				boolean computeHelixScore = true;
+				if (options.suppressDiagonalScores){
+					if (i==len2-1-j){
+						computeHelixScore = false;
+					}
+				}
+				double gamma3;
+				if(computeHelixScore){
+					gamma3 = foldSingleStranded_calcGamma3(len1,len2,seq,seq2,domain,i,j,Smatrix,SDmatrix,true);
+				} else { 
+					gamma3 = 0;
+				}
 				gamma3mat[i][j] = gamma3; //Store the gamma3 result for tracebacking use.
-				//Greedy algorithm: take the biggest one (proof: addititivity of delta G, optimization of a sum)
+				//Greedy algorithm: take the most minimal (proof: addititivity of delta G, optimization of a sum)
 				Smatrix[i][j]=min(gamma1,gamma2,gamma3);
 				//If there is a tie, use the following priority:
 				if (gamma3 == Smatrix[i][j]){
@@ -474,7 +512,7 @@ public class FoldingImpl implements NAFolding{
 		}
 		
 		//Traceback?
-		double overCount = foldSingleStranded_traceBack(len1,len2,Smatrix,Cmatrix,gamma3mat,bestI,bestJ,seq,seq2,domain,domain_markings,!fullMatrix);
+		double overCount = foldSingleStranded_traceBack(len1,len2,Smatrix,SDmatrix,Cmatrix,gamma3mat,bestI,bestJ,seq,seq2,domain,domain_markings,!options.foldFullMatrix);
 		
 		if (debugLCSAlgorithm){
 			for(int k = 0; k < len1; k++){
@@ -496,64 +534,76 @@ public class FoldingImpl implements NAFolding{
 	/**
 	 * Performs the standard nussinov tracebacking, sans bifurcation tracing (thus, no stack).
 	 */
-	private double foldSingleStranded_traceBack(int len1, int len2, double[][] Smatrix, double[][] Cmatrix, double[][] gamma3mat, int bestI,
+	private double foldSingleStranded_traceBack(int len1, int len2, double[][] Smatrix, int[][][] SDMatrix, double[][] Cmatrix, double[][] gamma3mat, int bestI,
 			int bestJ, DomainSequence seq, DomainSequence seq2,
 			int[][] domain, int[][] domain_markings, boolean isSingleStrandFold) {
-		int helixLength = 1;
+		
+		int helixLength = 0;
+		
 		MFE_numBasesPaired = 0;
 		MFE_longestHelixLength = 0;
 		MFE_pointlist.clear();
 		boolean inHelix = true;
+
+		double overCount = 0;
+		
 		while(true){
 			//Break condition:
 			//System.out.println(bestI+" "+bestJ);
 			if (bestI>=len1 || bestJ < 0){
 				break;
 			}
-			boolean isOnFringeOfMap = bestI==len1-1 || bestJ==0;
+			boolean isOnFringeOfMap;
 			if (isSingleStrandFold){
-				if (bestJ<bestI){
-					break;
-				}
+				isOnFringeOfMap = bestJ==bestI;
+			} else {
+				isOnFringeOfMap = bestI==len1-1 || bestJ==0;
 			}
-			if (inHelix){
-				//Mark condition:
+			MFE_pointlist.add(new Point(bestI,bestJ));
+			if (inHelix){ //Continuing helix (assumed to start in a helix)
 				if (DnaDefinition.bindScore(seq.base(bestI,domain), seq2.base(bestJ,domain)) < 0){
-					//Complementary pair in traceback. mark.
 					seq.mark(bestI, domain, domain_markings);
 					seq2.mark(bestJ, domain, domain_markings);
 				}
 			}
-			MFE_pointlist.add(new Point(bestI,bestJ));
 			if (isOnFringeOfMap){
+				if (inHelix){
+					if (DnaDefinition.bindScore(seq.base(bestI,domain), seq2.base(bestJ,domain)) < 0){
+						helixLength++;
+						MFE_longestHelixLength = Math.max(MFE_longestHelixLength,helixLength);
+					}
+				}
 				break;
 			}
-			inHelix = false;
+			//inHelix = false;
 			double gamma1 = Smatrix[bestI+1][bestJ];
 			double gamma2 = Smatrix[bestI][bestJ-1];
-			double gamma3 = Smatrix[bestI+1][bestJ-1];
+			double gamma3 = Smatrix[bestI][bestJ];
+
 			double best = min(gamma1,gamma2,gamma3);
-			//This is like the Zuker algorithm, we are keeping a matrix that
-			//maintains the MFE delta G under the assumption that the pair was made
-			//if (gamma3mat[bestI][bestJ]<best){
-			//	inHelix=true;
-			//}
-			//else 
-			if (gamma3==best){
-				inHelix = true;
-			} else 
 			if (gamma1 == best){
 				//Go there.
-				bestI++;
+				inHelix = false;
+				bestI++;	
 			}
 			else if (gamma2 == best){
 				//Go there.
+				inHelix = false;
 				bestJ--;
+			} else if (gamma3 == best){
+				if (!inHelix){ //Positive edge: entering a helix
+					if (DnaDefinition.bindScore(seq.base(bestI,domain), seq2.base(bestJ,domain)) < 0){
+						seq.mark(bestI, domain, domain_markings);
+						seq2.mark(bestJ, domain, domain_markings);
+					}
+				}
+				inHelix = true;
 			}
 			else {
 				throw new RuntimeException("Assertion failure. foldSingleStranded_traceback in best check");
 			}
 			if (inHelix){
+				//Mark condition:
 				helixLength ++;
 				MFE_longestHelixLength = Math.max(MFE_longestHelixLength,helixLength);
 				//Go helix!
@@ -564,9 +614,8 @@ public class FoldingImpl implements NAFolding{
 				helixLength = 0;
 			}
 		}	
-		double overCount = 0;
-		if (MFE_longestHelixLength==1){
-			overCount += foldSingleStranded_oneBaseScore;
+		if (MFE_longestHelixLength==1){ //Ended on a single base.
+			overCount += foldSingleStranded_calcDummyScore;
 		}
 		return overCount;
 	}
@@ -607,7 +656,7 @@ public class FoldingImpl implements NAFolding{
 		return MFE_numBasesPaired;
 	}
 	private boolean debugLCSAlgorithm = false;
-	private double foldSingleStranded_oneBaseScore = .25;
+	private double foldSingleStranded_oneBaseScore = 0; //Score for 1-base helixes not thermodynamically valid
 	private double foldSingleStranded_calcDummyScore = -.25;
 	private double foldSingleStranded_endHelixPenalty = 0;
 	private double foldSingleStranded_helixBaseScore = 0;

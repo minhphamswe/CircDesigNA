@@ -3,9 +3,10 @@ package DnaDesign;
 /**
  * This class defines the syntax / encoding of DNA, and provides some basic properties (complement)
  */
-public class DnaDefinition {
+public class DnaDefinition extends SystemMonomer{
 	//Explicit definition of DNA: Mapping from a subset of Z to all of DNA
-	public static final int NOBASE = 0, A = 1, T = 2, G = 3, C = 4, D = 5, H = 6, P = 7, Z = 8;
+	public static final int NOBASE = 0;
+	public static final int A = 1, T = 2, G = 3, C = 4, D = 5, H = 6, P = 7, Z = 8;
 	//A number guaranteed to be bigger than the largest base.
 	public static final int DNAFLAG_ADD = Z+1;
 	//Blech. to get rid of.

@@ -2,9 +2,9 @@ package DnaDesign.impl;
 
 import static DnaDesign.DnaDefinition.A;
 import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.displayBase;
 import static DnaDesign.DnaDefinition.G;
 import static DnaDesign.DnaDefinition.T;
+import static DnaDesign.DnaDefinition.displayBase;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -54,6 +54,8 @@ public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 		//parseMFoldParamsFile("nns.add(new NearestNeighborScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\stack.dgd",false,"));");
 		//parseMFoldParamsFile("tns.add(new TerminalMismatchPairScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\tstackh.dgd",false,"));");
 		final ExperimentalDuplexParamsImpl x = new ExperimentalDuplexParamsImpl();
+
+		System.out.println(x.getDeltaGAssoc(2, 310.15));
 		//System.out.println(x.getNNdeltaG(A,T,G,T));
 		//OK!
 	}
@@ -356,5 +358,43 @@ public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 		}
 		public final int W,X,Y,Z;
 		public final double score;
+	}
+	
+	/**
+	 * Taken from nupack!!!!
+	 */
+	public static final double WaterDensity(double T) {
+		/* 
+		     Calculates the number of moles of water per liter at T degrees
+
+		     Density of water calculated using data from:
+		     Tanaka M., Girard, G., Davis, R., Peuto A.,
+		     Bignell, N.   Recommended table for the denisty
+		     of water..., Metrologia, 2001, 38, 301-309
+		 */
+		
+		double FreezingPointOfWater = 273.15;  
+			
+		T -= FreezingPointOfWater;
+
+		double a1 = -3.983035;
+		double a2 = 301.797;
+		double a3 = 522528.9;
+		double a4 = 69.34881;
+		double a5 = 999.974950;
+
+
+		return a5 * (1 - (T+a1)*(T+a1)*(T+a2)/a3/(T+a4)) / 18.0152;
+
+	}
+	
+	public double getDeltaGAssoc(int numStrands, double T) {
+		double H37Bimolecular = .2;
+		double G37Bimolecular = 1.96;
+		double S37Bimolecular = (G37Bimolecular - H37Bimolecular)/310.15;
+		//in kcal / mol. Using the most recent experiments of this constant.
+		double kB = 1.3806504 * 6.02214179 / 4.184 / 1000;
+		double GBimolecular = H37Bimolecular + T * S37Bimolecular;
+		return (numStrands-1)*(GBimolecular - kB * T * Math.log(WaterDensity(T)));
 	}
 }

@@ -229,6 +229,7 @@ public class DomainSequence {
 			out.domainList[numDomains-1-i] = domainList[i];
 			out.domainList[numDomains-1-i] ^= DNA_COMPLEMENT_FLAG;
 		}
+		out.moleculeName = moleculeName;
 	}
 	public boolean equals(Object other){
 		if (!(other instanceof DomainSequence)){

@@ -105,7 +105,7 @@ public class MoleculeRepresentationTest {
 				}
 			};;
 			DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsg1, test1);
-			DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsg2, test2);
+			//DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsg2, test2);
 			for(ArrayList<DomainSequence[]> g : new ArrayList[]{test1,test2}){
 				System.out.println("TEST:"+g);
 				for(DomainSequence[] q : g){
