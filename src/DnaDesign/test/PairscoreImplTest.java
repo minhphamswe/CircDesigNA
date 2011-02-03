@@ -1,24 +1,26 @@
 package DnaDesign.test;
 
-import static DnaDesign.DnaDefinition.A;
-import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.G;
-import static DnaDesign.DnaDefinition.T;
+import static DnaDesign.AbstractPolymer.DnaDefinition.A;
+import static DnaDesign.AbstractPolymer.DnaDefinition.C;
+import static DnaDesign.AbstractPolymer.DnaDefinition.G;
+import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 
 import java.util.Arrays;
 
-import DnaDesign.DnaDefinition;
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainSequence;
 import DnaDesign.DomainStructureData;
+import DnaDesign.AbstractPolymer.DnaDefinition;
+import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.FoldingImpl;
 public class PairscoreImplTest {
 	public static void main(String[] args){
+		CircDesigNAConfig config = new CircDesigNAConfig();
 		for(int i = 0; i < 1000; i++){
-			FoldingImpl fl = new FoldingImpl();
+			FoldingImpl fl = new FoldingImpl(config);
 			DomainSequence seqS = new DomainSequence();
 			DomainSequence seq2S = new DomainSequence();
-			DomainStructureData dsd = new DomainStructureData();
+			DomainStructureData dsd = new DomainStructureData(config);
 			seqS.setDomains(0, null);
 			seq2S.setDomains(1, null);
 			String Seq1 = "ATGCATGC";//"GTGTTCTTGA";
@@ -44,14 +46,14 @@ public class PairscoreImplTest {
 				if (Seq1==null){
 					domain[0][k] = randomChoice(A,C,G,T);
 				} else {
-					domain[0][k] = DomainDesigner.decodeConstraintChar(Seq1.charAt(k));
+					domain[0][k] = config.monomer.decodeConstraintChar(Seq1.charAt(k));
 				}
 			}
 			for(int k = 0; k < seqLength2; k++){
 				if (Seq2==null){
 					domain[1][k] = randomChoice(A,C,G,T);
 				} else {
-					domain[1][k] = DomainDesigner.decodeConstraintChar(Seq2.charAt(k));
+					domain[1][k] = config.monomer.decodeConstraintChar(Seq2.charAt(k));
 				}
 			}
 			for(int k = 0; k < domainMark.length; k++)Arrays.fill(domainMark[k],0);
@@ -64,7 +66,7 @@ public class PairscoreImplTest {
 				System.out.println(Arrays.deepToString(domainMark2));
 				for(int[] domainS : domain){
 					for(int k : domainS){
-						System.out.print(DnaDefinition.displayBase(k));
+						System.out.print(config.monomer.displayBase(k));
 					}
 					System.out.println();
 				}

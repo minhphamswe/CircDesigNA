@@ -1,11 +1,6 @@
 package DnaDesign;
 
-import static DnaDesign.DesignSequenceConstraints.GCL_FLAG;
-import static DnaDesign.DesignSequenceConstraints.LOCK_FLAG;
-import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.DNAFLAG_ADD;
-import static DnaDesign.DnaDefinition.displayBase;
-import static DnaDesign.DnaDefinition.noFlags;
+import static DnaDesign.AbstractPolymer.DnaDefinition.C;
 import static DnaDesign.DomainSequence.DNAMARKER_DONTMUTATE;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
@@ -19,6 +14,8 @@ import java.util.TreeMap;
 import java.util.Map.Entry;
 
 import DnaDesign.AbstractDesigner.PopulationDesignMember;
+import DnaDesign.Config.CircDesigNAConfig;
+import DnaDesign.Config.CircDesigNASystemElement;
 import DnaDesign.DesignIntermediateReporter.DesignIntermediateScore;
 import DnaDesign.impl.CodonCode;
 import DnaDesign.impl.DomainDesignBlockDesignerImpl;
@@ -38,12 +35,15 @@ import DnaDesign.impl.SequenceCode;
  * 
  * Subclasses specify certain behaviors of the functions in main(), thus actually producing a full design algorithm.
  */
-public abstract class DomainDesigner {
+public abstract class DomainDesigner extends CircDesigNASystemElement{
+	public DomainDesigner(CircDesigNAConfig std) {
+		super(std);
+	}
 	/**
 	 * Utility method for creating a designer with the default parameters and input from the GUI layer.
 	 */
-	public static DDSeqDesigner<DesignerOptions> getDefaultDesigner(ArrayList<String> inputStrands,String domainDefs,String customCodonTable) {
-		return new DomainDesigner_Public(inputStrands,domainDefs,customCodonTable,null,null,null);
+	public static DDSeqDesigner<DesignerOptions> getDefaultDesigner(ArrayList<String> inputStrands,String domainDefs,CircDesigNAConfig Std) {
+		return new DomainDesigner_Public(inputStrands,domainDefs,null,null,null,Std);
 	}
 	/**
 	 * A coupled, exposed wrapper which allows the GUI to easily display design internals.
@@ -64,21 +64,20 @@ public abstract class DomainDesigner {
 		
 		DomainDesigner r;
 		private List<String> inputMolecules;
-		private String domainDefsBlock,customCodonCode;
+		private String domainDefsBlock;
 		private Map<Integer, String> lock;
 		private Map<Integer, String> initial;
 		private Map<Integer, DesignerCode> mutators;
 		private DesignIntermediateReporter dir;
-		public DomainDesigner_Public(List<String> inputStrands, String domainDefsBlock, String customCodonCode, Map<Integer, String> lock, Map<Integer, String> initial, Map<Integer, DesignerCode> mutators){
+		public DomainDesigner_Public(List<String> inputStrands, String domainDefsBlock, Map<Integer, String> lock, Map<Integer, String> initial, Map<Integer, DesignerCode> mutators, CircDesigNAConfig Std){
 			this.inputMolecules = inputStrands;
 			this.domainDefsBlock = domainDefsBlock;
 			this.lock = lock;
 			this.initial = initial;
 			this.mutators = mutators;
-			this.customCodonCode = customCodonCode;
 			dir = new DesignIntermediateReporter();
 			
-			r = new DomainDesignerImpl(new FoldingImpl());
+			r = new DomainDesignerImpl(new FoldingImpl(Std), Std);
 			runOnStart.run();
 			//new Thread(runOnStart).start();
 		}
@@ -91,12 +90,12 @@ public abstract class DomainDesigner {
 				//Read domainDefs
 				int num_domain = 0;
 				TreeMap<Integer, Integer> domain_length_t = new TreeMap<Integer, Integer>();
-				final DomainStructureData dsd = new DomainStructureData();
+				final DomainStructureData dsd = new DomainStructureData(r.Std);
 				DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
 				num_domain = dsd.domainLengths.length;
 				
 				//Read molecules
-				final AbstractDomainDesignTarget designTarget = new AbstractDomainDesignTarget(dsd);
+				final AbstractDomainDesignTarget designTarget = new AbstractDomainDesignTarget(dsd,r.Std);
 				for(int kq = 0; kq < inputMolecules.size(); kq++){
 					String q = inputMolecules.get(kq);
 					//DomainDesigner_SharedUtils.utilJunctionSplitter(theJunctions, q);
@@ -136,7 +135,7 @@ public abstract class DomainDesigner {
 					//Constraints are "initial sequences".
 					initial.put(k,dsd.getConstraint(k));
 					if (dsd.maintainAminos(k)){
-						mutators.put(k, new CodonCode(customCodonCode));
+						mutators.put(k, new CodonCode(r.Std));
 					}
 				}
 				
@@ -192,7 +191,7 @@ public abstract class DomainDesigner {
 			}
 
 			ArrayList<DomainSequence> alreadyPrintedSequences = new ArrayList();
-			DomainStructureData dsd = new DomainStructureData();
+			DomainStructureData dsd = new DomainStructureData(r.Std);
 			//DomainDesigner_SharedUtils.utilJunctionSplitter(theJunctions, q);
 			DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
 			StringBuffer sb = new StringBuffer();
@@ -324,17 +323,6 @@ public abstract class DomainDesigner {
 	public boolean abort = false;
 
 	//End accessible to client.
-
-	public static int decodeConstraintChar(char charAt){
-		if (!Character.isLetter(charAt)){
-			return 0;
-		}
-		int ret = DnaDefinition.decodeBaseChar(charAt);
-		if (Character.isLowerCase(charAt)){
-			ret += LOCK_FLAG;
-		};
-		return ret;
-	}
 	
 	//Constructor
 	
@@ -449,7 +437,7 @@ public abstract class DomainDesigner {
 		System.out.println("           CircDesigNA");
 		System.out.println("----------------------------------");
 		System.out.println("Designer started on "+new Date());
-		
+
 		//Domains to be designed. The integer type is being used to hold DNA bases,
 		//with additional metadata (multiples of 10 are added to mean certain things)
 		int[][] domain = new int[num_domain][];
@@ -467,7 +455,11 @@ public abstract class DomainDesigner {
 			for(Entry<Integer, String> init : initial.entrySet()){
 				int i = init.getKey();
 				for (int j = 0; j < domain_length[i]; j++) {
-					domain[i][j] = decodeConstraintChar(init.getValue().charAt(j));
+					try {
+						domain[i][j] = Std.monomer.decodeConstraintChar(init.getValue().charAt(j));
+					} catch (Throwable e){
+						throw new RuntimeException(e.getMessage()+" (Domain "+dsd.getDomainName(i)+")");
+					}
 				}
 			}
 		}
@@ -478,7 +470,7 @@ public abstract class DomainDesigner {
 			boolean mutable = false;
 			//Optimize for completely locked domains.
 			loop:for (int j = 0; j < domain_length[i]; j++) {
-				if (domain[i][j] < DNAFLAG_ADD){
+				if (domain[i][j] - Std.monomer.noFlags(domain[i][j]) != Std.monomer.LOCK_FLAG()){
 					mutable = true;
 					break loop;
 				}
@@ -487,14 +479,14 @@ public abstract class DomainDesigner {
 				mutableDomainsL.add(i);		
 			}
 		}
-		
+
 		//Derive a mutation strategy for all domains (by parsing domain constraints with the options selected)
 		for(int i = 0; i < num_domain; i++){
 			if (mutators!=null){
 				mutate[i] = mutators.get(i);
 				if (mutate[i]==null){
-					SequenceCode newCode = SequenceCode.getDefaultSequenceCode();
-					DesignSequenceConstraints dsc = DesignSequenceConstraints.getDefaultConstraints();
+					SequenceCode newCode = Std.getDefaultSequenceCode();
+					DesignSequenceConstraints dsc = Std.getDefaultConstraints();
 					dsd.loadConstraints(i,dsc,false);
 					newCode.setConstraints(dsc);
 					mutate[i] = newCode;
@@ -503,12 +495,12 @@ public abstract class DomainDesigner {
 				throw new RuntimeException("Mutators cannot be null");
 			}
 		}
-		
+
 		//Using mutation strategy (which are aware of sequence space), pick valid starting sequences.
 		for(int i = 0; i < num_domain; i++){
 			if (options.rule_ccend_option.getState()){
-				if (domain[i][0]==0)domain[i][0] = C + GCL_FLAG;
-				if (domain[i][domain[i].length-1]==0)domain[i][domain[i].length-1] = C + GCL_FLAG;
+				if (domain[i][0]==0)domain[i][0] = C + Std.monomer.GCL_FLAG();
+				if (domain[i][domain[i].length-1]==0)domain[i][domain[i].length-1] = C + Std.monomer.GCL_FLAG();
 			}
 			//Will initialize unconstrained portion of domain
 			try {
@@ -519,7 +511,7 @@ public abstract class DomainDesigner {
 		}
 
 		//Assertion: all domains are valid according to their respective mutation strategies. 
-		
+
 		//Locked domains. Legacy feature.
 		if (lockedDomains!=null){
 			for(Entry<Integer, String> lock : lockedDomains.entrySet()){
@@ -530,13 +522,13 @@ public abstract class DomainDesigner {
 				}
 			}
 		}
-		
+
 		//Make the list of mutableDomains again (optimization)
 		int[] mutableDomains = new int[mutableDomainsL.size()];
 		for(int i = 0; i < mutableDomains.length; i++){
 			mutableDomains[i] = mutableDomainsL.get(i);
 		}
-		
+
 		/*
 		//Check if this is a valid start position?
 		for(i = 0; i < num_domain; i++){
@@ -544,7 +536,7 @@ public abstract class DomainDesigner {
 				throw new RuntimeException("Assertion error: Start setup invalidated rules.");
 			}
 		}
-		*/
+		 */
 
 		//Enumerate penalty scores (see FoldingImplTestGUI for a visual of this process) via "listPenalties"
 		List<ScorePenalty> allScores = listPenalties(designTarget,DIR,domain,options);		
@@ -552,13 +544,14 @@ public abstract class DomainDesigner {
 		if (allScores.isEmpty()){
 			throw new RuntimeException("No scores to optimize : Algorithm has nothing to do!");
 		}
-				
-		
+
+
 		/*
 		for(int[] row : domain_markings){
 			System.out.println(Arrays.toString(row));
 		}
-		*/
+		 */
+
 
 		//Select the penalties which depend on certain domains. Clear optimization here.
 		int[][] scoredElements = new int[num_domain][];
@@ -576,98 +569,104 @@ public abstract class DomainDesigner {
 			}
 		}
 
-		//Initial score.
-		double current_score = 0;
-		deepFill(domain_markings,DNAMARKER_DONTMUTATE);
-		DIR.beginScoreReport();{
-			for(ScorePenalty q : allScores){
-				current_score += q.getScore(domain, domain_markings);
-				if (q.dis!=null){
-					q.dis.addScore(q.old_score);
+		try {
+			//Initial score.
+			double current_score = 0;
+			deepFill(domain_markings,DNAMARKER_DONTMUTATE);
+			DIR.beginScoreReport();{
+				for(ScorePenalty q : allScores){
+					current_score += q.getScore(domain, domain_markings);
+					if (q.dis!=null){
+						q.dis.addScore(q.old_score);
+					}
+					if (abort){
+						return 0;
+					}
 				}
-			}
-		}DIR.endScoreReport();
-		System.out.println("Randomized initial sequence (for population member 0):");
-		displayDomains(domain);
-		System.out.println("Initial score: "+current_score);	
-		best_score = current_score;
-		
-		//Create block designer, which will produce a certain initial population from the initial sequences we chose.
-		DomainDesignPMemberImpl initialSeed = new DomainDesignPMemberImpl(allScores,scoredElements,domain,domain_markings);
-		DomainDesignBlockDesignerImpl dbesign = new DomainDesignBlockDesignerImpl(num_domain,domain_length,mutableDomains,mutate,dsd,this);
-		dbesign.initialize(initialSeed, options.population_size.getState());
+			}DIR.endScoreReport();
+			System.out.println("Randomized initial sequence (for population member 0):");
+			displayDomains(domain);
+			System.out.println("Initial score: "+current_score);	
+			best_score = current_score;
 
-		if (true){  //If false, then all population members start at the same location.
-			System.out.println("Randomizing "+dbesign.getPopulation().length+" - 1 population members.");
-			//If true, seed each of the population members differently. 
-			PopulationDesignMember<DomainDesignPMemberImpl>[] a = dbesign.getPopulation();
-			for(PopulationDesignMember r2 : a){
-				DomainDesignPMemberImpl r = (DomainDesignPMemberImpl)r2;
-				for(int k = 0; k < r.domain.length; k++){
-					pickInitialSequence(r.domain,k,mutate[k]);
-				}
-				//Initial score.
-				double current_score_pmember = 0;
-				deepFill(r.domain_markings,DNAMARKER_DONTMUTATE);
-				//DIR.beginScoreReport();{
+			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
+			DomainDesignPMemberImpl initialSeed = new DomainDesignPMemberImpl(allScores,scoredElements,domain,domain_markings);
+			DomainDesignBlockDesignerImpl dbesign = new DomainDesignBlockDesignerImpl(num_domain,domain_length,mutableDomains,mutate,dsd,this);
+			dbesign.initialize(initialSeed, options.population_size.getState());
+
+			if (true){  //If false, then all population members start at the same location.
+				System.out.println("Randomizing "+dbesign.getPopulation().length+" - 1 population members.");
+				//If true, seed each of the population members differently. 
+				PopulationDesignMember<DomainDesignPMemberImpl>[] a = dbesign.getPopulation();
+				for(PopulationDesignMember r2 : a){
+					DomainDesignPMemberImpl r = (DomainDesignPMemberImpl)r2;
+					for(int k = 0; k < r.domain.length; k++){
+						pickInitialSequence(r.domain,k,mutate[k]);
+					}
+					//Initial score.
+					double current_score_pmember = 0;
+					deepFill(r.domain_markings,DNAMARKER_DONTMUTATE);
+					//DIR.beginScoreReport();{
 					for(ScorePenalty q : r.penalties){
 						current_score_pmember += q.getScore(r.domain, r.domain_markings);
 					}
 					//System.out.println("Initial score: "+current_score_in);
-				//}DIR.endScoreReport();			
-			}
-		}
-		
-		
-		//Record the time that the iteration began...
-		System.out.println("Entering design loop");
-		long lastDumpState = System.nanoTime();		
-		num_mut_attempts = 0;
-		while (!abort) {
-			while (waitForResume && !abort){
-				try {
-					Thread.sleep(100);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
+					//}DIR.endScoreReport();			
 				}
 			}
-			double endingThreshold = options.end_score_threshold.getState();
-			if (best_score <= endingThreshold){
-				break;
-			}
-			dbesign.runBlockIteration(this,endingThreshold);
-			//Iteration complete.
-			resetDebugPenalty();
-			DomainDesignPMemberImpl q = dbesign.getBestPerformingChild();
-			//Report the status of the best member.
-			DIR.beginScoreReport();
-			double score = 0;
-			for(ScorePenalty s : q.penalties){
-				score += s.old_score;
-				if (s.dis!=null){
-					s.dis.addScore(s.old_score);
-				}
-			}
-			best_score = score;
-			DIR.endScoreReport();
-			displayDomains(q.domain,false);
-			//debugPenalty(s, q.domain, dsd);
-			//System.out.println(num_domains_mut);
 
-			num_mut_attempts++;
-			if (num_mut_attempts > TOTAL_ATTEMPTS){
-				break;
-			}
-			if ((System.nanoTime()-lastDumpState)>2e9){
-				lastDumpState = System.nanoTime();
-				//if (DEBUG_PENALTIES){
+
+			//Record the time that the iteration began...
+			System.out.println("Entering design loop");
+			long lastDumpState = System.nanoTime();		
+			num_mut_attempts = 0;
+			while (!abort) {
+				while (waitForResume && !abort){
+					try {
+						Thread.sleep(100);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+				double endingThreshold = options.end_score_threshold.getState();
+				if (best_score <= endingThreshold){
+					break;
+				}
+				dbesign.runBlockIteration(this,endingThreshold);
+				//Iteration complete.
+				resetDebugPenalty();
+				DomainDesignPMemberImpl q = dbesign.getBestPerformingChild();
+				//Report the status of the best member.
+				DIR.beginScoreReport();
+				double score = 0;
+				for(ScorePenalty s : q.penalties){
+					score += s.old_score;
+					if (s.dis!=null){
+						s.dis.addScore(s.old_score);
+					}
+				}
+				best_score = score;
+				DIR.endScoreReport();
+				displayDomains(q.domain,false);
+				//debugPenalty(s, q.domain, dsd);
+				//System.out.println(num_domains_mut);
+
+				num_mut_attempts++;
+				if (num_mut_attempts > TOTAL_ATTEMPTS){
+					break;
+				}
+				if ((System.nanoTime()-lastDumpState)>2e9){
+					lastDumpState = System.nanoTime();
+					//if (DEBUG_PENALTIES){
 					//System.out.println("iteration: "+num_mut_attempts+" score: "+best_score+" most significant subscore: "+(priority-1)+" "+(current_score+deltaScore));
-				//}
+					//}
+				}
 			}
+		}	finally {
+			System.out.println("Designed sequence output:");
+			displayDomains(domain);
+			System.out.println("Designer ended after "+num_mut_attempts+" iterations, with a score of "+best_score);
 		}
-		System.out.println("Designed sequence output:");
-		displayDomains(domain);
-		System.out.println("Designer ended after "+num_mut_attempts+" iterations, with a score of "+best_score);
 		return num_mut_attempts;
 	}
 	public abstract List<ScorePenalty> listPenalties(
@@ -688,20 +687,20 @@ public abstract class DomainDesigner {
 				throw new RuntimeException("Initial constraints were too strict.");
 			}
 			for(int j = 0; j < domain[mut_domain].length; j++){
-				if (noFlags(domain[mut_domain][j])!=0){
+				if (Std.monomer.noFlags(domain[mut_domain][j])!=0){
 					continue; //Initial base. Leave it.
 				}
 				if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
 					mutator.mutateToOther(domain,mut_domain,j);
 				} else {
 					for(int i = 0; i < 3; i++){
-						if (noFlags(domain[mut_domain][j-(j%3)+i])==0){
+						if (Std.monomer.noFlags(domain[mut_domain][j-(j%3)+i])==0){
 							throw new RuntimeException("Protein Conserving (-p) Flag requires an initial sequence");
 						}
 					}
 					mutator.mutateToOther(domain,mut_domain,j-(j%3));
 				}
-				if (noFlags(domain[mut_domain][j])==0){
+				if (Std.monomer.noFlags(domain[mut_domain][j])==0){
 					//Mutation failed to replace a 0. rules must have been too strict; try again from the start.
 					continue initialLoop;
 				}
@@ -881,7 +880,7 @@ public abstract class DomainDesigner {
 			int[] row = domain[i];
 			outputDomains[i] = "";
 			for(int q : row){
-				outputDomains[i]+=displayBase(q);
+				outputDomains[i]+=Std.monomer.displayBase(q);
 			}
 			if (toOutput){
 				System.out.print(wrap(outputDomains[i],200)+" ");
@@ -899,9 +898,10 @@ public abstract class DomainDesigner {
 	}
 	//x1: locked. x2: GCLG / GCLC flag.
 	
-	public static int getLockedBase(char charAt) {
-		return noFlags(decodeConstraintChar(charAt))+LOCK_FLAG;
+	public int getLockedBase(char charAt) {
+		return Std.monomer.noFlags(Std.monomer.decodeConstraintChar(charAt))+Std.monomer.LOCK_FLAG();
 	}
+	
 	/**
 	 * String wrapping. Used for outputting large strings.
 	 */
@@ -916,14 +916,14 @@ public abstract class DomainDesigner {
 		}
 		return out.toString();
 	}
-	private static String displaySequence(DomainSequence sequence, int[][] domain, DomainStructureData dsd) {
+	private String displaySequence(DomainSequence sequence, int[][] domain, DomainStructureData dsd) {
 		StringBuffer sb = new StringBuffer();
 		sb.append(sequence.toString(dsd));
 		
 		int len = sequence.length(domain);
 		sb.append(" = ");
 		for(int i = 0; i < len; i++){
-			sb.append(displayBase(sequence.base(i, domain)));
+			sb.append(Std.monomer.displayBase(sequence.base(i, domain, Std.monomer)));
 		}
 		
 		return sb.toString();

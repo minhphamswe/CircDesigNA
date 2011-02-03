@@ -1,28 +1,30 @@
 package DnaDesign.test;
 
-import static DnaDesign.DnaDefinition.A;
-import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.G;
-import static DnaDesign.DnaDefinition.T;
+import static DnaDesign.AbstractPolymer.DnaDefinition.A;
+import static DnaDesign.AbstractPolymer.DnaDefinition.C;
+import static DnaDesign.AbstractPolymer.DnaDefinition.G;
+import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 
 import java.util.Arrays;
 
-import DnaDesign.DnaDefinition;
+import DnaDesign.AbstractDomainDesignTarget;
 import DnaDesign.DomainSequence;
 import DnaDesign.DomainStructureData;
 import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
+import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.DomainDesignerImpl;
 import DnaDesign.impl.FoldingImpl;
 import DnaDesign.impl.DomainDesignerImpl.HairpinOpening;
 public class FoldingImplTest3 {
 	public static void main(String[] args){
+		CircDesigNAConfig config = new CircDesigNAConfig();
 		for(int i = 0; i < 1; i++){
-			FoldingImpl fl = new FoldingImpl();
-			DomainDesignerImpl impl = new DomainDesignerImpl(fl);
-			HairpinClosingTarget hairpin = new HairpinClosingTarget(1,0,0|DomainSequence.DNA_COMPLEMENT_FLAG,2,true,null);
+			FoldingImpl fl = new FoldingImpl(config);
+			DomainDesignerImpl impl = new DomainDesignerImpl(fl,config);
+			DomainStructureData dsd = new DomainStructureData(config);
+			HairpinClosingTarget hairpin = new AbstractDomainDesignTarget(dsd,config).new HairpinClosingTarget(1,0,0|DomainSequence.DNA_COMPLEMENT_FLAG,2,true,null);
 			HairpinOpening hairpinOpening = impl.new HairpinOpening(hairpin, null);
 			DomainSequence seqS = new DomainSequence();
-			DomainStructureData dsd = new DomainStructureData();
 			seqS.setDomains(0, null);
 			String[] seq = new String[3];
 			int[][] domain = new int[seq.length][];
@@ -41,7 +43,7 @@ public class FoldingImplTest3 {
 				domainMark[j] = new int[seqLength];
 				if (seq!=null){
 					for(int k = 0; k < seqLength; k++){
-						domain[j][k] = DomainDesignerImpl.decodeConstraintChar(seq[j].charAt(k));
+						domain[j][k] = config.monomer.decodeConstraintChar(seq[j].charAt(k));
 					}
 				} else {
 					for(int k = 0; k < seqLength; k++){

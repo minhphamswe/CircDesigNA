@@ -1,11 +1,12 @@
 package DnaDesign.test;
 
-import static DnaDesign.DnaDefinition.A;
-import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.G;
-import static DnaDesign.DnaDefinition.T;
+import static DnaDesign.AbstractPolymer.DnaDefinition.A;
+import static DnaDesign.AbstractPolymer.DnaDefinition.C;
+import static DnaDesign.AbstractPolymer.DnaDefinition.G;
+import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 import DnaDesign.DomainSequence;
 import DnaDesign.DomainStructureData;
+import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.DomainDesignerImpl;
 import DnaDesign.impl.FoldingImpl;
 public class FoldingImplTest2 {
@@ -13,10 +14,11 @@ public class FoldingImplTest2 {
 	 * Tests base pairing observables calculations
 	 */
 	public static void main(String[] args){
+		CircDesigNAConfig config = new CircDesigNAConfig();
 		for(int i = 0; i < 1; i++){
-			FoldingImpl fl = new FoldingImpl();
+			FoldingImpl fl = new FoldingImpl(config);
 			DomainSequence seqS = new DomainSequence();
-			DomainStructureData dsd = new DomainStructureData();
+			DomainStructureData dsd = new DomainStructureData(config);
 			seqS.setDomains(0, null);
 			int[][] domain = new int[1][];
 			String seq = null;// "AAAAATTTTTTGGGGGGCCCCCCCC";
@@ -30,7 +32,7 @@ public class FoldingImplTest2 {
 			int[][] domainMark= new int[1][seqLength];
 			if (seq!=null){
 				for(int k = 0; k < seqLength; k++){
-					domain[0][k] = DomainDesignerImpl.decodeConstraintChar(seq.charAt(k));
+					domain[0][k] = config.monomer.decodeConstraintChar(seq.charAt(k));
 				}
 			} else {
 				for(int k = 0; k < seqLength; k++){

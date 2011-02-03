@@ -1,28 +1,32 @@
 package DnaDesign.impl;
 
-import static DnaDesign.DnaDefinition.A;
-import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.G;
-import static DnaDesign.DnaDefinition.T;
-import static DnaDesign.DnaDefinition.displayBase;
+import static DnaDesign.AbstractPolymer.DnaDefinition.A;
+import static DnaDesign.AbstractPolymer.DnaDefinition.C;
+import static DnaDesign.AbstractPolymer.DnaDefinition.G;
+import static DnaDesign.AbstractPolymer.DnaDefinition.T;
+import static DnaDesign.AbstractPolymer.RnaDefinition.U;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Scanner;
 
-import DnaDesign.DnaDefinition;
 import DnaDesign.ExperimentDatabase;
+import DnaDesign.AbstractPolymer.DnaDefinition;
+import DnaDesign.AbstractPolymer.MonomerDefinition;
+import DnaDesign.Config.CircDesigNAConfig;
+import DnaDesign.Config.CircDesigNASystemElement;
 
 /**
  * The actual Experimental Parameters Database.
  */
-public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
-	public ExperimentalDuplexParamsImpl(){
+public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement implements ExperimentDatabase{
+	public ExperimentalDuplexParamsImpl(CircDesigNAConfig config){
+		super(config);
 		makeTable();
 	}
-	private static int getNormalBase(int nonnormalBase){
-		return DnaDefinition.getNormalBaseFromZero(nonnormalBase);
+	private int getNormalBase(int nonnormalBase){
+		return Std.monomer.getNormalBaseFromZero(nonnormalBase);
 	}
 	private double[][][][] getNNdeltaG;
 	public double getNNdeltaG(int W, int X, int Y, int Z) {
@@ -50,16 +54,23 @@ public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 	}
 	
 	public static void main(String[] args) throws Throwable{
+		CircDesigNAConfig config = new CircDesigNAConfig();
+		//config.setMode(CircDesigNAConfig.RNA_MODE);
+		final ExperimentalDuplexParamsImpl x = new ExperimentalDuplexParamsImpl(config);
+
 		//parseMFoldParamsFile("dangles.add(new DangleScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\dangle.dgd",true,"));");
 		//parseMFoldParamsFile("nns.add(new NearestNeighborScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\stack.dgd",false,"));");
 		//parseMFoldParamsFile("tns.add(new TerminalMismatchPairScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\tstackh.dgd",false,"));");
-		final ExperimentalDuplexParamsImpl x = new ExperimentalDuplexParamsImpl();
 
+		//x.parseMFoldParamsFile("dangles.add(new DangleScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\dangle.dg",true,"));");
+		//x.parseMFoldParamsFile("nns.add(new NearestNeighborScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\stack.dg",false,"));");
+		//x.parseMFoldParamsFile("tns.add(new TerminalMismatchPairScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\tstackh.dg",false,"));");
+		
 		System.out.println(x.getDeltaGAssoc(2, 310.15));
-		//System.out.println(x.getNNdeltaG(A,T,G,T));
+		System.out.println(x.getNNdeltaG(A,T,G,T));
 		//OK!
 	}
-	private static void parseMFoldParamsFile(String prefix, String file, boolean dangleMode, String postum) throws FileNotFoundException {
+	private void parseMFoldParamsFile(String prefix, String file, boolean dangleMode, String postum) throws FileNotFoundException {
 		Scanner in = new Scanner(new File(file));
 		int[] ordering = new int[]{A,C,G,T};
 		int A = 0, B = 0;
@@ -80,16 +91,16 @@ public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 					for(Y = 0; Y < line2.length; Y++){
 						if (!line2[Y].equals(".")){
 							System.out.print(prefix);
-							System.out.print(displayBase(ordering[A])+sep+
-									displayBase(ordering[B])+sep);
+							System.out.print(Std.monomer.displayBase(ordering[A])+sep+
+									Std.monomer.displayBase(ordering[B])+sep);
 							if (!dangleMode){
 								System.out.print(
-										displayBase(ordering[X])+sep);
+										Std.monomer.displayBase(ordering[X])+sep);
 							} else {
 								System.out.print(prEnd+sep);
 							}
 							System.out.print(
-									displayBase(ordering[Y%4])+sep);
+									Std.monomer.displayBase(ordering[Y%4])+sep);
 							System.out.print(
 									line2[Y].equals(".")?"0":line2[Y]);
 							System.out.println(postum);
@@ -110,8 +121,215 @@ public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 			}
 		}
 	}
-
 	private void makeTable(){
+		if (Std.isDNAMode()){
+			makeTable_DNA();
+		} else {
+			makeTable_RNA();
+		}
+	}
+
+	private void makeTable_RNA(){
+		//****References:***//
+		//Zucker's UNAFOLD 3.0 parameters.
+		//The were taken from the following papers
+		//Matthews 1999
+		//Sort-of Zucker, 1999 (JMB) <--- this is RNA scores, but may have been extrapolated.
+	
+		ArrayList<NearestNeighborScore> nns = new ArrayList();
+		{
+			//AUTOWRITTEN
+			nns.add(new NearestNeighborScore(A,U,A,U,-0.90));
+			nns.add(new NearestNeighborScore(A,U,C,G,-2.10));
+			nns.add(new NearestNeighborScore(A,U,G,C,-1.70));
+			nns.add(new NearestNeighborScore(A,U,G,U,-0.50));
+			nns.add(new NearestNeighborScore(A,U,U,A,-0.90));
+			nns.add(new NearestNeighborScore(A,U,U,G,-1.00));
+			nns.add(new NearestNeighborScore(C,G,A,U,-1.80));
+			nns.add(new NearestNeighborScore(C,G,C,G,-2.90));
+			nns.add(new NearestNeighborScore(C,G,G,C,-2.00));
+			nns.add(new NearestNeighborScore(C,G,G,U,-1.20));
+			nns.add(new NearestNeighborScore(C,G,U,A,-1.70));
+			nns.add(new NearestNeighborScore(C,G,U,G,-1.90));
+			nns.add(new NearestNeighborScore(G,C,A,U,-2.30));
+			nns.add(new NearestNeighborScore(G,U,A,U,-1.10));
+			nns.add(new NearestNeighborScore(G,C,C,G,-3.40));
+			nns.add(new NearestNeighborScore(G,U,C,G,-2.10));
+			nns.add(new NearestNeighborScore(G,C,G,C,-2.90));
+			nns.add(new NearestNeighborScore(G,C,G,U,-1.40));
+			nns.add(new NearestNeighborScore(G,U,G,C,-1.90));
+			nns.add(new NearestNeighborScore(G,U,G,U,-0.40));
+			nns.add(new NearestNeighborScore(G,C,U,A,-2.10));
+			nns.add(new NearestNeighborScore(G,C,U,G,-2.10));
+			nns.add(new NearestNeighborScore(G,U,U,A,-1.00));
+			nns.add(new NearestNeighborScore(G,U,U,G,+1.50));
+			nns.add(new NearestNeighborScore(U,A,A,U,-1.10));
+			nns.add(new NearestNeighborScore(U,G,A,U,-0.80));
+			nns.add(new NearestNeighborScore(U,A,C,G,-2.30));
+			nns.add(new NearestNeighborScore(U,G,C,G,-1.40));
+			nns.add(new NearestNeighborScore(U,A,G,C,-1.80));
+			nns.add(new NearestNeighborScore(U,A,G,U,-0.80));
+			nns.add(new NearestNeighborScore(U,G,G,C,-1.20));
+			nns.add(new NearestNeighborScore(U,G,G,U,-0.20));
+			nns.add(new NearestNeighborScore(U,A,U,A,-0.90));
+			nns.add(new NearestNeighborScore(U,A,U,G,-1.10));
+			nns.add(new NearestNeighborScore(U,G,U,A,-0.50));
+			nns.add(new NearestNeighborScore(U,G,U,G,-0.40));
+		}
+		ArrayList<TerminalMismatchPairScore> tns = new ArrayList();
+		{
+			tns.add(new TerminalMismatchPairScore(A,U,A,A,-0.80));
+			tns.add(new TerminalMismatchPairScore(A,U,A,C,-1.00));
+			tns.add(new TerminalMismatchPairScore(A,U,A,G,-1.70));
+			tns.add(new TerminalMismatchPairScore(A,U,A,U,-1.00));
+			tns.add(new TerminalMismatchPairScore(A,U,C,A,-0.70));
+			tns.add(new TerminalMismatchPairScore(A,U,C,C,-0.70));
+			tns.add(new TerminalMismatchPairScore(A,U,C,G,-0.70));
+			tns.add(new TerminalMismatchPairScore(A,U,C,U,-0.70));
+			tns.add(new TerminalMismatchPairScore(A,U,G,A,-1.50));
+			tns.add(new TerminalMismatchPairScore(A,U,G,C,-1.00));
+			tns.add(new TerminalMismatchPairScore(A,U,G,G,-1.00));
+			tns.add(new TerminalMismatchPairScore(A,U,G,U,-1.00));
+			tns.add(new TerminalMismatchPairScore(A,U,U,A,-0.80));
+			tns.add(new TerminalMismatchPairScore(A,U,U,C,-0.80));
+			tns.add(new TerminalMismatchPairScore(A,U,U,G,-0.80));
+			tns.add(new TerminalMismatchPairScore(A,U,U,U,-0.80));
+			tns.add(new TerminalMismatchPairScore(C,G,A,A,-1.40));
+			tns.add(new TerminalMismatchPairScore(C,G,A,C,-2.00));
+			tns.add(new TerminalMismatchPairScore(C,G,A,G,-2.10));
+			tns.add(new TerminalMismatchPairScore(C,G,A,U,-1.90));
+			tns.add(new TerminalMismatchPairScore(C,G,C,A,-1.00));
+			tns.add(new TerminalMismatchPairScore(C,G,C,C,-1.10));
+			tns.add(new TerminalMismatchPairScore(C,G,C,G,-1.00));
+			tns.add(new TerminalMismatchPairScore(C,G,C,U,-0.80));
+			tns.add(new TerminalMismatchPairScore(C,G,G,A,-2.10));
+			tns.add(new TerminalMismatchPairScore(C,G,G,C,-1.90));
+			tns.add(new TerminalMismatchPairScore(C,G,G,G,-1.40));
+			tns.add(new TerminalMismatchPairScore(C,G,G,U,-1.90));
+			tns.add(new TerminalMismatchPairScore(C,G,U,A,-1.40));
+			tns.add(new TerminalMismatchPairScore(C,G,U,C,-1.50));
+			tns.add(new TerminalMismatchPairScore(C,G,U,G,-1.40));
+			tns.add(new TerminalMismatchPairScore(C,G,U,U,-1.20));
+			tns.add(new TerminalMismatchPairScore(G,C,A,A,-1.10));
+			tns.add(new TerminalMismatchPairScore(G,C,A,C,-1.30));
+			tns.add(new TerminalMismatchPairScore(G,C,A,G,-2.00));
+			tns.add(new TerminalMismatchPairScore(G,C,A,U,-1.30));
+			tns.add(new TerminalMismatchPairScore(G,U,A,A,-0.80));
+			tns.add(new TerminalMismatchPairScore(G,U,A,C,-1.00));
+			tns.add(new TerminalMismatchPairScore(G,U,A,G,-1.70));
+			tns.add(new TerminalMismatchPairScore(G,U,A,U,-1.00));
+			tns.add(new TerminalMismatchPairScore(G,C,C,A,-1.10));
+			tns.add(new TerminalMismatchPairScore(G,C,C,C,-0.60));
+			tns.add(new TerminalMismatchPairScore(G,C,C,G,-0.60));
+			tns.add(new TerminalMismatchPairScore(G,C,C,U,-0.50));
+			tns.add(new TerminalMismatchPairScore(G,U,C,A,-0.70));
+			tns.add(new TerminalMismatchPairScore(G,U,C,C,-0.70));
+			tns.add(new TerminalMismatchPairScore(G,U,C,G,-0.70));
+			tns.add(new TerminalMismatchPairScore(G,U,C,U,-0.70));
+			tns.add(new TerminalMismatchPairScore(G,C,G,A,-2.30));
+			tns.add(new TerminalMismatchPairScore(G,C,G,C,-1.50));
+			tns.add(new TerminalMismatchPairScore(G,C,G,G,-1.40));
+			tns.add(new TerminalMismatchPairScore(G,C,G,U,-1.50));
+			tns.add(new TerminalMismatchPairScore(G,U,G,A,-1.50));
+			tns.add(new TerminalMismatchPairScore(G,U,G,C,-1.00));
+			tns.add(new TerminalMismatchPairScore(G,U,G,G,-1.00));
+			tns.add(new TerminalMismatchPairScore(G,U,G,U,-1.00));
+			tns.add(new TerminalMismatchPairScore(G,C,U,A,-0.80));
+			tns.add(new TerminalMismatchPairScore(G,C,U,C,-0.80));
+			tns.add(new TerminalMismatchPairScore(G,C,U,G,-0.80));
+			tns.add(new TerminalMismatchPairScore(G,C,U,U,-0.70));
+			tns.add(new TerminalMismatchPairScore(G,U,U,A,-0.80));
+			tns.add(new TerminalMismatchPairScore(G,U,U,C,-0.80));
+			tns.add(new TerminalMismatchPairScore(G,U,U,G,-0.80));
+			tns.add(new TerminalMismatchPairScore(G,U,U,U,-0.80));
+			tns.add(new TerminalMismatchPairScore(U,A,A,A,-1.00));
+			tns.add(new TerminalMismatchPairScore(U,A,A,C,-0.80));
+			tns.add(new TerminalMismatchPairScore(U,A,A,G,-1.80));
+			tns.add(new TerminalMismatchPairScore(U,A,A,U,-0.90));
+			tns.add(new TerminalMismatchPairScore(U,G,A,A,-1.20));
+			tns.add(new TerminalMismatchPairScore(U,G,A,C,-1.40));
+			tns.add(new TerminalMismatchPairScore(U,G,A,G,-2.00));
+			tns.add(new TerminalMismatchPairScore(U,G,A,U,-1.40));
+			tns.add(new TerminalMismatchPairScore(U,A,C,A,-0.70));
+			tns.add(new TerminalMismatchPairScore(U,A,C,C,-0.60));
+			tns.add(new TerminalMismatchPairScore(U,A,C,G,-0.30));
+			tns.add(new TerminalMismatchPairScore(U,A,C,U,-0.50));
+			tns.add(new TerminalMismatchPairScore(U,G,C,A,-0.90));
+			tns.add(new TerminalMismatchPairScore(U,G,C,C,-0.90));
+			tns.add(new TerminalMismatchPairScore(U,G,C,G,-0.70));
+			tns.add(new TerminalMismatchPairScore(U,G,C,U,-0.70));
+			tns.add(new TerminalMismatchPairScore(U,A,G,A,-1.80));
+			tns.add(new TerminalMismatchPairScore(U,A,G,C,-0.90));
+			tns.add(new TerminalMismatchPairScore(U,A,G,G,-1.20));
+			tns.add(new TerminalMismatchPairScore(U,A,G,U,-0.90));
+			tns.add(new TerminalMismatchPairScore(U,G,G,A,-2.00));
+			tns.add(new TerminalMismatchPairScore(U,G,G,C,-1.40));
+			tns.add(new TerminalMismatchPairScore(U,G,G,G,-1.30));
+			tns.add(new TerminalMismatchPairScore(U,G,G,U,-1.40));
+			tns.add(new TerminalMismatchPairScore(U,A,U,A,-0.30));
+			tns.add(new TerminalMismatchPairScore(U,A,U,C,-0.60));
+			tns.add(new TerminalMismatchPairScore(U,A,U,G,-0.30));
+			tns.add(new TerminalMismatchPairScore(U,A,U,U,-0.50));
+			tns.add(new TerminalMismatchPairScore(U,G,U,A,-0.90));
+			tns.add(new TerminalMismatchPairScore(U,G,U,C,-1.10));
+			tns.add(new TerminalMismatchPairScore(U,G,U,G,-0.90));
+			tns.add(new TerminalMismatchPairScore(U,G,U,U,-0.90));
+		}
+		ArrayList<DangleScore> dangles = new ArrayList();
+		{
+			dangles.add(new DangleScore(A,U,"3pr",A,-0.80));
+			dangles.add(new DangleScore(A,U,"3pr",C,-0.50));
+			dangles.add(new DangleScore(A,U,"3pr",G,-0.80));
+			dangles.add(new DangleScore(A,U,"3pr",U,-0.60));
+			dangles.add(new DangleScore(C,G,"3pr",A,-1.70));
+			dangles.add(new DangleScore(C,G,"3pr",C,-0.80));
+			dangles.add(new DangleScore(C,G,"3pr",G,-1.70));
+			dangles.add(new DangleScore(C,G,"3pr",U,-1.20));
+			dangles.add(new DangleScore(G,C,"3pr",A,-1.10));
+			dangles.add(new DangleScore(G,C,"3pr",C,-0.40));
+			dangles.add(new DangleScore(G,C,"3pr",G,-1.30));
+			dangles.add(new DangleScore(G,C,"3pr",U,-0.60));
+			dangles.add(new DangleScore(G,U,"3pr",A,-0.80));
+			dangles.add(new DangleScore(G,U,"3pr",C,-0.50));
+			dangles.add(new DangleScore(G,U,"3pr",G,-0.80));
+			dangles.add(new DangleScore(G,U,"3pr",U,-0.60));
+			dangles.add(new DangleScore(U,A,"3pr",A,-0.70));
+			dangles.add(new DangleScore(U,A,"3pr",C,-0.10));
+			dangles.add(new DangleScore(U,A,"3pr",G,-0.70));
+			dangles.add(new DangleScore(U,A,"3pr",U,-0.10));
+			dangles.add(new DangleScore(U,G,"3pr",A,-1.20));
+			dangles.add(new DangleScore(U,G,"3pr",C,-0.50));
+			dangles.add(new DangleScore(U,G,"3pr",G,-1.20));
+			dangles.add(new DangleScore(U,G,"3pr",U,-0.70));
+			dangles.add(new DangleScore(A,U,"5pr",A,-0.30));
+			dangles.add(new DangleScore(A,U,"5pr",C,-0.10));
+			dangles.add(new DangleScore(A,U,"5pr",G,-0.20));
+			dangles.add(new DangleScore(A,U,"5pr",U,-0.20));
+			dangles.add(new DangleScore(C,G,"5pr",A,-0.20));
+			dangles.add(new DangleScore(C,G,"5pr",C,-0.30));
+			dangles.add(new DangleScore(C,G,"5pr",G,-0.00));
+			dangles.add(new DangleScore(C,G,"5pr",U,-0.00));
+			dangles.add(new DangleScore(G,C,"5pr",A,-0.50));
+			dangles.add(new DangleScore(G,C,"5pr",C,-0.30));
+			dangles.add(new DangleScore(G,C,"5pr",G,-0.20));
+			dangles.add(new DangleScore(G,C,"5pr",U,-0.10));
+			dangles.add(new DangleScore(G,U,"5pr",A,-0.20));
+			dangles.add(new DangleScore(G,U,"5pr",C,-0.20));
+			dangles.add(new DangleScore(G,U,"5pr",G,-0.20));
+			dangles.add(new DangleScore(G,U,"5pr",U,-0.20));
+			dangles.add(new DangleScore(U,A,"5pr",A,-0.30));
+			dangles.add(new DangleScore(U,A,"5pr",C,-0.30));
+			dangles.add(new DangleScore(U,A,"5pr",G,-0.40));
+			dangles.add(new DangleScore(U,A,"5pr",U,-0.20));
+			dangles.add(new DangleScore(U,G,"5pr",A,-0.20));
+			dangles.add(new DangleScore(U,G,"5pr",C,-0.20));
+			dangles.add(new DangleScore(U,G,"5pr",G,-0.20));
+			dangles.add(new DangleScore(U,G,"5pr",U,-0.20));		
+		}
+		
+		reformScoreLists(nns,tns,dangles);
+	}
+	private void makeTable_DNA(){
 		//****References:***//
 		//Zucker's UNAFOLD parameters.
 		//The were taken from the following papers
@@ -310,7 +528,15 @@ public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 			dangles.add(new DangleScore(T,G,"5pr",G,-0.10));
 			dangles.add(new DangleScore(T,G,"5pr",T,-0.10));
 		}
-		
+
+		reformScoreLists(nns,tns,dangles);
+	}
+	/**
+	 * Called after makeTable*
+	 */
+	private void reformScoreLists(ArrayList<NearestNeighborScore> nns,
+			ArrayList<TerminalMismatchPairScore> tns,
+			ArrayList<DangleScore> dangles) {
 		//Ok! parse the arraylists to actual tables.
 		getNNdeltaG = new double[4][4][4][4];
 		getNNdeltaGterm = new double[4][4][4][4];
@@ -334,7 +560,7 @@ public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 			            [dang.is3PrimeEnd?1:0] = dang.score;
 		}
 	}
-	private static class DangleScore extends NearestNeighborScore{
+	private class DangleScore extends NearestNeighborScore{
 		private boolean is3PrimeEnd;
 		public DangleScore(int W, int X, String prEnd, int Z, double score) {
 			super(W, X, A, Z, score);
@@ -342,13 +568,13 @@ public class ExperimentalDuplexParamsImpl implements ExperimentDatabase{
 		}
 		
 	}
-	private static class TerminalMismatchPairScore extends NearestNeighborScore{
+	private class TerminalMismatchPairScore extends NearestNeighborScore{
 		public TerminalMismatchPairScore(int W, int X, int Y, int Z,
 				double score) {
 			super(W, X, Y, Z, score);
 		}
 	}
-	private static class NearestNeighborScore{
+	private class NearestNeighborScore{
 		public NearestNeighborScore(int W, int X, int Y, int Z, double score){
 			this.W = getNormalBase(W);
 			this.X = getNormalBase(X);

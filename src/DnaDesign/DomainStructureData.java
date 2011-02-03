@@ -1,5 +1,4 @@
 package DnaDesign;
-import static DnaDesign.DnaDefinition.DNAFLAG_ADD;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
@@ -12,10 +11,17 @@ import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import DnaDesign.AbstractPolymer.MonomerDefinition;
+import DnaDesign.Config.CircDesigNAConfig;
+import DnaDesign.Config.CircDesigNASystemElement;
+
 /**
  * The information parsed from the DomainDefs block is encoded in an object of this class.
  */
-public class DomainStructureData {
+public class DomainStructureData extends CircDesigNASystemElement{
+	public DomainStructureData(CircDesigNAConfig Std){
+		super(Std);
+	}
 	/**
 	 * Invertible.
 	 */
@@ -80,7 +86,7 @@ public class DomainStructureData {
 		for(k = 0; k < domainLengths.size(); k++){
 			out.domainLengths[k] = domainLengths.get(k);
 			//Test the seq constraints
-			DesignSequenceConstraints dsc = new DesignSequenceConstraints();
+			DesignSequenceConstraints dsc = new DesignSequenceConstraints(out.Std);
 			out.loadConstraints(k, dsc, true);
 		}
 	}
@@ -219,8 +225,8 @@ public class DomainStructureData {
 			for(char q : array[k].toCharArray()){
 				if (Character.isLetter(q)){
 					q = Character.toUpperCase(q);
-					int base = DnaDefinition.decodeBaseChar(q);
-					if (base == 0 || base >= DNAFLAG_ADD){
+					int base = Std.monomer.decodeBaseChar(q);
+					if (base == MonomerDefinition.NOBASE || base >= Std.monomer.getNumMonomers()){
 						throw new RuntimeException("Invalid base: "+array[k]);
 					}
 					bases.add(base);

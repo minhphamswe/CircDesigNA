@@ -537,7 +537,7 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 
-	public static void utilHairpinClosingFinder(DomainPolymerGraph dsg, ArrayList<HairpinClosingTarget> hairpinLoops) {
+	public static void utilHairpinClosingFinder(AbstractDomainDesignTarget target, DomainPolymerGraph dsg, ArrayList<HairpinClosingTarget> hairpinLoops) {
 		//Only add the hairpin closings on the closing of the hairpin (so when the later partner domain is encountered)
 		for(int k = 0; k < dsg.length(); k++){
 			int domain = dsg.getDomain(k);
@@ -550,7 +550,7 @@ public class DomainDesigner_SharedUtils {
 				if (pair > 0 && (k+1)<dsg.length()){
 					//Ok, can (pair-1) and (k+1) pair?
 					if (canPair(dsg,pair-1) && canPair(dsg,k+1)){
-						hairpinLoops.add(new HairpinClosingTarget(dsg.getDomain(pair-1),
+						hairpinLoops.add(target.new HairpinClosingTarget(dsg.getDomain(pair-1),
 																	pairDomain,
 																	domain,
 																	dsg.getDomain(k+1),
@@ -560,7 +560,7 @@ public class DomainDesigner_SharedUtils {
 				if (k > 0 && (pair+1)<dsg.length()){
 					//How about the "inside": (pair+1) and (k-1).
 					if (canPair(dsg,pair+1) && canPair(dsg,k-1)){
-						hairpinLoops.add(new HairpinClosingTarget(
+						hairpinLoops.add(target.new HairpinClosingTarget(
 								pairDomain,
 								dsg.getDomain(pair+1),
 								dsg.getDomain(k-1),

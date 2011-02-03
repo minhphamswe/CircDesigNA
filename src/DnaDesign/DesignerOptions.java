@@ -87,7 +87,7 @@ public class DesignerOptions {
 			return "Minimum length of domain to apply \"Self Similarity\" penalty to. Negative input disables.";
 		}
 		public int getDefaultState(){
-			return 8;
+			return -1;
 		}
 		private int minimumForSelfSimilarity = getDefaultState(); 
 		public int getState() {

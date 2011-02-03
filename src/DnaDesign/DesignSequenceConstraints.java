@@ -1,47 +1,30 @@
 package DnaDesign;
 
-import static DnaDesign.DnaDefinition.A;
-import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.D;
-import static DnaDesign.DnaDefinition.DNAFLAG_ADD;
-import static DnaDesign.DnaDefinition.G;
-import static DnaDesign.DnaDefinition.H;
-import static DnaDesign.DnaDefinition.P;
-import static DnaDesign.DnaDefinition.T;
-import static DnaDesign.DnaDefinition.Z;
-import static DnaDesign.DnaDefinition.noFlags;
+import static DnaDesign.AbstractPolymer.DnaDefinition.C;
+import static DnaDesign.AbstractPolymer.DnaDefinition.G;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+
+import DnaDesign.AbstractPolymer.MonomerDefinition;
+import DnaDesign.Config.CircDesigNAConfig;
+import DnaDesign.Config.CircDesigNASystemElement;
 
 /**
  * Defines the syntax for "Sequence Constraints". Includes a scheme for mutating bases such that the sequence remains in the
  * sequence space.
  */
-public class DesignSequenceConstraints {
+public class DesignSequenceConstraints extends CircDesigNASystemElement{
 
-	public static final int GCL_FLAG =  0 + DNAFLAG_ADD;
-	/**
-	 * Use ADDITION, not bitwise oring, when applying flags.
-	 */
-	public static final int LOCK_FLAG = GCL_FLAG + DNAFLAG_ADD;
 
-	public static DesignSequenceConstraints getDefaultConstraints() {
-		DesignSequenceConstraints defaults = new DesignSequenceConstraints();
-		defaults.setMaxConstraint(0, H);
-		defaults.setMaxConstraint(0, P);
-		defaults.setMaxConstraint(0, Z);
-		defaults.setMaxConstraint(0, D);
-		return defaults;
-	}
 	//-1 means no upper bound
 	//Format: int[b0...bn-1, constraint]
 	//So, int[{1 in A,T position},-1] in minConstituents means no lower bound on A+T
-	private static class Constraint{
+	private class Constraint{
 		private boolean[] regulates;
 		private int constraintValue;
 		public Constraint() {
-			regulates = new boolean[DNAFLAG_ADD];
+			regulates = new boolean[Std.monomer.getNumMonomers()];
 			Arrays.fill(regulates,false);
 			constraintValue = -1;
 		}
@@ -67,7 +50,8 @@ public class DesignSequenceConstraints {
 	private ArrayList<Constraint> maxConstituents;
 	private ArrayList<Constraint> minConstituents;
 	//-1 means no lower bound
-	public DesignSequenceConstraints(){
+	public DesignSequenceConstraints(CircDesigNAConfig system){
+		super(system);
 		maxConstituents = new ArrayList<Constraint>();
 		minConstituents = new ArrayList<Constraint>();
 	}
@@ -94,7 +78,7 @@ public class DesignSequenceConstraints {
 		}
 		Constraint made = new Constraint();
 		for(int i = 0; i < base.length; i++){
-			base[i] = DnaDefinition.noFlags(base[i]);
+			base[i] = Std.monomer.noFlags(base[i]);
 			made.regulates[base[i]] = true;
 		}
 		made.constraintValue = maxVal;
@@ -107,7 +91,7 @@ public class DesignSequenceConstraints {
 	 */
 	public boolean isValid(int[] domain){
 		if (getBaseCounts(domain)){
-			for(int k = 0; k < DNAFLAG_ADD; k++){
+			for(int k = 0; k < Std.monomer.getNumMonomers(); k++){
 				if (isOutOfValidRange(k)){
 					return false;
 				}
@@ -121,12 +105,16 @@ public class DesignSequenceConstraints {
 	private boolean getBaseCounts(int[] domain) {
 		return getBaseCounts(domain,-1);
 	}
-	private int[] getBaseCounts_shared = new int[DNAFLAG_ADD];
+	private int[] getBaseCounts_shared;
 	private boolean getBaseCounts(int[] domain, int ignoreIndex) {
+		//Ensure correct length of share vector
+		if (getBaseCounts_shared==null || getBaseCounts_shared.length != Std.monomer.getNumMonomers()){
+			getBaseCounts_shared = new int[Std.monomer.getNumMonomers()];
+		}
 		Arrays.fill(getBaseCounts_shared,0);
 		for(int k = 0; k < domain.length; k++){
 			if (k==ignoreIndex) continue;
-			getBaseCounts_shared[DnaDefinition.noFlags(domain[k])]++;
+			getBaseCounts_shared[Std.monomer.noFlags(domain[k])]++;
 		}
 		return true;
 	}
@@ -135,13 +123,13 @@ public class DesignSequenceConstraints {
 	 */
 	private boolean isAllowableBaseforFlags(int oldBase_flag, int testBase) {
 		//Make sure oldBase_flag is pure flag,
-		oldBase_flag -= noFlags(oldBase_flag);
+		oldBase_flag -= Std.monomer.noFlags(oldBase_flag);
 		//Make sure testBase is pure base
-		testBase = noFlags(testBase);
+		testBase = Std.monomer.noFlags(testBase);
 		//If we are allowed to make this mutation, return true.
-		if (oldBase_flag == GCL_FLAG){
-			//Then, only G / C mutations valid.
-			return testBase==G || testBase==C;
+		//Then, only G / C mutations valid.
+		if (Std.isNAmode()){
+			return Std.monomer.allowBase(oldBase_flag,testBase);
 		}
 		return true;
 	}
@@ -157,12 +145,12 @@ public class DesignSequenceConstraints {
 	 * Assumes isValid_shared is filled with the base counts.
 	 */
 	private boolean checkInvalidating(ArrayList<Constraint> constraints, int base, boolean isMaxConstraint) {
-		base = noFlags(base);
+		base = Std.monomer.noFlags(base);
 		for(Constraint q : constraints){
 			if (q.constraintValue!=-1){
 				if (q.regulates[base]){
 					int sum = 0;
-					for(int k = 0; k < DNAFLAG_ADD; k++){
+					for(int k = 0; k < Std.monomer.getNumMonomers(); k++){
 						if (q.regulates[k]){
 							sum += getBaseCounts_shared[k];
 						}
@@ -189,10 +177,12 @@ public class DesignSequenceConstraints {
 	 * @author Benjamin
 	 */
 	private class ConstraintChoiceIterator{
+		/*
 		private final int[] baseOrders = new int[]{
 				//No specific order.
 			A,T,C,G,D,P,H,Z	
 		};
+		*/
 		
 		private int[] mut_new;
 		private int j;
@@ -220,18 +210,18 @@ public class DesignSequenceConstraints {
 				return !alreadyReturnedBypass;
 			}
 			int oldBase = mut_new[j];
-			int oldBase_pure = (oldBase % DNAFLAG_ADD);
+			int oldBase_pure = Std.monomer.noFlags(oldBase);
 			int oldBase_flag = oldBase - oldBase_pure;
-			if (oldBase_flag == LOCK_FLAG){
+			if (oldBase_flag == Std.monomer.LOCK_FLAG()){
 				//Locked bases are not mutable.
 				return false;
 			}
 			while(true){
-				if (i_inBaseOrders+1>=baseOrders.length){
+				if (i_inBaseOrders+1>=Std.monomer.getMonomers().length){
 					break;
 				}
 				++i_inBaseOrders;
-				b_inBaseOrders = baseOrders[i_inBaseOrders];
+				b_inBaseOrders = Std.monomer.getMonomers()[i_inBaseOrders];
 				int testBase = b_inBaseOrders;
 				if (testBase==oldBase_pure){
 					continue; //This wouldn't be a changing mutation.
@@ -249,8 +239,8 @@ public class DesignSequenceConstraints {
 		}
 		private boolean canMutateBySwapping() {
 			int oldBase = mut_new[j];
-			int oldBase_pure = (oldBase % DNAFLAG_ADD);
-			if (oldBase_pure==DnaDefinition.NOBASE){
+			int oldBase_pure = Std.monomer.noFlags(oldBase);
+			if (oldBase_pure==MonomerDefinition.NOBASE){
 				//Special case: don't swap "uninitialized" bases around (code 0)
 				return false; 
 			}
@@ -264,7 +254,7 @@ public class DesignSequenceConstraints {
 				if (i==j){
 					continue;
 				}
-				int swapBase = noFlags(mut_new[i]);
+				int swapBase = Std.monomer.noFlags(mut_new[i]);
 				int swapBase_flag = mut_new[i] - swapBase;
 				//Does this swap achieve the goal of changing mut_new[j] to testBase?
 				if (!(swapBase==testBase)){
@@ -286,7 +276,7 @@ public class DesignSequenceConstraints {
 		 */
 		private boolean canMutateBaseDirectly(){
 			int oldBase = mut_new[j];
-			int oldBase_pure = (oldBase % DNAFLAG_ADD);
+			int oldBase_pure = Std.monomer.noFlags(oldBase);
 			int oldBase_flag = oldBase - oldBase_pure;
 			//Will replacing oldBase cause us to go under a minimum quota?
 			if (isUnderValidMin(oldBase_pure)){
@@ -329,11 +319,11 @@ public class DesignSequenceConstraints {
 			boolean hadUnderValid = false;
 			//Is mut_new[j] underquota?
 			if (getBaseCounts(mut_new)){
-				if (isUnderValidMin(noFlags(mut_new[j]))){
+				if (isUnderValidMin(Std.monomer.noFlags(mut_new[j]))){
 					return UnderQuotaButImpossibleToChange;
 				}
-				for(int test_base : baseOrders){
-					if (noFlags(mut_new[j])==test_base){
+				for(int test_base : Std.monomer.getMonomers()){
+					if (Std.monomer.noFlags(mut_new[j])==test_base){
 						continue; //These don't count.
 					}
 					if (isUnderValidMin(test_base)){
@@ -376,13 +366,13 @@ public class DesignSequenceConstraints {
 		}
 		if (itr.isDirectMutationChoice()){
 			int newBase = itr.getMutationBase();
-			//new Base < DNA_FLAGADD
-			mut_new[j] = mut_new[j] - (mut_new[j]%DNAFLAG_ADD) + newBase;
+			//new Base < getNumMonomers
+			mut_new[j] = mut_new[j] - Std.monomer.noFlags(mut_new[j]) + newBase;
 		} else {
 			int swapIndex = itr.getSwapIndex();
 			int tmp = mut_new[j];
-			mut_new[j] = mut_new[j] - noFlags(mut_new[j]) + noFlags(mut_new[swapIndex]);
-			mut_new[swapIndex] = mut_new[swapIndex] - noFlags(mut_new[swapIndex]) + noFlags(tmp);
+			mut_new[j] = mut_new[j] - Std.monomer.noFlags(mut_new[j]) + Std.monomer.noFlags(mut_new[swapIndex]);
+			mut_new[swapIndex] = mut_new[swapIndex] - Std.monomer.noFlags(mut_new[swapIndex]) + Std.monomer.noFlags(tmp);
 		}
 	}
 }

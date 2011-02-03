@@ -1,23 +1,24 @@
-package DnaDesign;
+package DnaDesign.AbstractPolymer;
+
 
 /**
  * This class defines the syntax / encoding of DNA, and provides some basic properties (complement)
  */
-public class DnaDefinition extends SystemMonomer{
+public class DnaDefinition extends MonomerDefinition{
 	//Explicit definition of DNA: Mapping from a subset of Z to all of DNA
-	public static final int NOBASE = 0;
-	public static final int A = 1, T = 2, G = 3, C = 4, D = 5, H = 6, P = 7, Z = 8;
+	public static final int A = 1, T = 2, G = 3, C = 4, P = 5, Z = 6;
+	private final int[] baseOrdering = new int[]{A,T,G,C,P,Z}; 
 	//A number guaranteed to be bigger than the largest base.
-	public static final int DNAFLAG_ADD = Z+1;
+	private final int DNAFLAG_ADD = Z+1;
 	//Blech. to get rid of.
-	public static final double GCstr = -2;
-	public static final double ATstr = -1;
-	public static final double DHstr = GCstr;
-	public static final double PZstr = GCstr;
-	public static final double GTstr = -0.1;
+	private final double GCstr = -2;
+	private final double ATstr = -1;
+	private final double DHstr = GCstr;
+	private final double PZstr = GCstr;
+	private final double GTstr = -0.1;
 	//Binding score function.
 	//TODO Delete this thing. 
-	public static final double bindScore(int a, int b){
+	public final double bindScore(int a, int b){
 		a = noFlags(a);
 		b = noFlags(b);
 		if ((a==A && b==T) || (a==T && b==A)){
@@ -26,11 +27,11 @@ public class DnaDefinition extends SystemMonomer{
 			if ((a==G && b==C) || (a==C && b==G)){
 				return GCstr;
 			} else
-				if ((a==D && b==H) || (a==H && b==D)){
-					return DHstr;
-				} else 
+				//if ((a==D && b==H) || (a==H && b==D)){
+				//	return DHstr;
+				//} else 
 					if ((a==P && b==Z) || (a==Z && b==P)){
-						return DHstr;
+						return PZstr;
 					} else
 						if ((a==G && b==T) || (a==T && b==G)){
 							return GTstr;
@@ -43,7 +44,7 @@ public class DnaDefinition extends SystemMonomer{
 	 * @param base
 	 * @return
 	 */
-	public static final String displayBase(int base) {
+	public String displayBase(int base) {
 		base = noFlags(base);
 		switch(base){
 		case G:
@@ -54,10 +55,10 @@ public class DnaDefinition extends SystemMonomer{
 			return "C";
 		case T:
 			return "T";
-		case D:
-			return "D";
-		case H:
-			return "H";
+//		case D:
+//			return "D";
+//		case H:
+//			return "H";
 		case P:
 			return "P";
 		case Z:
@@ -69,13 +70,13 @@ public class DnaDefinition extends SystemMonomer{
 	/**
 	 * See getNormalBase, but the number returned will be in [0,3].
 	 */
-	public static int getNormalBaseFromZero(int nonnormalBase) {
+	public int getNormalBaseFromZero(int nonnormalBase) {
 		return getNormalBase(nonnormalBase)-1;
 	}
 	/**
 	 * Returns a base from {A,C,T,G} which is most like 'x'.
 	 */
-	public static int getNormalBase(int x){
+	public int getNormalBase(int x){
 		switch(x){
 		case G:
 			return G;
@@ -85,10 +86,10 @@ public class DnaDefinition extends SystemMonomer{
 			return C;
 		case T:
 			return T;
-		case D:
-			return C;
-		case H:
-			return G;
+//		case D:
+//			return C;
+//		case H:
+//			return G;
 		case P:
 			return C;
 		case Z:
@@ -103,7 +104,7 @@ public class DnaDefinition extends SystemMonomer{
 	 * @param charAt
 	 * @return
 	 */
-	public static int decodeBaseChar(char charAt){
+	public int decodeBaseChar(char charAt){
 		charAt = Character.toUpperCase(charAt);
 		switch(charAt){
 		case 'G':
@@ -114,10 +115,10 @@ public class DnaDefinition extends SystemMonomer{
 			return C;
 		case 'T':
 			return T;
-		case 'D':
-			return D;
-		case 'H':
-			return H;
+//		case 'D':
+//			return D;
+//		case 'H':
+//			return H;
 		case 'P':
 			return P;
 		case 'Z':
@@ -131,15 +132,17 @@ public class DnaDefinition extends SystemMonomer{
 	 * Returns the unflagged complement of base i.
 	 * Needs to know the numeric definitions of the bases.
 	 */
-	public static int complement(int i) {
+	public int complement(int i) {
 		i = noFlags(i);
 		if ((i&1)!=0){
 			return i+1;
 		}
 		return i-1;
 	}
-	
-	public static int noFlags(int i) {
-		return i%DNAFLAG_ADD;
+	public int getNumMonomers() {
+		return DNAFLAG_ADD;
+	}
+	public int[] getMonomers() {
+		return baseOrdering;
 	}
 }

@@ -3,14 +3,15 @@ package DnaDesign.impl;
 import java.util.Scanner;
 
 import DnaDesign.DesignerCode;
-import DnaDesign.DnaDefinition;
+import DnaDesign.AbstractPolymer.DnaDefinition;
+import DnaDesign.Config.CircDesigNAConfig;
+import DnaDesign.Config.CircDesigNASystemElement;
 
-import static DnaDesign.DnaDefinition.displayBase;
 /**
  * Mutation strategy which allows mutation by swapping out equivalent codons (useful for protein manipulation, without changing
  * protein code)
  */
-public class CodonCode implements DesignerCode{
+public class CodonCode extends CircDesigNASystemElement implements DesignerCode{
 	public boolean isValid(int[][] domain, int whichDomain) {
 		return domain[whichDomain].length%3==0;
 	}
@@ -88,7 +89,7 @@ public class CodonCode implements DesignerCode{
 		is[j+2] = (bestJ)&7;
 	}
 	public static void main(String[] args){
-		CodonCode c = new CodonCode();
+		CodonCode c = new CodonCode(new CircDesigNAConfig());
 		System.out.println(getComplementNum(c.reverseTable['A'][0],c.reverseTable['M'][0]));
 	}
 	private static final int getComplementNum(int pow81, int pow82){
@@ -129,7 +130,7 @@ public class CodonCode implements DesignerCode{
 				throw new RuntimeException();
 			}
 		} catch (Throwable e){
-			String codon = displayBase(out[i])+displayBase(out[i+1])+displayBase(out[i+2]);
+			String codon = Std.monomer.displayBase(out[i])+Std.monomer.displayBase(out[i+1])+Std.monomer.displayBase(out[i+2]);
 			throw new RuntimeException("No such codon: "+codon);
 		}
 		if (possible.length==1){
@@ -164,15 +165,25 @@ public class CodonCode implements DesignerCode{
 		//Forward
 		forwardTable[power8Rep] = base;
 	}
-	public CodonCode() {
-		this(defaultTable);
+	public CodonCode(CircDesigNAConfig System) {
+		super(System);
+		setupTable(defaultTable());
 	}
-	public CodonCode(String customCodonCode) {
+	public CodonCode(String table, CircDesigNAConfig System) {
+		super(System);
+		setupTable(table);
+	}
+	/**
+	 * Used for constructor
+	 */
+	private void setupTable(String table){
 		forwardTable = new char[512];
 		reverseTable = new int['Z'][0];
-		myTable = customCodonCode;
-		parseTable(myTable,false);
-		parseTable(defaultTable,true);
+		//Both tables are parsed in order, with different rules.
+		//The first rule specifies which codons are designable
+		parseTable(table,false);
+		//This line broadens what codons are parsable, but none of these codons will be designed.
+		parseTable(defaultTable(),true);
 	}
 	private void parseTable(String table, boolean oneWayLookup){
 		Scanner in = new Scanner(table);
@@ -184,7 +195,7 @@ public class CodonCode implements DesignerCode{
 					if (line2[1].length()==1){
 						int[] array = new int[3];
 						for(int i = 0; i < 3; i++){
-							array[i] = DnaDefinition.decodeBaseChar(line2[0].charAt(i));
+							array[i] = Std.monomer.decodeBaseChar(line2[0].charAt(i));
 						}
 						int pow8 = pow8(array, 0);
 						writeCodon(pow8, line2[1].charAt(0),oneWayLookup);
@@ -197,8 +208,10 @@ public class CodonCode implements DesignerCode{
 			}
 		}
 	}
-	private String myTable;
-	public static final String defaultTable = 
+	public String defaultTable(){
+		return defaultTable_DNA;
+	}
+	private static final String defaultTable_DNA = 
 		"GCA A\n"+
 		"GCC A\n"+
 		"GCG A\n"+

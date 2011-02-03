@@ -8,6 +8,7 @@ import DnaDesign.AbstractComplex;
 import DnaDesign.DomainPolymerGraph;
 import DnaDesign.DomainStructureBNFTree;
 import DnaDesign.DomainStructureData;
+import DnaDesign.Config.CircDesigNAConfig;
 
 public class MoleculeToTreeConversion {
 	public static void main(String[] args){
@@ -39,9 +40,10 @@ public class MoleculeToTreeConversion {
 			domainDefs.append(line);
 			domainDefs.append("\n");
 		}
+		CircDesigNAConfig config = new CircDesigNAConfig();
 		String domainDefsBlock = domainDefs.toString();
 		ArrayList<AbstractComplex> list = new ArrayList();
-		DomainStructureData dsd = new DomainStructureData();
+		DomainStructureData dsd = new DomainStructureData(config);
 		DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
 		for(int i = 0 ;i < numTrees; i++){
 			System.out.println("Enter the molecule to be converted to a tree");

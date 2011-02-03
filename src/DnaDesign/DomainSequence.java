@@ -3,6 +3,7 @@ package DnaDesign;
 import java.util.ArrayList;
 import java.util.List;
 
+import DnaDesign.AbstractPolymer.MonomerDefinition;
 import DnaDesign.DomainStructureBNFTree.DomainStructure;
 
 
@@ -139,22 +140,23 @@ public class DomainSequence {
 		}
 		throw new ArrayIndexOutOfBoundsException(i);
 	}
-	public int base(int i, int[][] domain){
+	public int base(int i, int[][] domain, MonomerDefinition monomer){
 		int q = i, r = 0;
 		int[] d;
 		for(r = 0; r < numDomains; r++){
 			d = domain[domainList[r] & DNA_SEQ_FLAGSINVERSE];
 			if (q < d.length){
 				if ((domainList[r] & DNA_COMPLEMENT_FLAG)!=0){
-					return DnaDefinition.complement(d[d.length-1-q]);
+					return monomer.complement(d[d.length-1-q]);
 				} else{
-					return DnaDefinition.noFlags(d[q]);
+					return monomer.noFlags(d[q]);
 				}
 			}
 			q -= d.length;
 		}
 		throw new ArrayIndexOutOfBoundsException(i);
 	}
+	
 	public int domainAt(int i, int[][] domain) {
 		int q = i, r = 0;
 		int[] d;

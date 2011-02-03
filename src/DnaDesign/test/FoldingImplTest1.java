@@ -1,22 +1,25 @@
 package DnaDesign.test;
 
-import static DnaDesign.DnaDefinition.A;
-import static DnaDesign.DnaDefinition.C;
-import static DnaDesign.DnaDefinition.G;
-import static DnaDesign.DnaDefinition.T;
+import static DnaDesign.AbstractPolymer.DnaDefinition.A;
+import static DnaDesign.AbstractPolymer.DnaDefinition.C;
+import static DnaDesign.AbstractPolymer.DnaDefinition.G;
+import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 
 import java.util.Arrays;
 
 import DnaDesign.DomainSequence;
 import DnaDesign.DomainStructureData;
+import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.DomainDesignerImpl;
 import DnaDesign.impl.FoldingImpl;
 public class FoldingImplTest1 {
 	public static void main(String[] args){
+		CircDesigNAConfig config = new CircDesigNAConfig();
+		config.setMode(CircDesigNAConfig.RNA_MODE);
 		for(int i = 0; i < 1; i++){
-			FoldingImpl fl = new FoldingImpl();
+			FoldingImpl fl = new FoldingImpl(config);
 			DomainSequence seqS = new DomainSequence();
-			DomainStructureData dsd = new DomainStructureData();
+			DomainStructureData dsd = new DomainStructureData(config);
 			seqS.setDomains(0, null);
 			int[][] domain = new int[1][];
 			String seq = "GTGATAGACAC";
@@ -30,11 +33,11 @@ public class FoldingImplTest1 {
 			int[][] domainMark= new int[1][seqLength];
 			if (seq!=null){
 				for(int k = 0; k < seqLength; k++){
-					domain[0][k] = DomainDesignerImpl.decodeConstraintChar(seq.charAt(k));
+					domain[0][k] = config.monomer.decodeConstraintChar(seq.charAt(k));
 				}
 			} else {
 				for(int k = 0; k < seqLength; k++){
-					domain[0][k] = randomChoice(A,C,G,T);
+					domain[0][k] = randomChoice(1,config.monomer.getNumMonomers()-1);
 				}
 			}
 			for(int k = 0; k < domainMark.length; k++)Arrays.fill(domainMark[k],0);
@@ -48,13 +51,7 @@ public class FoldingImplTest1 {
 		}
 	}
 
-	private static int randomChoice(int a, int b, int c, int d) {
-		switch((int)(Math.random()*4)){
-		case 0:return a;
-		case 1:return b;
-		case 2:return c;
-		case 3:return d;
-		}
-		throw new RuntimeException("Assertion error: randomChoice");
+	private static int randomChoice(int i, int j) {
+		return ((int) (Math.random()*(j-i)))+i;
 	}
 }

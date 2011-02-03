@@ -12,6 +12,7 @@ import DnaDesign.DomainDesigner_SharedUtils;
 import DnaDesign.DomainSequence;
 import DnaDesign.NAFolding;
 import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
+import DnaDesign.Config.CircDesigNAConfig;
 
 /**
  * Implementation of DomainDesigner
@@ -20,6 +21,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 	
 	private NAFolding flI;
 	/**
+	 * @param std 
 	 * @param foldingImpl<br>
 	 * The folding score functions to utilize in evaluating solution candidates.
 	 * @param designSSonly<br>
@@ -27,7 +29,8 @@ public class DomainDesignerImpl extends DomainDesigner{
 	 * If designSSonly is true, only SingleStrandedAssurance will be used; As a result, crosstalk and dimerization may occur
 	 * in solution candidates.
 	 */
-	public DomainDesignerImpl(NAFolding foldingImpl) {
+	public DomainDesignerImpl(NAFolding foldingImpl, CircDesigNAConfig std) {
+		super(std);
 		this.flI = foldingImpl;
 	}
 
@@ -107,11 +110,13 @@ public class DomainDesignerImpl extends DomainDesigner{
 			double StemAndOpeningScore =flI.helixDeltaG(hairpin.stemAndOpening[0],hairpin.stemAndOpening[1],domain,domain_markings,markLeft,markRight,jOffset); 
 			double OnlyStem =flI.helixDeltaG(hairpin.stemOnly[0],hairpin.stemOnly[1],domain,domain_markings,0,0,0); 
 			double deltaDeltaG = StemAndOpeningScore - OnlyStem;
+			/*
 			if (deltaDeltaG > 0){
-				System.err.println("Stem+Opening increased delta g  (?)");
+				System.err.println("Stem+Opening increased delta g  (?)"+" "+StemAndOpeningScore+" "+OnlyStem);
 				System.err.println(hairpin.toString(domain));
 			}
-			return -deltaDeltaG;
+			*/
+			return Math.max(0,-deltaDeltaG);
 		}
 		public boolean affectedBy(int domain) {
 			for(int i = 0; i < ds.length; i++){

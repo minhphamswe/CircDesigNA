@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.TreeMap;
 
 import DnaDesign.DomainSequence;
+import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.CodonCode;
 
 public class DomainDesignerTest1 {
@@ -79,7 +80,7 @@ public class DomainDesignerTest1 {
 		
 		//Test
 		CodonCode cc = null;
-		cc = new CodonCode();
+		cc = new CodonCode(new CircDesigNAConfig());
 		
 		/*
 		int[] t7Dna = new int[t7RnaPolymerase.length()];

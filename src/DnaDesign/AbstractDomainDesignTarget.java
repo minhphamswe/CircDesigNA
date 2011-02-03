@@ -2,14 +2,18 @@ package DnaDesign;
 
 import java.util.ArrayList;
 
+import DnaDesign.Config.CircDesigNAConfig;
+import DnaDesign.Config.CircDesigNASystemElement;
+
 /**
  * Represents a design target, in as many ways as possible.
  * 
  * Specifically, this class provides convenient calculations for the score penalty creator
  * to use.
  */
-public class AbstractDomainDesignTarget {
-	public AbstractDomainDesignTarget(DomainStructureData dsd){
+public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
+	public AbstractDomainDesignTarget(DomainStructureData dsd, CircDesigNAConfig System){
+		super(System);
 		this.dsd = dsd;
 		
 	}
@@ -18,7 +22,7 @@ public class AbstractDomainDesignTarget {
 	public ArrayList<DomainSequence> singleDomains = new ArrayList();
 	public ArrayList<DomainSequence> pairsOfDomains = new ArrayList();
 	
-	public static class HairpinClosingTarget {
+	public class HairpinClosingTarget {
 		public DomainSequence[] stemOnly;
 		/**
 		 * Use these sequences for printing out this guy.
@@ -55,7 +59,7 @@ public class AbstractDomainDesignTarget {
 			for(int i = 0; i < stemAndOpening.length; i++){
 				toRet.append("Hairpin "+i+" ");
 				for(int j = 0; j < stemAndOpening[i].length(domain); j++){
-					toRet.append(DnaDefinition.displayBase(stemAndOpening[i].base(j, domain)));
+					toRet.append(Std.monomer.displayBase(stemAndOpening[i].base(j, domain,Std.monomer)));
 				}
 				toRet.append("\n");
 			}
@@ -95,7 +99,7 @@ public class AbstractDomainDesignTarget {
 		DomainPolymerGraph.readStructure(name, inputStrand, dpg);
 		
 		DomainDesigner_SharedUtils.utilSingleStrandedFinder(dpg, generalizedSingleStranded);
-		DomainDesigner_SharedUtils.utilHairpinClosingFinder(dpg, hairpinClosings);
+		DomainDesigner_SharedUtils.utilHairpinClosingFinder(this, dpg, hairpinClosings);
 		DomainDesigner_SharedUtils.utilPairsOfDomainsFinder(dpg, pairsOfDomains);
 		DomainDesigner_SharedUtils.utilSingleDomainsFinder(dpg, singleDomains);
 		DomainDesigner_SharedUtils.utilSingleDomainsWithOverlap(dpg, singleDomainsWithOverlap, overlap_length);

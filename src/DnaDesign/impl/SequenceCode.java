@@ -7,11 +7,6 @@ public class SequenceCode implements DesignerCode{
 	private DesignSequenceConstraints dsc;
 	public SequenceCode(){
 	}
-	public static SequenceCode getDefaultSequenceCode() {
-		SequenceCode init = new SequenceCode();
-		init.setConstraints(DesignSequenceConstraints.getDefaultConstraints());
-		return init;
-	}
 	public void setConstraints(DesignSequenceConstraints dsc){
 		this.dsc = dsc;
 	}

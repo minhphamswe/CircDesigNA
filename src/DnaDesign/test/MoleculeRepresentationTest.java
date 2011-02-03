@@ -8,6 +8,7 @@ import DnaDesign.DomainPolymerGraph;
 import DnaDesign.DomainSequence;
 import DnaDesign.DomainStructureBNFTree;
 import DnaDesign.DomainStructureData;
+import DnaDesign.Config.CircDesigNAConfig;
 
 /**
  * Checks that the methods in DomainDesigner_SharedUtils are equally good at handling
@@ -15,6 +16,8 @@ import DnaDesign.DomainStructureData;
  */
 public class MoleculeRepresentationTest {
 	public static void main(String[] args){		
+
+		CircDesigNAConfig config = new CircDesigNAConfig();
 		Scanner in = new Scanner(System.in);
 		System.out.println("Enter in the domain defs, END when finished");
 		StringBuffer domainDefs = new StringBuffer();
@@ -27,7 +30,7 @@ public class MoleculeRepresentationTest {
 			domainDefs.append("\n");
 		}
 		String domainDefsBlock = domainDefs.toString();
-		DomainStructureData dsd = new DomainStructureData();
+		DomainStructureData dsd = new DomainStructureData(config);
 		DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
 
 		System.out.println("Enter in a molecule");
