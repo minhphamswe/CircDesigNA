@@ -224,11 +224,11 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 	 * a>0: a is  the length of a helix
 	 * a<0: -a is the length of the left loop, -b is the length of the right loop.
 	 */
-	private int[][] sdMatrix_shared;
+	private int[][][] sdMatrix_shared;
 	public void ensureSharedMatrices(int len1, int len2){
 		if (!(sMatrix_shared!=null && len1 <= sMatrix_shared.length && len2 <= sMatrix_shared[0].length)){
 			sMatrix_shared = new double[len1][len2];
-			sdMatrix_shared = new int[len1][len2*2];
+			sdMatrix_shared = new int[2][len2][2];
 		}
 	}
 	public double mfeHybridDeltaG_viaUnafold(DomainSequence ds, DomainSequence ds2, int[][] domain, int[][] domain_markings) {
@@ -357,19 +357,24 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 	 * @param len2 
 	 * @param seq2 
 	 */
-	private void foldSingleStranded_makeCMatrix(DomainSequence seq, DomainSequence seq2, int len1,int len2, int[][] domain){
+	private void foldSingleStranded_flushMatrixes(DomainSequence seq, DomainSequence seq2, int len1,int len2, int[][] domain){
 		double[][] Smatrix = sMatrix_shared; // score matrix
-		int[][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
+		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
 		// NxN complementarities. 
 		for (int i = 0; i < len1; i++) {
 			for (int j = 0; j < len2; j++) {
 				//int base1 = seq.base(i,domain);
 				//int base2 = seq2.base(j,domain);
-				Smatrix[i][j] = 0;
-				SDmatrix[i][j*2] = 0;
-				SDmatrix[i][j*2+1] = 0;
+				flushFoldMatrices(i,j);
 			}
 		}		
+	}
+	private void flushFoldMatrices(int i, int j){
+		double[][] Smatrix = sMatrix_shared; // score matrix
+		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
+		Smatrix[i][j] = 0;
+		sdMatrix(SDmatrix,i,j)[0] = 0;
+		sdMatrix(SDmatrix,i,j)[1] = 0;
 	}
 	
 	
@@ -400,7 +405,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 		int len2 = seq2.length(domain);
 		ensureSharedMatrices(len1,len2);
 		double[][] Smatrix = sMatrix_shared; // score matrix
-		int[][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
+		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
 		
 		double best = 0;
 		int bestI = -1, bestJ = -1;
@@ -443,27 +448,30 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 			}
 		}
 		ensureSharedMatrices(len1,len2);
-		foldSingleStranded_makeCMatrix(seq,seq2,len1,len2,domain);
+		//foldSingleStranded_makeCMatrix(seq,seq2,len1,len2,domain);
 		double[][] Smatrix = sMatrix_shared; // score matrix
-		int[][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
+		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
 		
 		double score = 0;
 		int bestI = -1, bestJ = -1;
 		//Only used in the single stranded version
 		int minHairpinSize = 1+3;
 		//Calculate looping bounds.
-		int i;
-		if (options.foldFullMatrix){
-			i = len1-1;
-		} else {
-			i = (len1-1)-minHairpinSize;
-		}
-		for(; i >= 0; i--){
+		for(int i = len1-1; i >= 0; i--){
 			int j;
 			if (options.foldFullMatrix){
 				j = 0;
 			} else {
+				//assertion for selffolding
+				if (len1!=len2){throw new RuntimeException();};
+				//warning! relies on value of minhairpinsize
 				j = i+minHairpinSize;
+				if (j-2<len2){
+					flushFoldMatrices(i,j-2);
+				}
+				if (j-1<len2){
+					flushFoldMatrices(i,j-1);
+				}
 			}
 			for(; j < len2; j++){
 				//Left loop (m), + no bonus
@@ -493,12 +501,12 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 					//Leave the setting of the SDMatrix up to "calcGamma3". It must therefore run LAST in the above 3 seqs.
 				} else if (gamma1 == Smatrix[i][j]){
 					//Continuing loop, fix backtracking info
-					SDmatrix[i][j*2] = Math.min(0,SDmatrix[i+1][j*2])-1; //Negative means longer loop
-					SDmatrix[i][j*2+1] = Math.min(0,SDmatrix[i+1][j*2+1]);
+					sdMatrix(SDmatrix,i,j)[0] = Math.min(0,sdMatrix(SDmatrix,i+1,j)[0])-1; //Negative means longer loop
+					sdMatrix(SDmatrix,i,j)[1] = Math.min(0,sdMatrix(SDmatrix,i+1,j)[1])-1; //Negative means longer loop
 				} else if (gamma2 == Smatrix[i][j]){
 					//Continuing loop, fix backtracking info
-					SDmatrix[i][j*2] = Math.min(0,SDmatrix[i][(j-1)*2]);
-					SDmatrix[i][j*2+1] = Math.min(0,SDmatrix[i][(j-1)*2+1])-1; //Negative means longer loop
+					sdMatrix(SDmatrix,i,j)[0] = Math.min(0,sdMatrix(SDmatrix,i,j-1)[0])-1; //Negative means longer loop
+					sdMatrix(SDmatrix,i,j)[1] = Math.min(0,sdMatrix(SDmatrix,i,j-1)[1])-1; //Negative means longer loop
 				} else {
 					throw new RuntimeException("Assertion failure. foldSingleStranded_viaMatrix inner loop of filling.");
 				}
@@ -515,12 +523,14 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 		double overCount = foldSingleStranded_traceBack(len1,len2,Smatrix,bestI,bestJ,seq,seq2,domain,domain_markings,!options.foldFullMatrix);
 		
 		if (debugLCSAlgorithm){
+			/*
 			for(int k = 0; k < len1; k++){
 				for(int y = 0; y < len2; y++){
-					System.out.printf(" (%3d,%3d)",SDmatrix[k][y*2],SDmatrix[k][y*2+1]);
+					System.out.printf(" (%3d,%3d)",sdMatrix(SDmatrix,k,y)[0],sdMatrix(SDmatrix,k,y)[1]);
 				}
 				System.out.println();
 			}
+			*/
 			for(int k = 0; k < len1; k++){
 				for(int y = 0; y < len2; y++){
 					System.out.printf(" %4.8f",Smatrix[k][y]);
@@ -555,7 +565,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 			}
 			boolean isOnFringeOfMap;
 			if (isSingleStrandFold){
-				isOnFringeOfMap = bestJ==bestI;
+				isOnFringeOfMap = bestJ<=bestI;
 			} else {
 				isOnFringeOfMap = bestI==len1-1 || bestJ==0;
 			}
@@ -635,12 +645,6 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 		return nussinovScores;
 	}
 	/**
-	 * WARNING: allocates a new matrix.
-	 */
-	public int[][] getMFEStructureMatrix() {
-		return sdMatrix_shared;
-	}
-	/**
 	 * WARNING: allocates a new list.
 	 */
 	public ArrayList<Point> getTraceback() {
@@ -660,7 +664,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 	private double foldSingleStranded_calcDummyScore = -.25;
 	private double foldSingleStranded_endHelixPenalty = 0;
 	private double foldSingleStranded_helixBaseScore = 0;
-	private double foldSingleStranded_calcGamma1(int i, int j, int len1, double[][] sMatrix, int[][] sdMatrix) {
+	private double foldSingleStranded_calcGamma1(int i, int j, int len1, double[][] sMatrix, int[][][] sdMatrix) {
 		//This is the number, if we are a "bulge" and defer to the helix in sMatrix[i+1][j].
 		if (i+1>=len1){
 			//Off the map.
@@ -668,25 +672,25 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 		}
 		double bulgeScore = sMatrix[i+1][j];
 		//Be sure to remove dummyScore
-		if (sdMatrix[i+1][j*2]==1){
+		if (sdMatrix(sdMatrix,i+1,j)[0]==1){
 			bulgeScore-=foldSingleStranded_calcDummyScore;
 		}
-		if (sdMatrix[i+1][j*2]>0){
+		if (sdMatrix(sdMatrix,i+1,j)[0]>0){
 			bulgeScore+=foldSingleStranded_endHelixPenalty;
 		}
 		return bulgeScore;
 	}
-	private double foldSingleStranded_calcGamma2(int i, int j, double[][] sMatrix, int[][] sdMatrix) {
+	private double foldSingleStranded_calcGamma2(int i, int j, double[][] sMatrix, int[][][] sdMatrix) {
 		if (j-1<0){
 			//Off the map.
 			return 0.0;
 		}
 		double bulgeScore = sMatrix[i][j-1];
 		//Be sure to remove dummyScore
-		if (sdMatrix[i][(j-1)*2]==1){
+		if (sdMatrix(sdMatrix,i,j-1)[0]==1){
 			bulgeScore-=foldSingleStranded_calcDummyScore;
 		}
-		if (sdMatrix[i][(j-1)*2]>0){
+		if (sdMatrix(sdMatrix,i,j-1)[0]>0){
 			bulgeScore+=foldSingleStranded_endHelixPenalty;
 		}
 		return bulgeScore;
@@ -697,21 +701,21 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 	 * 
 	 * Both seq and seq2 should be in 5'-3' order.
 	 */
-	private double foldSingleStranded_calcGamma3(int len1, int len2, DomainSequence seq, DomainSequence seq2, int[][] domain, int i, int j, double[][] sMatrix, int[][] sdMatrix, boolean writeToSD) {
+	private double foldSingleStranded_calcGamma3(int len1, int len2, DomainSequence seq, DomainSequence seq2, int[][] domain, int i, int j, double[][] sMatrix, int[][][] sdMatrix, boolean writeToSD) {
 		double dummyScore = foldSingleStranded_calcDummyScore;
 		boolean onFringeOfMap = i+1>=len1 || j-1<0;
 		if (Std.monomer.bindScore(base(seq,i,domain), base(seq2,j,domain)) < 0){
 			//This is a pair. Extend helix
 			if (writeToSD){
-				sdMatrix[i][j*2] = Math.max(0,onFringeOfMap?0:sdMatrix[i+1][(j-1)*2])+1;
-				sdMatrix[i][j*2+1] = sdMatrix[i][j*2]; //MUST set this > 0. Have to seperate loop counters from helix counters!
+				sdMatrix(sdMatrix,i,j)[0] = Math.max(0,onFringeOfMap?0:sdMatrix(sdMatrix,i+1,j-1)[0])+1;
+				sdMatrix(sdMatrix,i,j)[1] = sdMatrix(sdMatrix,i,j)[0]; //MUST set this > 0. Have to seperate loop counters from helix counters!
 			}
 			//New helix
-			if (onFringeOfMap || sdMatrix[i+1][(j-1)*2]<=0){
-				if(!onFringeOfMap && (sdMatrix[i+1][(j-1)*2]<0 || sdMatrix[i+1][(j-1)*2+1]<0)){
+			if (onFringeOfMap || sdMatrix(sdMatrix,i+1,j-1)[0]<=0){
+				if(!onFringeOfMap && sdMatrix(sdMatrix,i+1,j-1)[0]<0){
 					//Ending a loop, of length > 0
-					int leftLoopSize = -sdMatrix[i+1][(j-1)*2];
-					int rightLoopSize = -sdMatrix[i+1][(j-1)*2+1];
+					int leftLoopSize = -sdMatrix(sdMatrix,i+1,j-1)[0];
+					int rightLoopSize = -sdMatrix(sdMatrix,i+1,j-1)[1];
 				}
 				return (onFringeOfMap?0:sMatrix[i+1][j-1])+dummyScore; //Add dummy deltaG for starting helix
 			}
@@ -720,7 +724,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 				//get NN score.
 				double nn = eParams.getNNdeltaG(base(seq,i+1, domain), base(seq2,j-1,domain), base(seq,i,domain), base(seq2, j,domain));
 				double helixScore = sMatrix[i+1][j-1];
-				if (sdMatrix[i+1][(j-1)*2]==1){
+				if (sdMatrix(sdMatrix,i+1,j-1)[0]==1){
 					//Remove dummy score
 					helixScore -= dummyScore;
 					helixScore += foldSingleStranded_helixBaseScore;
@@ -732,15 +736,15 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 		} else {
 			//No helix. Extend both left and right bulges by one.
 			if (writeToSD){
-				sdMatrix[i][j*2] = Math.min(0,onFringeOfMap?0:sdMatrix[i+1][(j-1)*2+0])-1; //Negative means longer loop
-				sdMatrix[i][j*2+1] = Math.min(0,onFringeOfMap?0:sdMatrix[i+1][(j-1)*2+1])-1;
+				sdMatrix(sdMatrix,i,j)[0] = Math.min(0,onFringeOfMap?0:sdMatrix(sdMatrix,i+1,j-1)[0])-1; //Negative means longer loop
+				sdMatrix(sdMatrix,i,j)[1] = Math.min(0,onFringeOfMap?0:sdMatrix(sdMatrix,i+1,j-1)[1])-1;
 			}
 			if (onFringeOfMap){
 				return 0.0;
 			}
 			//Ending old helix?
-			if (sdMatrix[i+1][(j-1)*2+0]>0){
-				if (sdMatrix[i+1][(j-1)*2+0]==1){
+			if (sdMatrix(sdMatrix,i+1,j-1)[0]>0){
+				if (sdMatrix(sdMatrix,i+1,j-1)[0]==1){
 					//Remove dummy score, replace with 1 base score
 					return sMatrix[i+1][j-1]-dummyScore+foldSingleStranded_oneBaseScore;
 				} else {
@@ -754,6 +758,9 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 				return sMatrix[i+1][j-1];
 			}
 		}
+	}
+	private int[] sdMatrix(int[][][] sdMatrix, int i, int j) {
+		return sdMatrix[i%2][j];
 	}
 	private double min(double gamma1, double gamma2, double gamma3) {
 		return Math.min(Math.min(gamma1,gamma2),gamma3); 

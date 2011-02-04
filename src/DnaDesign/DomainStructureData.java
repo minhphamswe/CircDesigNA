@@ -193,9 +193,6 @@ public class DomainStructureData extends CircDesigNASystemElement{
 		if (seqLen==-1){
 			throw new RuntimeException("Assertion error - no length for domain '"+domainID+"'");
 		}
-		if (seqLen < 2){
-			throw new RuntimeException("1-base domains not allowed for now.");
-		}
 		out.reprintArguments.put(k,argsCumulativeString);
 		return k;
 	}
