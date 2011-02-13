@@ -1,9 +1,5 @@
 package DnaDesign.AbstractDesigner;
 
-import java.util.Iterator;
-import java.util.TreeMap;
-import java.util.TreeSet;
-
 import DnaDesign.DomainDesigner;
 
 /**
@@ -15,11 +11,14 @@ import DnaDesign.DomainDesigner;
  * @author Benjamin
  */
 public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
-	private T[] population_mutable;
+	public BlockDesigner(SingleMemberDesigner<T> SingleDesigner){
+		this.SingleDesigner = SingleDesigner;
+	}
+	public SingleMemberDesigner<T> SingleDesigner;
+	public T[] population_mutable;
+	public int populationSize = 0;
 	private T fittest;
-	private int populationSize = 0;
 	private int iterations = 0;
-	private int param_iterationShortcut = 1000;
 	/**
 	 * Initializes this designer with one member, and numCopies-1 number of newly created members with that same seed.
 	 * Necessary before designing.
@@ -40,72 +39,31 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 		}
 	}
 	/**
-	 * Break if any child is at least as optimal as endThreshold.
+	 * Wraps 
 	 */
 	public void runBlockIteration(DomainDesigner runner, double endThreshold){
-		TreeSet<T> blockIterationLevel = new TreeSet();
-		for(int k = 0; k < populationSize; k++){
-			blockIterationLevel.add(population_mutable[k]);
-		}
 		iterations++;
 		System.out.print("Iteration "+iterations);
-		blockItr: for(int itrCount = 0;; itrCount++){
-			Iterator<T> qb = blockIterationLevel.iterator();
-			//for(int k = 0; k < 1; k++){ //multiple times for random chance.
-				while(qb.hasNext()){
-					T q = qb.next();
-					boolean mutationSuccessful = mutateAndTestAndBackup(q);
-					if (mutationSuccessful){
-						//An improvement was seen.
-						double newScore = getOverallScore(q);
-						if (newScore <= endThreshold){
-							break blockItr;
-						}
-						qb.remove();
-					} else {
-						//a backup was performed.
-					}
-					if(runner.abort){
-						break;
-					}
-				}
-			//}
-			if (blockIterationLevel.size()<populationSize*.5){
-				break;
-			}
-			if (param_iterationShortcut>=0){
-				if (itrCount>param_iterationShortcut && populationSize-blockIterationLevel.size()>0){
-					//Someone made it through. Break;
-					System.err.println("Breaking iteration early.");
-					break;
-				}
-			}
-		}
-		//Seed the fittest
-		TreeMap<Double, T> populationView = new TreeMap();
-		for(T q : population_mutable){
-			double score = getOverallScore(q);
-			populationView.put(-score, q); //sort descending
-		}
-		fittest = populationView.remove(populationView.lastKey());
-		System.out.println(" Score "+getOverallScore(fittest));
-		int bottomToSeed = (int) (populationView.size()*.4f);
-		for(int k = 0; k < bottomToSeed; k++){
-			T bottom = populationView.remove(populationView.firstKey());
-			if (fittest!=bottom){
-				bottom.seedFromOther(fittest);
-			}
-		}
+		
+		runBlockIteration_(runner,endThreshold);
+		
+		System.out.println(" Score "+SingleDesigner.getOverallScore(getBestPerformingChild()));
 	}
+	/**
+	 * Overridden by design implementations.
+	 * Runs whatever an "iteration" means.
+	 */
+	public abstract void runBlockIteration_(DomainDesigner runner, double endThreshold);
 	/**
 	 * Returns null before blockIteration is called.
 	 */
-	public final T getBestPerformingChild(){
+	public T getBestPerformingChild(){
 		return fittest;
+	}
+	public void setBestChild(T child){
+		fittest = child;
 	}
 	public final PopulationDesignMember<T>[] getPopulation(){
 		return population_mutable;
 	}
-	public abstract double getOverallScore(T q);
-	public abstract boolean mutateAndTestAndBackup(T q);
 }

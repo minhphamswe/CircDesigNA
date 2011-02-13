@@ -220,6 +220,10 @@ public class DomainStructureBNFTree implements AbstractComplex{
 		public int innerCurveCircumference = 0;
 		
 		public void handleSubConformation(int[] domainLengths, int[] domains) {
+			//Check valid hairpin
+			if (domainLengths[domains[sequencePartsInvolved[0]] & DNA_SEQ_FLAGSINVERSE]!=domainLengths[domains[sequencePartsInvolved[1]] & DNA_SEQ_FLAGSINVERSE]){
+				throw new RuntimeException("Invalid duplex between domains of different lengths.");
+			}
 			if (subStructure.size()==0){
 				throw new RuntimeException("Hairpin with no loop: Invalid");
 			}
@@ -228,7 +232,7 @@ public class DomainStructureBNFTree implements AbstractComplex{
 					((HairpinStem)q).handleSubConformation(domainLengths,domains);
 				}
 			}
-			if (subStructure.size()>1){
+			if (subStructure.size()>0){
 				int index = 0;
 				loop:for(DomainStructure q : subStructure){
 					if (q instanceof ThreePFivePOpenJunc){

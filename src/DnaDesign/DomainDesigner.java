@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 
+import DnaDesign.AbstractDesigner.BlockDesigner;
+import DnaDesign.AbstractDesigner.InfiniteResourceTournament;
 import DnaDesign.AbstractDesigner.PopulationDesignMember;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.Config.CircDesigNASystemElement;
@@ -585,13 +587,15 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				}
 			}DIR.endScoreReport();
 			System.out.println("Randomized initial sequence (for population member 0):");
-			displayDomains(domain);
+			displayDomains(domain,true,dsd);
 			System.out.println("Initial score: "+current_score);	
 			best_score = current_score;
 
 			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
 			DomainDesignPMemberImpl initialSeed = new DomainDesignPMemberImpl(allScores,scoredElements,domain,domain_markings);
-			DomainDesignBlockDesignerImpl dbesign = new DomainDesignBlockDesignerImpl(num_domain,domain_length,mutableDomains,mutate,dsd,this);
+			DomainDesignBlockDesignerImpl dbesignSingle = new DomainDesignBlockDesignerImpl(num_domain,domain_length,mutableDomains,mutate,dsd,this);
+			BlockDesigner<DomainDesignPMemberImpl> dbesign = new InfiniteResourceTournament(dbesignSingle);
+			//BlockDesigner<DomainDesignPMemberImpl> dbesign = new StandardTournament(dbesignSingle);
 			dbesign.initialize(initialSeed, options.population_size.getState());
 
 			if (true){  //If false, then all population members start at the same location.
@@ -647,7 +651,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				}
 				best_score = score;
 				DIR.endScoreReport();
-				displayDomains(q.domain,false);
+				displayDomains(q.domain,true,dsd);
 				//debugPenalty(s, q.domain, dsd);
 				//System.out.println(num_domains_mut);
 
@@ -664,7 +668,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			}
 		}	finally {
 			System.out.println("Designed sequence output:");
-			displayDomains(domain);
+			displayDomains(domain,true,dsd);
 			System.out.println("Designer ended after "+num_mut_attempts+" iterations, with a score of "+best_score);
 		}
 		return num_mut_attempts;
@@ -751,66 +755,75 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		int oneC = 0;
 		
 		//How many mutations will we try now?
-		int num_mut = Math.min(len*2,max_mutations);
+		int num_mut;
 		//Count the reccomended bases to mutate
 		boolean SORT_MARKINGS = options.sort_markings.getState();
 		
 		if (ENABLE_MARKINGS){
-			if (SORT_MARKINGS){
-				if (inplacePrioritySort_shared==null || inplacePrioritySort_shared.length<len){
-					inplacePrioritySort_shared = new Priority_int_int[len]; 
-					for(int k = 0; k < inplacePrioritySort_shared.length; k++){
-						inplacePrioritySort_shared[k] = new Priority_int_int();
-					}
+			if (inplacePrioritySort_shared==null || inplacePrioritySort_shared.length<len){
+				inplacePrioritySort_shared = new Priority_int_int[len]; 
+				for(int k = 0; k < inplacePrioritySort_shared.length; k++){
+					inplacePrioritySort_shared[k] = new Priority_int_int();
 				}
 			}
 			for(int k = 0; k < len; k++){
 				int q = domain_markings[mut_domain][k];
-				if (q!=DNAMARKER_DONTMUTATE){
-					if (SORT_MARKINGS) inplacePrioritySort_shared[oneC].set(k,q);
+				if (q!=DNAMARKER_DONTMUTATE || SORT_MARKINGS){
+					inplacePrioritySort_shared[oneC].set(k,q);
 					oneC++;
 				}
 			}
-			num_mut = Math.min(num_mut,oneC);
 			if (SORT_MARKINGS) {
+				num_mut = oneC;
 				Arrays.sort(inplacePrioritySort_shared,0,oneC);
+			} else {
+				num_mut = oneC;
 			}
 			//Post condition: num_mut <= oneC
+		} else {
+			 num_mut = len*2;
 		}
-		//Randomize choice:
+		num_mut = Math.min(num_mut,max_mutations);
+		
+		//Randomize number to mutate:
 		if (num_mut > 0){
 			num_mut = int_urn(min_mutations,num_mut);
 		} else {
 			//Was not able to mutate.
-			System.err.println("O!");
+			System.err.println("0!");
 			return false;
 		}
 		
 		//System.out.println(num_mut+" "+min_mutations);
 
-		int timesInLoop = 0;
+		//int timesInLoop = 0;
 		for (int k = 0; k < num_mut; k++) {
 			// Attempt a mutation
 			int j;
-			j = int_urn(0, len-1);
 			if (ENABLE_MARKINGS){
 				if (SORT_MARKINGS){
 					if (k >= inplacePrioritySort_shared.length){
-						break;
+						throw new RuntimeException("Assertion error");
 					}
 					j = inplacePrioritySort_shared[k].a;
 				} else {
+					j = inplacePrioritySort_shared[int_urn(0, oneC-1)].a;
+					/*
 					if (domain_markings[mut_domain][j]==DNAMARKER_DONTMUTATE){
-						num_mut++;
-						continue;
+						throw new RuntimeException("Assertion error");
 					}
+					*/
 				}
+			} else {
+				j = int_urn(0, oneC-1);
 			}
+			/*
 			timesInLoop++;
 			if (timesInLoop > 1000){
 				System.err.println("Warning. Could not mutate in 1000 guesses. Breaking");
 				break;
 			}
+			*/
 			if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
 				if (!mutator.mutateToOther(domain, mut_domain, j)){
 					num_mut++;
@@ -871,10 +884,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		}
 	}
 
-	void displayDomains(int[][] domain) {
-		displayDomains(domain,true);
-	}
-	void displayDomains(int[][] domain, boolean toOutput) {
+	void displayDomains(int[][] domain, boolean toOutput, DomainStructureData dsd) {
 		String[] outputDomains = new String[domain.length];
 		for(int i = 0; i < domain.length; i++){
 			int[] row = domain[i];
@@ -883,7 +893,8 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				outputDomains[i]+=Std.monomer.displayBase(q);
 			}
 			if (toOutput){
-				System.out.print(wrap(outputDomains[i],200)+" ");
+				System.out.println(dsd.getDomainName(i)+">");
+				System.out.println(wrap(outputDomains[i],200));
 			}
 		}
 		this.outputDomains = outputDomains;

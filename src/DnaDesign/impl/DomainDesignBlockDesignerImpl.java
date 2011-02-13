@@ -8,13 +8,13 @@ import java.util.Arrays;
 import DnaDesign.DesignerCode;
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainStructureData;
-import DnaDesign.AbstractDesigner.BlockDesigner;
+import DnaDesign.AbstractDesigner.SingleMemberDesigner;
 import DnaDesign.DomainDesigner.ScorePenalty;
 
 /**
  * Implementation of BlockDesigner
  */
-public class DomainDesignBlockDesignerImpl extends BlockDesigner<DomainDesignPMemberImpl>{
+public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDesignPMemberImpl>{
 	
 	public DomainDesignBlockDesignerImpl(int num_domain, int[] domain_length, int[] mutableDomains, DesignerCode[] mutators, DomainStructureData dsd, DomainDesigner domainDesigner){
 		//Make a back buffer for domain reverts
@@ -143,7 +143,7 @@ public class DomainDesignBlockDesignerImpl extends BlockDesigner<DomainDesignPMe
 				}
 			}
 
-			//Decide whether we improved, checking EVERY penalties so that we can compare objectively.
+			//Decide whether we improved.
 
 			worstPenaltyScore = 0;
 			deltaScore = 0;
@@ -222,6 +222,7 @@ public class DomainDesignBlockDesignerImpl extends BlockDesigner<DomainDesignPMe
 			}	
 
 			//Which priority did we short circuit on?
+			/*
 			if (priority==2){
 				//If we're having trouble with crosstalk (which is really crazy n^2 stuff), 
 				//ignore the advice of the self fold server.
@@ -231,6 +232,7 @@ public class DomainDesignBlockDesignerImpl extends BlockDesigner<DomainDesignPMe
 					Arrays.fill(q.domain_markings[mut_domain], 1);
 				}
 			}
+			*/
 			/*
 			for(k = 0; k < num_domains_mut; k++){
 				mut_domain = mut_domains[k];
