@@ -659,7 +659,6 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 	private double foldSingleStranded_oneBaseScore = 0; //Score for 1-base helixes not thermodynamically valid
 	private double foldSingleStranded_calcDummyScore = -.25;
 	private double foldSingleStranded_endHelixPenalty = 0;
-	private double foldSingleStranded_helixBaseScore = 0;
 	private double foldSingleStranded_calcGamma1(int i, int j, int len1, float[][] sMatrix, int[][][] sdMatrix) {
 		//This is the number, if we are a "bulge" and defer to the helix in sMatrix[i+1][j].
 		if (i+1>=len1){
@@ -708,12 +707,13 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 			}
 			//New helix
 			if (onFringeOfMap || sdMatrix(sdMatrix,i+1,j-1)[0]<=0){
+				double addLoopOpeningPenalty = 0;
 				if(!onFringeOfMap && sdMatrix(sdMatrix,i+1,j-1)[0]<0){
 					//Ending a loop, of length > 0
 					int leftLoopSize = -sdMatrix(sdMatrix,i+1,j-1)[0];
 					int rightLoopSize = -sdMatrix(sdMatrix,i+1,j-1)[1];
 				}
-				return (onFringeOfMap?0:sMatrix[i+1][j-1])+dummyScore; //Add dummy deltaG for starting helix
+				return (onFringeOfMap?0:sMatrix[i+1][j-1])+dummyScore+addLoopOpeningPenalty; //Add dummy deltaG for starting helix
 			}
 			//Continuing old helix
 			else {
@@ -723,7 +723,6 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 				if (sdMatrix(sdMatrix,i+1,j-1)[0]==1){
 					//Remove dummy score
 					helixScore -= dummyScore;
-					helixScore += foldSingleStranded_helixBaseScore;
 				}
 				//Add nearest neighbor delta G
 				helixScore += nn;
@@ -741,8 +740,8 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 			//Ending old helix?
 			if (sdMatrix(sdMatrix,i+1,j-1)[0]>0){
 				if (sdMatrix(sdMatrix,i+1,j-1)[0]==1){
-					//Remove dummy score, replace with 1 base score
-					return sMatrix[i+1][j-1]-dummyScore+foldSingleStranded_oneBaseScore;
+					//Remove dummy score
+					return sMatrix[i+1][j-1]-dummyScore;
 				} else {
 					//Add terminal score.
 					double terminalMismatch = eParams.getNNdeltaGterm(base(seq,i+1, domain), base(seq2,j-1,domain), base(seq,i,domain), base(seq2, j,domain));

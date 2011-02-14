@@ -319,14 +319,14 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 			boolean hadUnderValid = false;
 			//Is mut_new[j] underquota?
 			if (getBaseCounts(mut_new)){
-				if (isUnderValidMin(Std.monomer.noFlags(mut_new[j]))){
+				if (isUnderValidMin(Std.monomer.noFlags(mut_new[j])) && !isOverValidMax(Std.monomer.noFlags(mut_new[j]))){
 					return UnderQuotaButImpossibleToChange;
 				}
 				for(int test_base : Std.monomer.getMonomers()){
 					if (Std.monomer.noFlags(mut_new[j])==test_base){
 						continue; //These don't count.
 					}
-					if (isUnderValidMin(test_base)){
+					if (isUnderValidMin(test_base) && !isOverValidMax(test_base)){
 						hadUnderValid = true;
 						if (isAllowableBaseforFlags(mut_new[j],test_base)){
 							return test_base;

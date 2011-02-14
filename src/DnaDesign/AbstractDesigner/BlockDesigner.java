@@ -66,4 +66,7 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	public final PopulationDesignMember<T>[] getPopulation(){
 		return population_mutable;
 	}
+	public final int getIterationCount(){
+		return iterations;
+	}
 }

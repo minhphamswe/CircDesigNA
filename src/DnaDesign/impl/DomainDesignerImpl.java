@@ -47,9 +47,9 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 		private DomainSequence[] ds;
 		//This seems too low.
-		private final double BIMOLECULAR = -.513;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double deltaG = (flI.mfeHybridDeltaG(ds[0],ds[1],domain,domain_markings))+(entropicPenalty?-BIMOLECULAR:0);
+			double BIMOLECULAR = options.bimolecularPenalty.getState();
+			double deltaG = (flI.mfeHybridDeltaG(ds[0],ds[1],domain,domain_markings))+(entropicPenalty?BIMOLECULAR:0);
 			//int longestHelixLength = flI.getLongestHelixLength();
 			//int numBasesPaired = flI.getNumBasesPaired();
 			//double normal = longestHelixLength*numBasesPaired;
@@ -282,7 +282,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			double expectedMisPairedBases = 0;
 			for(int i = 0; i < length1; i++){
 				for(int j = i+1; j < length1; j++){
-					if (0==DomainDesigner_SharedUtils.isAlignedAndShouldPair(ds[0], i, ds[0], j, domain)){
+					if (DomainDesigner_SharedUtils.isAlignedAndShouldPair(ds[0], i, ds[0], j, domain)){
 						expectedMisPairedBases += probBuffer[i][j];
 						if (probBuffer[i][j] > .001){
 							ds[0].mark(i, domain, domain_markings);
@@ -333,7 +333,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 					int iInSi = (i < length1?i : i - length1);
 					DomainSequence sJ = (j < length1?ds[0] : ds[1]);
 					int jInSJ = (j < length1?j : j - length1);
-					if (0==DomainDesigner_SharedUtils.isAlignedAndShouldPair(sI, iInSi, sJ, jInSJ, domain)){
+					if (!DomainDesigner_SharedUtils.isAlignedAndShouldPair(sI, iInSi, sJ, jInSJ, domain)){
 						expectedMisPairedBases += probBuffer[i][j];
 						if (probBuffer[i][j] > .001){
 							sI.mark(iInSi, domain, domain_markings);

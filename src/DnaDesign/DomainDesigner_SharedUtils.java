@@ -40,6 +40,7 @@ public class DomainDesigner_SharedUtils {
 	*/
 
 	public static int[] utilReadSequence(String toJunctionize, DomainStructureData dsd) {
+		toJunctionize = toJunctionize.replace("(","").replace(")","").replace(".","");
 		toJunctionize = toJunctionize.replaceAll("[\\[}]","|").replaceAll("\\s+","");
 		toJunctionize = toJunctionize.replaceAll("[|]+","|");
 		if (toJunctionize.endsWith("|")){
@@ -581,20 +582,20 @@ public class DomainDesigner_SharedUtils {
 	/**
 	 * Returns a 1 if the loop (i,j) is a loop connecting a base of a domain to the corresponding base in its reverse complement, and 0 otherwise. 
 	 */
-	public static int isAlignedAndShouldPair(DomainSequence ds1,
+	public static boolean isAlignedAndShouldPair(DomainSequence ds1,
 			int i, DomainSequence ds2, int j, int[][] domains) {
 		int domain1 = ds1.domainAt(i, domains);
 		int domain2 = ds2.domainAt(j, domains);
 		if (areComplementary(domain1,domain2)){
 			int domain = domain1 & DNA_SEQ_FLAGSINVERSE;
 			
-			int offset1 = ds1.offsetInto(i, domains,false); //Don't uncomplement - give offset 
-			int offset2 = ds2.offsetInto(j, domains,false);
+			int offset1 = ds1.offsetInto(i, domains, false); //Don't uncomplement - give offset 
+			int offset2 = ds2.offsetInto(j, domains, false);
 			if (offset1 == (domains[domain].length - 1 - offset2)){
-				return 1;
+				return true;
 			}
 		}
-		return 0;
+		return false;
 	}
 	
 	private static boolean areComplementary(int domain1, int domain2) {

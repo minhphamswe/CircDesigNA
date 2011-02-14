@@ -11,12 +11,13 @@ import DnaDesign.DomainDesigner;
  * @author Benjamin
  */
 public class StandardTournament <T extends PopulationDesignMember<T>>  extends TournamentDesigner <T> {
-	public StandardTournament(SingleMemberDesigner<T> SingleDesigner) {
+	public StandardTournament(SingleMemberDesigner<T> SingleDesigner, double d) {
 		super(SingleDesigner);
+		designTime = (long) (d*1e9);
 	}
 	private int numElites = 1;
+	private long designTime;
 	public void runBlockIteration_(DomainDesigner runner, double endThreshold) {
-		long designTime = (long).1e9;
 		for(int i = 0; i < populationSize; i++){
 			long now = System.nanoTime();
 			while(true){

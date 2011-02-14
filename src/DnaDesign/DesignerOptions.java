@@ -15,7 +15,7 @@ public class DesignerOptions {
 	}
 	
 
-	public final SeqDesignerOption.Boolean rule_ccend_option = new SeqDesignerOption.Boolean(){
+	public SeqDesignerOption.Boolean rule_ccend_option = new SeqDesignerOption.Boolean(){
 		public String getDescription() {
 			return "Force domains to begin / end with G or C, where not specified";
 		}
@@ -31,7 +31,7 @@ public class DesignerOptions {
 		}
 	};
 	
-	public final SeqDesignerOption.Boolean sort_markings = new SeqDesignerOption.Boolean(){
+	public SeqDesignerOption.Boolean sort_markings = new SeqDesignerOption.Boolean(){
 		public String getDescription() {
 			return "Create a priority queue of bases to mutate, and mutate the problematic ones first";
 		}
@@ -47,7 +47,7 @@ public class DesignerOptions {
 		}
 	};
 	
-	public final SeqDesignerOption.Double end_score_threshold = new SeqDesignerOption.Double(){
+	public SeqDesignerOption.Double end_score_threshold = new SeqDesignerOption.Double(){
 		public String getDescription() {
 			return "When a solution with a score less than this value is found, design will stop.";
 		}
@@ -63,7 +63,40 @@ public class DesignerOptions {
 		}
 	};
 	
-	public final SeqDesignerOption.Integer population_size = new SeqDesignerOption.Integer(){
+	public SeqDesignerOption.Double resourcePerMember = new SeqDesignerOption.Double(){
+		public String getDescription() {
+			return "Amount of computer time (in seconds) to apply random-walk optimizaiton on each member each iteration (in-progress mutations are allowed to complete). Negative toggles Infinite Resource Tournament";
+		}
+		public double getDefaultState(){
+			return .1;
+		}
+		private double time = getDefaultState(); 
+		public double getState() {
+			return time;
+		}
+		public synchronized void setState(double newVal) {
+			time = newVal;
+		}
+	};
+
+	
+	public SeqDesignerOption.Double bimolecularPenalty = new SeqDesignerOption.Double(){
+		public String getDescription() {
+			return "Delta G (in kcal per mol) of intermolecular structure formations";
+		}
+		public double getDefaultState(){
+			return 1.513;
+		}
+		private double time = getDefaultState(); 
+		public double getState() {
+			return time;
+		}
+		public synchronized void setState(double newVal) {
+			time = newVal;
+		}
+	};
+	
+	public SeqDesignerOption.Integer population_size = new SeqDesignerOption.Integer(){
 		public String getDescription() {
 			return "Population size for \"Block Designer.\"";
 		}
@@ -82,7 +115,7 @@ public class DesignerOptions {
 		}
 	};
 	
-	public final SeqDesignerOption.Integer selfSimilarityPenalty = new SeqDesignerOption.Integer(){
+	public SeqDesignerOption.Integer selfSimilarityPenalty = new SeqDesignerOption.Integer(){
 		public String getDescription() {
 			return "Minimum length of domain to apply \"Self Similarity\" penalty to. Negative input disables.";
 		}
@@ -101,6 +134,7 @@ public class DesignerOptions {
 	
 	//Make sure to update this please.
 	public final SeqDesignerOption[] options = new SeqDesignerOption[]{
-			rule_ccend_option, sort_markings, end_score_threshold, population_size, selfSimilarityPenalty
+			rule_ccend_option, sort_markings, end_score_threshold, resourcePerMember, population_size, selfSimilarityPenalty
 	};
+	
 }

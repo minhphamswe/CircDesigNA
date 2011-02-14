@@ -16,6 +16,7 @@ import java.util.Map.Entry;
 import DnaDesign.AbstractDesigner.BlockDesigner;
 import DnaDesign.AbstractDesigner.InfiniteResourceTournament;
 import DnaDesign.AbstractDesigner.PopulationDesignMember;
+import DnaDesign.AbstractDesigner.StandardTournament;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.Config.CircDesigNASystemElement;
 import DnaDesign.DesignIntermediateReporter.DesignIntermediateScore;
@@ -44,7 +45,19 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	/**
 	 * Utility method for creating a designer with the default parameters and input from the GUI layer.
 	 */
-	public static DDSeqDesigner<DesignerOptions> getDefaultDesigner(ArrayList<String> inputStrands,String domainDefs,CircDesigNAConfig Std) {
+	public static DDSeqDesigner<DesignerOptions> getDefaultDesigner(String Molecules,String domainDefs,CircDesigNAConfig Std) {
+		ArrayList<String> inputStrands = new ArrayList<String>();
+		for(String q : Molecules.split("\n")){
+			String[] line = q.split("\\s+");
+			if (line.length == 0){
+				continue;
+			}
+			if (line.length != 2){
+				throw new RuntimeException("Correct Molecule format: <name> <molecule> @ "+line[0]);
+			}
+			inputStrands.add(q);
+		}
+		
 		return new DomainDesigner_Public(inputStrands,domainDefs,null,null,null,Std);
 	}
 	/**
@@ -170,8 +183,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					}
 					//System.out.println(results);
 					finished = true;
-				}
-				}.start();
+				}}.start();
 			}
 		};
 		
@@ -221,7 +233,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			sb.append("Molecular Substrands:");
 			sb.append(lR);	
 			for(String q : inputMolecules){
-				String a[] = q.split("\\s+");
+				String a[] = q.split("\\s+");    
 				boolean alreadyPrintedInMolecule = false;
 				splitLoop: for(String subStrand : a[1].split("}")){
 					DomainSequence ds = new DomainSequence();
@@ -314,7 +326,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		}
 	}
 	
-	private DesignerOptions options = DesignerOptions.getDefaultOptions();
+	public DesignerOptions options = DesignerOptions.getDefaultOptions();
 
 	//Output of designer. The best score, and the domains corresponding to it.
 	private double best_score;
@@ -594,16 +606,20 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
 			DomainDesignPMemberImpl initialSeed = new DomainDesignPMemberImpl(allScores,scoredElements,domain,domain_markings);
 			DomainDesignBlockDesignerImpl dbesignSingle = new DomainDesignBlockDesignerImpl(num_domain,domain_length,mutableDomains,mutate,dsd,this);
-			BlockDesigner<DomainDesignPMemberImpl> dbesign = new InfiniteResourceTournament(dbesignSingle);
-			//BlockDesigner<DomainDesignPMemberImpl> dbesign = new StandardTournament(dbesignSingle);
+			BlockDesigner<DomainDesignPMemberImpl> dbesign;
+			if (options.resourcePerMember.getState() < 0){
+				dbesign = new InfiniteResourceTournament(dbesignSingle);
+			} else {
+				dbesign = new StandardTournament(dbesignSingle, options.resourcePerMember.getState());
+			}
 			dbesign.initialize(initialSeed, options.population_size.getState());
 
 			if (true){  //If false, then all population members start at the same location.
 				System.out.println("Randomizing "+dbesign.getPopulation().length+" - 1 population members.");
 				//If true, seed each of the population members differently. 
 				PopulationDesignMember<DomainDesignPMemberImpl>[] a = dbesign.getPopulation();
-				for(PopulationDesignMember r2 : a){
-					DomainDesignPMemberImpl r = (DomainDesignPMemberImpl)r2;
+				for(int i = 1; i < a.length; i++){
+					DomainDesignPMemberImpl r = (DomainDesignPMemberImpl)a[i];
 					for(int k = 0; k < r.domain.length; k++){
 						pickInitialSequence(r.domain,k,mutate[k]);
 					}
@@ -637,6 +653,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					break;
 				}
 				dbesign.runBlockIteration(this,endingThreshold);
+				System.out.flush();
 				//Iteration complete.
 				resetDebugPenalty();
 				DomainDesignPMemberImpl q = dbesign.getBestPerformingChild();
@@ -691,8 +708,16 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				throw new RuntimeException("Initial constraints were too strict.");
 			}
 			for(int j = 0; j < domain[mut_domain].length; j++){
-				if (Std.monomer.noFlags(domain[mut_domain][j])!=0){
-					continue; //Initial base. Leave it.
+				if (Std.monomer.noFlags(domain[mut_domain][j])==Std.monomer.NOBASE){
+					//We must fill these in (they are NOBASE)
+				} else {
+					//We have a flag.
+					int flag = domain[mut_domain][j]-Std.monomer.noFlags(domain[mut_domain][j]);
+					if (flag==0){
+						//Ok, initial base specified. Leave it alone.
+						continue;
+					}
+					//Otherwise, it's free to mutate.
 				}
 				if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
 					mutator.mutateToOther(domain,mut_domain,j);
@@ -790,7 +815,6 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			num_mut = int_urn(min_mutations,num_mut);
 		} else {
 			//Was not able to mutate.
-			System.err.println("0!");
 			return false;
 		}
 		

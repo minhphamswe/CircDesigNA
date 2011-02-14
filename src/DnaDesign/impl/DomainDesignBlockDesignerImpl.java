@@ -56,7 +56,6 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 		double worstPenaltyScore = -1, deltaScore = 0, deltaScoreSum = 0;
 		double[] bestWorstPenaltyScore = new double[]{Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE};
 		boolean revert_mutation = false, newPointReached = false;
-		ScorePenalty worstPenalty = null;
 		boolean[] domain_mutated = new boolean[num_domain];
 		int[] mut_domains = new int[dd.MAX_MUTATION_DOMAINS];
 
@@ -91,19 +90,10 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 				if (domain_mutated[mut_domain]){
 					continue;
 				}
-				
-				if (worstPenalty!=null){
-					if (!worstPenalty.affectedBy(mut_domain)){
-						if (Math.random()<.25f){
-							continue; //We want to skew mutations towards the worst penalty.
-						}
-					}
-				}
 				break;
 			}
 			if(domain_mutated[mut_domain]){
-				k--; //Occurs rarely, when luck is against us. (literally).
-				continue;
+				break;
 			}
 			
 			/*
@@ -145,13 +135,10 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 
 			//Decide whether we improved.
 
-			worstPenaltyScore = 0;
 			deltaScore = 0;
 			for(ScorePenalty s : q.penalties){
-				deltaScore += s.getCDelta();
-				if (s.cur_score > worstPenaltyScore){
-					worstPenalty = s;
-					worstPenaltyScore = s.cur_score; //Can't have 0 penalties.
+				if (s.getPriority()==priority){
+					deltaScore += s.getCDelta();
 				}
 			}
 

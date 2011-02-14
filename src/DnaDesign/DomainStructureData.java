@@ -130,13 +130,16 @@ public class DomainStructureData extends CircDesigNASystemElement{
 					if (kc==']'){
 						if (!inBracket){
 							//Oops, stack underflow.
-							throw new RuntimeException("Stack Underflow of nonconstraint bracket: "+line[seqIndex]);
+							throw new RuntimeException("Bad nesting of square brackets: "+line[seqIndex]);
 						}
 						inBracket = false;
 						continue;
 					}
 					if (Character.toLowerCase(kc)=='u'){
 						kc = 'T'; // rna / dna treated equally.
+					}
+					if (!inBracket && kc=='-'){
+						throw new RuntimeException("Cannot use '-' as a locked base (try using [ and ] ?)");
 					}
 					//The case of characters is significant to deeper stages of the pipeline;
 					//Capital means mutable.
@@ -149,6 +152,10 @@ public class DomainStructureData extends CircDesigNASystemElement{
 					//Lol, silly format.
 				} else {
 					out.domainConstraints.put(k,line[seqIndex]);
+					//Test the constraint out:
+					for(char u : line[seqIndex].toCharArray()){
+						out.Std.monomer.decodeConstraintChar(u);
+					}
 					domainLengths.set(k,seqLen = line[seqIndex].length());
 				}
 				seqIndex++;
@@ -156,7 +163,7 @@ public class DomainStructureData extends CircDesigNASystemElement{
 			//Parse arguments.
 			//Do we have flags?
 			int flagSum = 0;
-			Pattern decodeArg = Pattern.compile("\\-(\\w+)(\\((.*)\\))?");
+			Pattern decodeArg = Pattern.compile("\\-([^\\(]*)(\\((.*)\\))?");
 			for(int flag = seqIndex; flag < line.length; flag++){
 				Matcher m = decodeArg.matcher(line[flag]);
 				if(m.find()){
@@ -169,7 +176,7 @@ public class DomainStructureData extends CircDesigNASystemElement{
 								throw new RuntimeException("Domain "+domainID+" not a valid protein sequence - length not a multiple of 3");
 							}
 							flagSum |= FLAG_CONSERVEAMINOS;
-						} 
+						} else  
 						if (paramName.equalsIgnoreCase("seq")){
 							String old2 = out.compositionConstraints.get(k);
 							if (old2==null){
@@ -182,6 +189,8 @@ public class DomainStructureData extends CircDesigNASystemElement{
 								old2+=",";
 							}
 							out.compositionConstraints.put(k, old2+args);
+						} else {
+							throw new RuntimeException("No such option");
 						}
 					} catch (Throwable e){
 						throw new RuntimeException("Invalid args to '-"+paramName+"': "+e.getMessage());

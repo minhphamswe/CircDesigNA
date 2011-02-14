@@ -76,32 +76,39 @@ public abstract class MonomerDefinition {
 			return 0;
 		}
 		int flagMult = getNumMonomers();
-		if (Character.isUpperCase(charAt)){
-			switch(Character.toUpperCase(charAt)){
-			case 'N':
-				return N*flagMult;
-			case 'R':
-				return R*flagMult;
-			case 'Y':
-				return Y*flagMult;
-			case 'M':
-				return M*flagMult;
-			case 'K':
-				return K*flagMult;
-			case 'S':
-				return S*flagMult;
-			case 'W':
-				return W*flagMult;
-			case 'V':
-				return V*flagMult;
-			case 'H':
-				return H*flagMult;
-			case 'B':
-				return B*flagMult;
-			case 'D':
-				return D*flagMult;
-			}
+		int degenerate = -1;
+		switch(Character.toUpperCase(charAt)){
+		case 'N':
+			degenerate = N*flagMult; break;
+		case 'R':
+			degenerate = R*flagMult; break;
+		case 'Y':
+			degenerate = Y*flagMult; break;
+		case 'M':
+			degenerate = M*flagMult; break;
+		case 'K':
+			degenerate = K*flagMult; break;
+		case 'S':
+			degenerate = S*flagMult; break;
+		case 'W':
+			degenerate = W*flagMult; break;
+		case 'V':
+			degenerate = V*flagMult; break;
+		case 'H':
+			degenerate = H*flagMult; break;
+		case 'B':
+			degenerate = B*flagMult; break;
+		case 'D':
+			degenerate = D*flagMult; break;
 		}
+		if (degenerate!=-1){
+			if (Character.isLowerCase(charAt)){
+				throw new RuntimeException("Cannot \"lock\" a base with degenerate "+Character.toUpperCase(charAt));
+			}
+			//Ok, initial degenerate. Not locked.
+			return degenerate;
+		}
+		//Ok, not degenerate. Locked or initial base?
 		int ret = decodeBaseChar(charAt);
 		if (Character.isLowerCase(charAt)){
 			ret += LOCK_FLAG();
