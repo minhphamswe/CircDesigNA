@@ -316,6 +316,9 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 		}
 
 		private int checkUnderQuota(int j) {
+			if (true){
+				return UnderQuota_Not; 
+			}
 			boolean hadUnderValid = false;
 			//Is mut_new[j] underquota?
 			if (getBaseCounts(mut_new)){

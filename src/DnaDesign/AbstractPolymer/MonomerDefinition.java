@@ -26,7 +26,7 @@ public abstract class MonomerDefinition {
 	 * Equivalent to the 'S' degenerate basepair
 	 */
 	public int GCL_FLAG(){
-		return getNumMonomers()*6;
+		return getNumMonomers()*S;
 	}
 	public int LOCK_FLAG(){
 		return getNumMonomers();

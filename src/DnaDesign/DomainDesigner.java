@@ -707,31 +707,44 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			if ( k > 1000 ){
 				throw new RuntimeException("Initial constraints were too strict.");
 			}
-			for(int j = 0; j < domain[mut_domain].length; j++){
-				if (Std.monomer.noFlags(domain[mut_domain][j])==Std.monomer.NOBASE){
-					//We must fill these in (they are NOBASE)
-				} else {
-					//We have a flag.
+			for(boolean specialFlagsOnly : new boolean[]{true,false}){
+				for(int j = 0; j < domain[mut_domain].length; j++){
 					int flag = domain[mut_domain][j]-Std.monomer.noFlags(domain[mut_domain][j]);
-					if (flag==0){
-						//Ok, initial base specified. Leave it alone.
+					if ((flag!=0)!=specialFlagsOnly){
 						continue;
 					}
-					//Otherwise, it's free to mutate.
-				}
-				if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
-					mutator.mutateToOther(domain,mut_domain,j);
-				} else {
-					for(int i = 0; i < 3; i++){
-						if (Std.monomer.noFlags(domain[mut_domain][j-(j%3)+i])==0){
-							throw new RuntimeException("Protein Conserving (-p) Flag requires an initial sequence");
+					if (Std.monomer.noFlags(domain[mut_domain][j])==Std.monomer.NOBASE){
+						//We must fill these in (they are NOBASE)
+					} else {
+						//We have a flag.
+						if (flag==0){
+							//Ok, initial base specified. Leave it alone.
+							continue;
 						}
+						//Otherwise, it's free to mutate.
 					}
-					mutator.mutateToOther(domain,mut_domain,j-(j%3));
-				}
-				if (Std.monomer.noFlags(domain[mut_domain][j])==0){
-					//Mutation failed to replace a 0. rules must have been too strict; try again from the start.
-					continue initialLoop;
+					if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
+						mutator.mutateToOther(domain,mut_domain,j);
+					} else {
+						for(int i = 0; i < 3; i++){
+							if (Std.monomer.noFlags(domain[mut_domain][j-(j%3)+i])==0){
+								throw new RuntimeException("Protein Conserving (-p) Flag requires an initial sequence");
+							}
+						}
+						mutator.mutateToOther(domain,mut_domain,j-(j%3));
+					}
+					if (Std.monomer.noFlags(domain[mut_domain][j])==0){
+						for(int i : domain[mut_domain]){
+							if (Std.monomer.noFlags(i)==0){
+								System.err.print("?");
+							} else {
+								System.err.print(Std.monomer.displayBase(i));
+							}
+						}
+						System.err.println();
+						//Mutation failed to replace a 0. rules must have been too strict; try again from the start.
+						continue initialLoop;
+					}
 				}
 			}
 			if (!mutator.isValid(domain,mut_domain)){
