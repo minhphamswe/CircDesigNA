@@ -444,6 +444,13 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 			}
 		}
 		ensureSharedMatrices(len1,len2);
+		/*
+		for(int i = 0; i < len1; i++){
+			for(int j = 0; j < len2; j++){
+				flushFoldMatrices(i,j);
+			}
+		}
+		*/
 		//foldSingleStranded_makeCMatrix(seq,seq2,len1,len2,domain);
 		float[][] Smatrix = sMatrix_shared; // score matrix
 		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
@@ -462,11 +469,8 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 				if (len1!=len2){throw new RuntimeException();};
 				//warning! relies on value of minhairpinsize
 				j = i+minHairpinSize;
-				if (j-2<len2){
-					flushFoldMatrices(i,j-2);
-				}
-				if (j-1<len2){
-					flushFoldMatrices(i,j-1);
+				for(int o = i; o < j && o < len2; o++){
+					flushFoldMatrices(i,o);
 				}
 			}
 			for(; j < len2; j++){
