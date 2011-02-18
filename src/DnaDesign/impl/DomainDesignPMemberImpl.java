@@ -16,9 +16,10 @@ public class DomainDesignPMemberImpl extends PopulationDesignMember<DomainDesign
 	public void seedFromOther(DomainDesignPMemberImpl pdm) {
 		if (penalties==null){
 			penalties = new ArrayList(); 
-			for(ScorePenalty q : pdm.penalties){
-				penalties.add((ScorePenalty)q.clone());
-			}
+		}
+		penalties.clear(); //Penalties are lightweight!
+		for(ScorePenalty q : pdm.penalties){
+			penalties.add((ScorePenalty)q.clone());
 		}
 		scoredElements = copy2dInt(pdm.scoredElements,scoredElements);
 		domain = copy2dInt(pdm.domain,domain);
@@ -45,7 +46,7 @@ public class DomainDesignPMemberImpl extends PopulationDesignMember<DomainDesign
 	public DomainDesignPMemberImpl(List<ScorePenalty> penalties, int[][] scoredElements, int[][] domain, int[][] domain_markings){
 		this.penalties = penalties;
 		this.scoredElements = scoredElements;
-		this.domain = domain;
+		this.domain = domain; 
 		this.domain_markings = domain_markings;
 	}
 }

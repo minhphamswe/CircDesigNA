@@ -14,6 +14,10 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	public BlockDesigner(SingleMemberDesigner<T> SingleDesigner){
 		this.SingleDesigner = SingleDesigner;
 	}
+	//set to true to add a dirty test that the scorefunctions are indeed isolated by mutation domains
+	//This checks both the "affectedBy" methods and also the "clone" methods of ScorePenalties.
+	public static final boolean ASSERT_SCOREFUNC_ISOLATION = false;
+	
 	public SingleMemberDesigner<T> SingleDesigner;
 	public T[] population_mutable;
 	public int populationSize = 0;

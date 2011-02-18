@@ -2,6 +2,9 @@ package DnaDesign.AbstractDesigner;
 
 import java.util.TreeMap;
 
+import DnaDesign.DomainDesigner.ScorePenalty;
+import DnaDesign.impl.DomainDesignPMemberImpl;
+
 public abstract class TournamentDesigner <T extends PopulationDesignMember<T>>  extends BlockDesigner <T> {
 	public TournamentDesigner(SingleMemberDesigner<T> SingleDesigner) {
 		super(SingleDesigner);
@@ -22,6 +25,23 @@ public abstract class TournamentDesigner <T extends PopulationDesignMember<T>>  
 				throw new RuntimeException("Assertion error");
 			}
 			bottom.seedFromOther(replace);
+
+			if (ASSERT_SCOREFUNC_ISOLATION){
+				DomainDesignPMemberImpl q = (DomainDesignPMemberImpl)(Object)replace;
+				//Check: before mutation, all penalties should have change in score of 0.
+				for(ScorePenalty s : q.penalties){
+					if (s.evalScore(q.domain,q.domain_markings)!=0){
+						throw new RuntimeException("FAIL");
+					}
+				}	
+				q = (DomainDesignPMemberImpl)(Object)bottom;
+				//Check: before mutation, all penalties should have change in score of 0.
+				for(ScorePenalty s : q.penalties){
+					if (s.evalScore(q.domain,q.domain_markings)!=0){
+						throw new RuntimeException("FAIL");
+					}
+				}
+			}
 		}
 		setBestChild(fittest);
 	}

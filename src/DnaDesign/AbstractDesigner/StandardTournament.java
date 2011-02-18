@@ -1,6 +1,8 @@
 package DnaDesign.AbstractDesigner;
 
 import DnaDesign.DomainDesigner;
+import DnaDesign.DomainDesigner.ScorePenalty;
+import DnaDesign.impl.DomainDesignPMemberImpl;
 
 /**
  * Implementation of an standard tournament designer, where each member is allowed

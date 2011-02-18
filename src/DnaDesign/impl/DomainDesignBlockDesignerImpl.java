@@ -62,7 +62,7 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 		double compareWithDelta = 0;
 		int timesSameBeforeBump = 10;
 		int timesSameCount = 0;
-		double bumpAmount = 10;
+		double bumpAmount = 10;	
 		
 		//num_domains_mut = int_urn(1,Math.min(Math.min(worstPenalty==null?1:worstPenalty.getNumDomainsInvolved()-1,MAX_MUTATION_DOMAINS),mutableDomains.length-1));
 		num_domains_mut = int_urn(1,Math.min(dd.MAX_MUTATION_DOMAINS,mutableDomains.length));
@@ -93,7 +93,9 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 				break;
 			}
 			if(domain_mutated[mut_domain]){
-				break;
+				//num_domains_mut--;
+				k--;
+				continue;
 			}
 			
 			/*
