@@ -150,6 +150,7 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 			if (deltaScore > 0){
 				revert_mutation = true;
 			}
+			
 			/*
 			if (bestWorstPenaltyScore[priority-1]<worstPenaltyScore){
 				revert_mutation = true;

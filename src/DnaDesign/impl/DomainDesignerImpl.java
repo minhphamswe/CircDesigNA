@@ -43,7 +43,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			entropicPenalty = !sameMolecule;
 		}		
 		public int getPriority(){
-			return 2;
+			return 1;
 		}
 		private DomainSequence[] ds;
 		//This seems too low.
@@ -87,7 +87,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return ci;
 		}
 		public int getPriority(){
-			return 1;
+			return 0;
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
@@ -154,12 +154,12 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return ci;
 		}
 		public int getPriority(){
-			return 2;
+			return 1;
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			double deltaG = flI.mfeNoDiagonalPairing(ds[0], ds[1], domain, null);
-			deltaG += ds[0].length(domain)/2; //Heuristic!?
+			deltaG -= -.5275*ds[0].length(domain) + 2.9128; //DNA parameters
 			return Math.max(0,-deltaG);
 		}
 		public boolean affectedBy(int domain) {
@@ -240,7 +240,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			//return normal*Math.max(0,-deltaG);
 		}
 		public int getPriority(){
-			return 2;
+			return 1;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
@@ -295,7 +295,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return expectedMisPairedBases;
 		}
 		public int getPriority() {
-			return 2;
+			return 1;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
@@ -356,7 +356,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return new double[length1][length2];
 		}
 		public int getPriority() {
-			return 2;
+			return 1;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
