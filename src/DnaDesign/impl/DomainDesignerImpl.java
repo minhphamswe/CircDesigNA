@@ -159,7 +159,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			double deltaG = flI.mfeNoDiagonalPairing(ds[0], ds[1], domain, null);
-			deltaG -= -.5275*ds[0].length(domain) + 2.9128; //DNA parameters
+			deltaG -= Math.min(0,-.569*ds[0].length(domain) + 5.4055); //DNA parameters
 			return Math.max(0,-deltaG);
 		}
 		public boolean affectedBy(int domain) {

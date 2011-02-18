@@ -703,6 +703,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	 * @param designerCode 
 	 */
 	private void pickInitialSequence(int[][] domain, int mut_domain, DesignerCode mutator) {
+		boolean[] preserveInitial = new boolean[domain[mut_domain].length];
 		initialLoop: for(int k = 0; ; k++){
 			if ( k > 1000 ){
 				throw new RuntimeException("Initial constraints were too strict.");
@@ -719,6 +720,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 						//We have a flag.
 						if (flag==0){
 							//Ok, initial base specified. Leave it alone.
+							preserveInitial[j] = true;
 							continue;
 						}
 						//Otherwise, it's free to mutate.
@@ -753,6 +755,18 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			break;
 		}
 		
+		//Ok, all quotas are satisfied. Make a randomizing pass to spread out artificial stretches
+		//of single base:
+
+		for(int j = domain[mut_domain].length-1; j >=0; j--){
+			if (!preserveInitial[j]){ //Still don't overwrite initial sequence
+				if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
+					mutator.mutateToOther(domain,mut_domain,j);
+				} else { 
+					mutator.mutateToOther(domain,mut_domain,j-(j%3));
+				}
+			}
+		}
 	}
 
 

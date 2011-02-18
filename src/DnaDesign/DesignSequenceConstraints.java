@@ -1,8 +1,5 @@
 package DnaDesign;
 
-import static DnaDesign.AbstractPolymer.DnaDefinition.C;
-import static DnaDesign.AbstractPolymer.DnaDefinition.G;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 
