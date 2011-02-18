@@ -367,6 +367,9 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 
 	public abstract static class ScorePenalty {
 		public static final double MAX_SCORE = 1e18;
+		public double old_score, cur_score;
+		public DesignIntermediateScore dis;
+		public DesignIntermediateReporter dir;
 		public ScorePenalty(DesignIntermediateReporter dir){
 			old_score = cur_score = MAX_SCORE; //A suitably large number
 			this.dir = dir;
@@ -376,9 +379,6 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			dedicate();
 			return old_score;
 		}
-		public double old_score, cur_score;
-		public DesignIntermediateScore dis;
-		public DesignIntermediateReporter dir;
 		public void revert(){
 			cur_score = old_score;
 		}

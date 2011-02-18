@@ -61,7 +61,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return ds;
 		}
 		public ScorePenalty clone() {
-			MFEHybridScore ci = new MFEHybridScore(ds[0],ds[1],dir,entropicPenalty);
+			MFEHybridScore ci = new MFEHybridScore(ds[0],ds[1],dir,!entropicPenalty);
 			ci.old_score = old_score;
 			ci.cur_score = cur_score;
 			return ci;
