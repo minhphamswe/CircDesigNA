@@ -14,6 +14,7 @@ public interface DDSeqDesigner<T extends DesignerOptions> {
 			public boolean getState();
 			public boolean getDefaultState();
 			public void toggle();
+			public void setState(boolean state);
 		}
 		public interface Double extends SeqDesignerOption{
 			public double getState();

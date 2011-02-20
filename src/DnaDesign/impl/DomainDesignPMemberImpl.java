@@ -10,7 +10,7 @@ import DnaDesign.DomainDesigner.ScorePenalty;
  * Concrete population member.
  */
 public class DomainDesignPMemberImpl extends PopulationDesignMember<DomainDesignPMemberImpl>{
-	public DomainDesignPMemberImpl designerCopyConstructor() {
+	protected DomainDesignPMemberImpl designerCopyConstructor() {
 		return new DomainDesignPMemberImpl(null, null, null, null);
 	}
 	public void seedFromOther(DomainDesignPMemberImpl pdm) {

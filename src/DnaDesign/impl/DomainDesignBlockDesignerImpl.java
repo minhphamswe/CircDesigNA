@@ -16,25 +16,18 @@ import DnaDesign.DomainDesigner.ScorePenalty;
  */
 public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDesignPMemberImpl>{
 	
-	public DomainDesignBlockDesignerImpl(int num_domain, int[] domain_length, int[] mutableDomains, DesignerCode[] mutators, DomainStructureData dsd, DomainDesigner domainDesigner){
-		//Make a back buffer for domain reverts
-		old_domains = new int[num_domain][];
-		old_domains_markings = new int[num_domain][];
-		for(int k = 0; k < num_domain; k++){
-			old_domains[k] = new int[domain_length[k]];
-			old_domains_markings[k] = new int[domain_length[k]];
-		}
+	public DomainDesignBlockDesignerImpl(int[] mutableDomains, DesignerCode[] mutators, DomainStructureData dsd, DomainDesigner domainDesigner, DomainDesignPMemberImpl backupPMember){
+		//Temporary backup member for performing reversions
+		this.defaultBackupCache = backupPMember;
 		this.dsd = dsd;
 		this.mutators = mutators;
 		this.dd = domainDesigner;
-		this.num_domain = num_domain;
 		this.mutableDomains = mutableDomains;
-		this.domain_length = domain_length;
+		mutation_shared = new Mutation();
 	}
 	private DesignerCode[] mutators;
-	private int[] domain_length;
-	private int num_domain;
-	private int[][] old_domains, old_domains_markings;
+	private DomainDesignPMemberImpl defaultBackupCache;
+	private Mutation mutation_shared;
 	int[] mutableDomains;
 	private DomainDesigner dd;
 	private DomainStructureData dsd;
@@ -50,144 +43,165 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 		}
 		return current_score;
 	}
-	public boolean mutateAndTestAndBackup(DomainDesignPMemberImpl q) {
-		//Mutate, in some way.
-		int num_mut_attempts = 0, mut_domain, num_domains_mut, min_mutations, max_mutations;
-		double worstPenaltyScore = -1, deltaScore = 0, deltaScoreSum = 0;
-		double[] bestWorstPenaltyScore = new double[]{Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE};
-		boolean revert_mutation = false, newPointReached = false;
-		boolean[] domain_mutated = new boolean[num_domain];
-		int[] mut_domains = new int[dd.MAX_MUTATION_DOMAINS];
-
-		double compareWithDelta = 0;
-		int timesSameBeforeBump = 10;
-		int timesSameCount = 0;
-		double bumpAmount = 10;	
+	
+	private class Mutation {
+		public int[] mut_domains = new int[dd.MAX_MUTATION_DOMAINS];
+		boolean[] domain_mutated;
+		int num_domains_mut;
+		boolean revert_mutation, newPointReached;
 		
-		//num_domains_mut = int_urn(1,Math.min(Math.min(worstPenalty==null?1:worstPenalty.getNumDomainsInvolved()-1,MAX_MUTATION_DOMAINS),mutableDomains.length-1));
-		num_domains_mut = int_urn(1,Math.min(dd.MAX_MUTATION_DOMAINS,mutableDomains.length));
-		Arrays.fill(domain_mutated,false);
-		for(int k = 0; k < num_domains_mut; k++){
-			min_mutations = 1;
-			/*
-			if (worstPenalty==null){
-				mut_domain = int_urn(0, mutableDomains.length-1);
-				mut_domain = mutableDomains[mut_domain];
-			} else {
-				
-					mut_domain = int_urn(0, mutableDomains.length-1);
-					mut_domain = mutableDomains[mut_domain];
-				}while (!worstPenalty.affectedBy(mut_domain));
-			}
-			*/
-			max_mutations = dd.MAX_MUTATIONS_LIMIT;
+		public void Mutate(DomainDesignPMemberImpl q, DomainDesignPMemberImpl backup, boolean fullBackup){
+			domain_mutated = new boolean[q.domain.length];
+			num_domains_mut = int_urn(1,Math.min(dd.MAX_MUTATION_DOMAINS,mutableDomains.length));
+			Arrays.fill(domain_mutated,false);
 			
-
-			int mut_domain_search = int_urn(0, mutableDomains.length-1);
-			mut_domain = 0;
-			for(int o = 0; o < mutableDomains.length; o++){
-				mut_domain = mutableDomains[(mut_domain_search+o)%mutableDomains.length];
-				if (domain_mutated[mut_domain]){
+			//Select random domains to mutate
+			for(int k = 0; k < num_domains_mut; k++){
+				int mut_domain_search = int_urn(0, mutableDomains.length-1);
+				int mut_domain = 0;
+				for(int o = 0; o < mutableDomains.length; o++){
+					mut_domain = mutableDomains[(mut_domain_search+o)%mutableDomains.length];
+					if (domain_mutated[mut_domain]){
+						continue;
+					}
+					break;
+				}
+				if(domain_mutated[mut_domain]){
+					//num_domains_mut--;
+					k--;
 					continue;
 				}
-				break;
+				
+				/*
+				if (timesSameCount > 0){
+					max_mutations = Math.max(MAX_MUTATIONS_LIMIT/timesSameCount,min_mutations);
+				}
+				*/
+
+				mut_domains[k] = mut_domain;
+				domain_mutated[mut_domain] = true;
 			}
-			if(domain_mutated[mut_domain]){
-				//num_domains_mut--;
-				k--;
-				continue;
+
+			if (fullBackup){
+				backup.seedFromOther(q);
 			}
 			
-			/*
-			if (timesSameCount > 0){
-				max_mutations = Math.max(MAX_MUTATIONS_LIMIT/timesSameCount,min_mutations);
+			for(int i = 0; i < num_domains_mut; i++){
+				int min_mutations = 1;
+				int max_mutations = dd.MAX_MUTATIONS_LIMIT;
+				int mut_domain = mut_domains[i];
+				if (!fullBackup){
+					//Backup
+					System.arraycopy(q.domain[mut_domain],0,backup.domain[mut_domain],0,q.domain[mut_domain].length);
+					System.arraycopy(q.domain_markings[mut_domain],0,backup.domain_markings[mut_domain],0,q.domain[mut_domain].length);
+				}
+				//Mutate
+				dd.mutateUntilValid(mut_domain, q.domain, q.domain_markings, mutators[mut_domain], min_mutations, max_mutations);
 			}
-			*/
-
-			mut_domains[k] = mut_domain;
-			//Backup
-			System.arraycopy(q.domain[mut_domain],0,old_domains[mut_domain],0,domain_length[mut_domain]);
-			System.arraycopy(q.domain_markings[mut_domain],0,old_domains_markings[mut_domain],0,domain_length[mut_domain]);
-			//Mutate
-			dd.mutateUntilValid(mut_domain, q.domain, domain_length, q.domain_markings, mutators[mut_domain], min_mutations, max_mutations);
-			domain_mutated[mut_domain] = true;
 		}
-
-		//Short circuiting constraint evaluation: If score was improved, keep, otherwise, break.
-		//Penalties with higher priority are presumably harder to compute, thus the shortcircuiting advantage
-
-		//Reset markers.
-		for(int k = 0; k < num_domains_mut; k++){
-			mut_domain = mut_domains[k];
-			Arrays.fill(q.domain_markings[mut_domain], DNAMARKER_DONTMUTATE);
-		}
-		deltaScoreSum = 0;
-		int priority;
 		
-		priorityLoop: for(priority = 0; priority <= 2; priority++){
+		public void Evaluate(DomainDesignPMemberImpl q, boolean ShortcircuitOnRegression){
+			//Reset markers.
 			for(int k = 0; k < num_domains_mut; k++){
-				mut_domain = mut_domains[k];
-				for(int sd : q.scoredElements[mut_domain]){
-					ScorePenalty s = q.penalties.get(sd);
+				int mut_domain = mut_domains[k];
+				Arrays.fill(q.domain_markings[mut_domain], DNAMARKER_DONTMUTATE);
+			}
+			double deltaScoreSum = 0;
+			
+			int priority;
+			priorityLoop: for(priority = 0; priority <= 2; priority++){
+				for(int k = 0; k < num_domains_mut; k++){
+					int mut_domain = mut_domains[k];
+					for(int sd : q.scoredElements[mut_domain]){
+						ScorePenalty s = q.penalties.get(sd);
+						if (s.getPriority()==priority){
+							s.evalScore(q.domain,q.domain_markings); //STATE CHANGE
+						}
+					}
+				}
+
+				//Decide whether we improved.
+
+				double deltaScore = 0;
+				for(ScorePenalty s : q.penalties){
 					if (s.getPriority()==priority){
-						s.evalScore(q.domain,q.domain_markings); //STATE CHANGE
+						deltaScore += s.getCDelta();
+					}
+				}
+
+				revert_mutation = false;
+				newPointReached = false;
+
+				if (deltaScore > 0){
+					revert_mutation = true;
+				}
+				
+				/*
+				if (bestWorstPenaltyScore[priority-1]<worstPenaltyScore){
+					revert_mutation = true;
+				} else if (bestWorstPenaltyScore[priority-1]==worstPenaltyScore){
+					//Very often, there is a "wall" at a problem spot - allow the rest of the system
+					//to also optimize in the background.
+					if (deltaScore > 0){
+						revert_mutation = true;
+					}
+				} else {
+					newPointReached = true;
+				}
+				 */
+
+				deltaScoreSum += deltaScore;
+				if (ShortcircuitOnRegression){
+					if (revert_mutation){
+						//Short circuit! Get out of there.
+						priority ++;
+
+						break priorityLoop;
+					} else {
+						//keep the mutations
 					}
 				}
 			}
 
-			//Decide whether we improved.
-
-			deltaScore = 0;
-			for(ScorePenalty s : q.penalties){
-				if (s.getPriority()==priority){
-					deltaScore += s.getCDelta();
-				}
-			}
-
-			revert_mutation = false;
-			newPointReached = false;
-
-			if (deltaScore > 0){
+			if (deltaScoreSum > 0){
 				revert_mutation = true;
 			}
-			
-			/*
-			if (bestWorstPenaltyScore[priority-1]<worstPenaltyScore){
-				revert_mutation = true;
-			} else if (bestWorstPenaltyScore[priority-1]==worstPenaltyScore){
-				//Very often, there is a "wall" at a problem spot - allow the rest of the system
-				//to also optimize in the background.
-				if (deltaScore > 0){
-					revert_mutation = true;
-				}
-			} else {
+			if (deltaScoreSum < 0){
 				newPointReached = true;
 			}
-			 */
-
-			deltaScoreSum += deltaScore;
-			if (revert_mutation){
-				//Short circuit! Get out of there.
-				priority ++;
-
-				break priorityLoop;
-			} else {
-				//Keep the mutations
-				bestWorstPenaltyScore[priority] = Math.min(bestWorstPenaltyScore[priority],worstPenaltyScore);
+			
+			if (!revert_mutation && priority < 3){
+				throw new RuntimeException("Not all penalties ran!");
 			}
 		}
 
-		if (deltaScoreSum > 0){
-			revert_mutation = true;
+		public void Revert(DomainDesignPMemberImpl q) {
+			for(int k = 0; k < num_domains_mut; k++){
+				int mut_domain = mut_domains[k];
+				//Revert ALL scores.
+				for(int sd : q.scoredElements[mut_domain]){
+					ScorePenalty s = q.penalties.get(sd);
+					s.revert();
+				}
+				//Have to go back to old sequences..
+				System.arraycopy(defaultBackupCache.domain[mut_domain],0,q.domain[mut_domain],0,q.domain[mut_domain].length);
+				System.arraycopy(defaultBackupCache.domain_markings[mut_domain],0,q.domain_markings[mut_domain],0,q.domain[mut_domain].length);
+			}	
 		}
-		if (deltaScoreSum < 0){
-			newPointReached = true;
-		}
+	}
+	
+	public boolean mutateAndTestAndBackup(DomainDesignPMemberImpl q) {
+		//num_domains_mut = int_urn(1,Math.min(Math.min(worstPenalty==null?1:worstPenalty.getNumDomainsInvolved()-1,MAX_MUTATION_DOMAINS),mutableDomains.length-1));
+		mutation_shared.Mutate(q, defaultBackupCache, false);
+		mutation_shared.Evaluate(q, true);
+
+		//Short circuiting constraint evaluation: If score was improved, keep, otherwise, break.
+		//Penalties with higher priority are presumably harder to compute, thus the shortcircuiting advantage
+
 		//Having run some or all of the affected penalty calculations,
 		//Revert the states or Dedicate them as need be here.
 
-		if (revert_mutation){
-			timesSameCount++;
+		if (mutation_shared.revert_mutation){
 			//Revert
 			/*
 			if (ENABLE_MARKINGS){
@@ -199,17 +213,7 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 				}
 			}
 			*/
-			for(int k = 0; k < num_domains_mut; k++){
-				mut_domain = mut_domains[k];
-				//Revert ALL scores.
-				for(int sd : q.scoredElements[mut_domain]){
-					ScorePenalty s = q.penalties.get(sd);
-					s.revert();
-				}
-				//Have to go back to old sequences..
-				System.arraycopy(old_domains_markings[mut_domain],0,q.domain_markings[mut_domain], 0, q.domain[mut_domain].length);
-				System.arraycopy(old_domains[mut_domain], 0, q.domain[mut_domain], 0, q.domain[mut_domain].length);
-			}	
+			mutation_shared.Revert(q);
 
 			//Which priority did we short circuit on?
 			/*
@@ -236,22 +240,18 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 			*/
 			return false;
 		} else {
-			if (priority != 3){
-				throw new RuntimeException("Assertion failure: self fold layer (layer 2) never ran.");
-			}
-			
-			timesSameCount = 0;
 			//Dedicate
 			for(ScorePenalty s : q.penalties){
 				double l = s.cur_score;
 			 	s.dedicate();
 			 	
 				//Check dedication! Slow!
+			 	/*
 				if (s.evalScore(q.domain, q.domain_markings)!=0){
 					System.out.println(s.getClass());
 					throw new RuntimeException("FAIL!");
 				}
-				
+				*/
 			}
 			/*
 			System.out.println("Current matrix:[");
@@ -297,5 +297,15 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 
 			return true;
 		}
+	}
+
+	public boolean mutateAndTest(DomainDesignPMemberImpl q, DomainDesignPMemberImpl into) {
+		mutation_shared.Mutate(q, into, true);
+		mutation_shared.Evaluate(q, false);
+		for(ScorePenalty s : q.penalties){
+			double l = s.cur_score;
+		 	s.dedicate();
+		}
+		return !mutation_shared.revert_mutation;
 	}
 }

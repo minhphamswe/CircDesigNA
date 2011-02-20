@@ -14,6 +14,7 @@ import java.util.TreeMap;
 import java.util.Map.Entry;
 
 import DnaDesign.AbstractDesigner.BlockDesigner;
+import DnaDesign.AbstractDesigner.GADesigner;
 import DnaDesign.AbstractDesigner.InfiniteResourceTournament;
 import DnaDesign.AbstractDesigner.PopulationDesignMember;
 import DnaDesign.AbstractDesigner.StandardTournament;
@@ -489,7 +490,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					break loop;
 				}
 			}
-			if (mutable){
+			if (mutable){ //has at least one mutable base
 				mutableDomainsL.add(i);		
 			}
 		}
@@ -510,7 +511,8 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			}
 		}
 
-		//Using mutation strategy (which are aware of sequence space), pick valid starting sequences.
+		//Initialize sequences
+		//Mutation strategies (which are aware of sequence space constraints) pick valid starting sequences.
 		for(int i = 0; i < num_domain; i++){
 			if (options.rule_ccend_option.getState()){
 				if (domain[i][0]==0)domain[i][0] = C + Std.monomer.GCL_FLAG();
@@ -524,8 +526,6 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			}
 		}
 
-		//Assertion: all domains are valid according to their respective mutation strategies. 
-
 		//Locked domains. Legacy feature.
 		if (lockedDomains!=null){
 			for(Entry<Integer, String> lock : lockedDomains.entrySet()){
@@ -536,21 +536,14 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				}
 			}
 		}
-
+		
 		//Make the list of mutableDomains again (optimization)
 		int[] mutableDomains = new int[mutableDomainsL.size()];
 		for(int i = 0; i < mutableDomains.length; i++){
 			mutableDomains[i] = mutableDomainsL.get(i);
 		}
-
-		/*
-		//Check if this is a valid start position?
-		for(i = 0; i < num_domain; i++){
-			if (!isValidSequenceSetup(i,seqToSynthesize,domain)){
-				throw new RuntimeException("Assertion error: Start setup invalidated rules.");
-			}
-		}
-		 */
+		
+		//Assertion: all domains are valid according to their respective mutation strategies. 
 
 		//Enumerate penalty scores (see FoldingImplTestGUI for a visual of this process) via "listPenalties"
 		List<ScorePenalty> allScores = listPenalties(designTarget,DIR,domain,options);		
@@ -559,15 +552,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			throw new RuntimeException("No scores to optimize : Algorithm has nothing to do!");
 		}
 
-
-		/*
-		for(int[] row : domain_markings){
-			System.out.println(Arrays.toString(row));
-		}
-		 */
-
-
-		//Select the penalties which depend on certain domains. Clear optimization here.
+		//Select the penalties which depend on certain domains. (optimization).
 		int[][] scoredElements = new int[num_domain][];
 		for(int k = 0; k < num_domain; k++){
 			ArrayList<Integer> affectedBySeq = new ArrayList();
@@ -584,37 +569,55 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		}
 
 		try {
-			//Initial score.
+			//Begin "Population member" designer of abstraction.
+			//We will duplicate our initial population member POPSIZE times.
+			//First though, calculate its score:
+			DomainDesignPMemberImpl initialSeed = new DomainDesignPMemberImpl(allScores,scoredElements,domain,domain_markings);
 			double current_score = 0;
 			deepFill(domain_markings,DNAMARKER_DONTMUTATE);
-			DIR.beginScoreReport();{
-				for(ScorePenalty q : allScores){
-					current_score += q.getScore(domain, domain_markings);
-					if (q.dis!=null){
-						q.dis.addScore(q.old_score);
-					}
-					if (abort){
-						return 0;
+			for(ScorePenalty q : initialSeed.penalties){
+				current_score += q.getScore(domain, domain_markings);
+				if (abort){
+					return 0;
+				}
+			}
+			//Report score...
+			DIR.beginScoreReport();
+			{
+				double score = 0;
+				for(ScorePenalty s : initialSeed.penalties){
+					score += s.old_score;
+					if (s.dis!=null){
+						s.dis.addScore(s.old_score);
 					}
 				}
+				best_score = score;
 			}DIR.endScoreReport();
+			
 			System.out.println("Randomized initial sequence (for population member 0):");
 			displayDomains(domain,true,dsd);
-			System.out.println("Initial score: "+current_score);	
-			best_score = current_score;
+			System.out.println("Initial score (for population member 0): "+best_score);	
 
 			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
-			DomainDesignPMemberImpl initialSeed = new DomainDesignPMemberImpl(allScores,scoredElements,domain,domain_markings);
-			DomainDesignBlockDesignerImpl dbesignSingle = new DomainDesignBlockDesignerImpl(num_domain,domain_length,mutableDomains,mutate,dsd,this);
+			DomainDesignPMemberImpl tempMember = initialSeed.designerCopyConstructor(-1); //needed for "reverting" mutations
+			DomainDesignBlockDesignerImpl dbesignSingle = new DomainDesignBlockDesignerImpl(mutableDomains,mutate,dsd,this,tempMember);
 			BlockDesigner<DomainDesignPMemberImpl> dbesign;
-			if (options.resourcePerMember.getState() < 0){
-				dbesign = new InfiniteResourceTournament(dbesignSingle);
+			
+			if (options.standardUseGA.getState()){
+				dbesign = new GADesigner(dbesignSingle);
 			} else {
-				dbesign = new StandardTournament(dbesignSingle, options.resourcePerMember.getState());
+				if (options.resourcePerMember.getState() < 0){
+					dbesign = new InfiniteResourceTournament(dbesignSingle);
+				} else {
+					dbesign = new StandardTournament(dbesignSingle, options.resourcePerMember.getState());
+				}
 			}
+			//Clone the initial sequence (popsize-1) times.
 			dbesign.initialize(initialSeed, options.population_size.getState());
 
-			if (true){  //If false, then all population members start at the same location.
+			//Randomize the clones?
+			boolean randomizePopulation = true;
+			if (randomizePopulation){  //If false, then all population members start at the same location.
 				System.out.println("Randomizing "+dbesign.getPopulation().length+" - 1 population members.");
 				//If true, seed each of the population members differently. 
 				PopulationDesignMember<DomainDesignPMemberImpl>[] a = dbesign.getPopulation();
@@ -635,8 +638,6 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				}
 			}
 
-
-			//Record the time that the iteration began...
 			System.out.println("Entering design loop");
 			long lastDumpState = System.nanoTime();		
 			num_mut_attempts = 0;
@@ -800,8 +801,8 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	 * @param max_mutations 
 	 */
 	public boolean mutateUntilValid(int mut_domain, int[][] domain,
-			int[] domain_length, int[][] domain_markings, DesignerCode mutator, int min_mutations, int max_mutations) {
-		int len = domain_length[mut_domain];
+			int[][] domain_markings, DesignerCode mutator, int min_mutations, int max_mutations) {
+		int len = domain[mut_domain].length;
 
 		//Count the bases to mutate (1's in the "markings" array)
 		int oneC = 0;

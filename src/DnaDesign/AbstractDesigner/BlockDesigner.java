@@ -26,8 +26,6 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	/**
 	 * Initializes this designer with one member, and numCopies-1 number of newly created members with that same seed.
 	 * Necessary before designing.
-	 * 
-	 * In actuality, numCopies * 2 copies are made, because the designer will keep a backup copy for you.
 	 */
 	public void initialize(T init, int numCopies){
 		populationSize = numCopies;
@@ -36,7 +34,7 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 			if (k!=0){
 				population_mutable[k] = null;
 				population_mutable[k] = init.designerCopyConstructor(k);
-				population_mutable[k].seedFromOther(init);
+				//Which calls population_mutable[k].seedFromOther(init);
 			} else {
 				population_mutable[k] = init;
 			}

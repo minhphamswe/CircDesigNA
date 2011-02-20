@@ -9,7 +9,7 @@ public abstract class PopulationDesignMember<T extends PopulationDesignMember> i
 	public final int compareTo(T o) {
 		return myID - o.myID;
 	}
-	protected final T designerCopyConstructor(int myID){
+	public T designerCopyConstructor(int myID){
 		T toRet = designerCopyConstructor();
 		toRet.myID = myID;
 		toRet.seedFromOther(this);
@@ -19,6 +19,6 @@ public abstract class PopulationDesignMember<T extends PopulationDesignMember> i
 	 * Creates a new instance of this design member. A deep copy is not required, as
 	 * this call will always be followed up with a call to "seed".
 	 */
-	public abstract T designerCopyConstructor();
+	protected abstract T designerCopyConstructor();
 	public abstract void seedFromOther(T pdm);
 }

@@ -43,7 +43,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			entropicPenalty = !sameMolecule;
 		}		
 		public int getPriority(){
-			return 1;
+			return 2;
 		}
 		private DomainSequence[] ds;
 		//This seems too low.
@@ -154,7 +154,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return ci;
 		}
 		public int getPriority(){
-			return 1;
+			return 2;
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
@@ -295,7 +295,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return expectedMisPairedBases;
 		}
 		public int getPriority() {
-			return 1;
+			return 2;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
@@ -356,7 +356,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return new double[length1][length2];
 		}
 		public int getPriority() {
-			return 1;
+			return 2;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;

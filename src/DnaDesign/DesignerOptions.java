@@ -29,6 +29,9 @@ public class DesignerOptions {
 		public boolean getDefaultState() {
 			return true;
 		}
+		public void setState(boolean state) {
+			rule_ccend = state;
+		}
 	};
 	
 	public SeqDesignerOption.Boolean sort_markings = new SeqDesignerOption.Boolean(){
@@ -44,6 +47,9 @@ public class DesignerOptions {
 		}
 		public boolean getDefaultState() {
 			return false;
+		}
+		public void setState(boolean state) {
+			sort_markings = state;
 		}
 	};
 	
@@ -62,6 +68,25 @@ public class DesignerOptions {
 			EndThreshold = newVal;
 		}
 	};
+	
+	public SeqDesignerOption.Boolean standardUseGA = new SeqDesignerOption.Boolean(){
+		public String getDescription() {
+			return "Allow regressive mutations (More standard genetic algorithm, doubles memory usage)";
+		}
+		private boolean sort_markings = getDefaultState();
+		public boolean getState() {
+			return sort_markings;
+		}
+		public synchronized void toggle() {
+			sort_markings = !sort_markings;
+		}
+		public boolean getDefaultState() {
+			return false;
+		}
+		public void setState(boolean state) {
+			sort_markings = state;
+		}
+	};	
 	
 	public SeqDesignerOption.Double resourcePerMember = new SeqDesignerOption.Double(){
 		public String getDescription() {
@@ -134,7 +159,7 @@ public class DesignerOptions {
 	
 	//Make sure to update this please.
 	public final SeqDesignerOption[] options = new SeqDesignerOption[]{
-			rule_ccend_option, sort_markings, end_score_threshold, resourcePerMember, population_size, selfSimilarityPenalty
+			rule_ccend_option, sort_markings, end_score_threshold, standardUseGA, resourcePerMember, population_size, selfSimilarityPenalty
 	};
 	
 }
