@@ -22,7 +22,7 @@ public class FoldingImplTest2 {
 	 */
 	public static void main(String[] args) throws IOException{
 		CircDesigNAConfig config = new CircDesigNAConfig();
-		System.out.println("L1 L2 S1 S2 CA NU MF");
+		System.out.println("L1 S1 CA NU MF");
 		for(int i = 0; i < 4000; i++){
 			FoldingImpl fl = new FoldingImpl(config);
 			DomainStructureData dsd = new DomainStructureData(config);
@@ -33,7 +33,7 @@ public class FoldingImplTest2 {
 			} else {
 				seqLength = seq.length();
 			}
-			int max_did = 1;
+			int max_did = 0;
 			int[][] domain = new int[max_did+1][seqLength];
 			int[][] domainMark= new int[max_did+1][seqLength];
 			for(int did = 0; did <= max_did; did++){
@@ -69,8 +69,8 @@ public class FoldingImplTest2 {
 			ds1.setDomains(0, null);
 			DomainSequence ds2 = new DomainSequence();
 			ds2.setDomains(1, null);
-			System.out.printf("%d %d ",seqLength,seqLength);
-			double resultSelf = fl.mfeHybridDeltaG_viaMatrix(ds1, ds2, domain, domainMark);
+			System.out.printf("%d ",seqLength);
+			double resultSelf = fl.foldSingleStranded_viaMatrix(ds1, domain, domainMark);
 			double resultNupack;
 			{
 				String prefix = "nupack0";
@@ -85,18 +85,35 @@ public class FoldingImplTest2 {
 				StringBuffer concs = new StringBuffer();
 				File nupackDir = new File("nupackTest/");
 				nupackDir.mkdir();
-				RunNupackTool.runNupack(seqs.toString(), concs.toString(), 2, prefix, false, nupackDir);
-				
-				Scanner cxin = new Scanner(new File("nupackTest/"+prefix+".cx"));
+				RunNupackTool.runNupack(seqs.toString(), concs.toString(), 1, prefix, RunNupackTool.OPCODE_MFE, nupackDir);
+
 				resultNupack = 0;
-				while(cxin.hasNextLine()){
-					String string = cxin.nextLine();
-					String[] line = string.split("\\s+");
-					if (line[0].startsWith("%")){
-						continue;
+				if (false){
+					Scanner cxin = new Scanner(new File("nupackTest/"+prefix+".cx"));
+					while(cxin.hasNextLine()){
+						String string = cxin.nextLine();
+						String[] line = string.split("\\s+");
+						if (line[0].startsWith("%")){
+							continue;
+						}
+						boolean isLine = true;
+						for(int q = 0; q <= max_did; q++){
+							isLine |= line[q+1].equals("1");
+						}
+						if (isLine){
+							resultNupack = new Double(line[line.length-1]);
+						}
 					}
-					if (line[1].equals("1") && line[2].equals("1")){
-						resultNupack = new Double(line[3]);
+					cxin.close();
+				} else {
+					Scanner in = new Scanner(new File("nupackTest/"+prefix+".mfe"));
+					while(in.hasNextLine()){
+						String line = in.nextLine();
+						if (line.startsWith("%") || line.trim().equals("")){
+							continue;
+						}
+						resultNupack = new Double(in.nextLine());
+						break;
 					}
 				}
 			}
