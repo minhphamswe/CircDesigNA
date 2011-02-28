@@ -601,10 +601,10 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
 			DomainDesignPMemberImpl tempMember = initialSeed.designerCopyConstructor(-1); //needed for "reverting" mutations
 			DomainDesignBlockDesignerImpl dbesignSingle = new DomainDesignBlockDesignerImpl(mutableDomains,mutate,dsd,this,tempMember);
-			BlockDesigner<DomainDesignPMemberImpl> dbesign;
+			BlockDesigner<DomainDesignPMemberImpl> dbesign = null;
 			
 			if (options.standardUseGA.getState()){
-				dbesign = new GADesigner(dbesignSingle);
+				dbesign = new GADesigner(dbesignSingle, new DomainDesignerImpl.DParetoSort(), true);
 			} else {
 				if (options.resourcePerMember.getState() < 0){
 					dbesign = new InfiniteResourceTournament(dbesignSingle);
@@ -779,12 +779,10 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		public int a;
 		public int b;
 		public int compareTo(Priority_int_int o) {
-			int val = 0;
+			int val = o.b-b;
 			if (val==0){
-				val = o.b-b;
-			}
-			if (val==0){
-				val = a-o.a;
+				return Math.random()<.5 ? -1:1;
+				//val = a-o.a;
 			}
 			return val;
 		}

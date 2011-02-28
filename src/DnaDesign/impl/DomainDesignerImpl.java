@@ -1,6 +1,7 @@
 package DnaDesign.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -11,6 +12,7 @@ import DnaDesign.DomainDesigner;
 import DnaDesign.DomainDesigner_SharedUtils;
 import DnaDesign.DomainSequence;
 import DnaDesign.NAFolding;
+import DnaDesign.AbstractDesigner.ParetoSort;
 import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
 import DnaDesign.Config.CircDesigNAConfig;
 
@@ -18,6 +20,31 @@ import DnaDesign.Config.CircDesigNAConfig;
  * Implementation of DomainDesigner
  */
 public class DomainDesignerImpl extends DomainDesigner{
+
+	public static class DParetoSort extends ParetoSort<DomainDesignPMemberImpl> {
+		double[] scores= new double[4];
+		public boolean isDominatedBy(DomainDesignPMemberImpl t, DomainDesignPMemberImpl t2) {
+			Arrays.fill(scores,0);
+			for(int i = 0; i < t.penalties.size(); i++){
+				int index = 0;
+				ScorePenalty sp = t.penalties.get(i);
+				if (sp instanceof SelfSimilarityScore){
+					index = 0;
+				} else if (sp instanceof MFEHybridScore || sp instanceof SelfFold){
+					index = 1;
+				} else {
+					index = 2;
+				}
+				scores[index] += t.penalties.get(i).cur_score - t2.penalties.get(i).cur_score;
+			}
+			for(int i = 0; i < scores.length; i++){
+				if (scores[i] >= 0){
+					return false;
+				}
+			}
+			return true;
+		}
+	}
 	
 	private NAFolding flI;
 	/**

@@ -49,8 +49,8 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 	private int pairPrMODE = NUPACK;
 	private static final int NUPACK = 0, VIENNARNA=1, UNAFOLD=2, SELF=3;
 
-	private static final String absPathToHybridSSMinMod =  "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-ss-min.exe\" -q ";
-	private static final String absPathToHybridMinMod = "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-min.exe\" -q ";
+	private static final String absPathToHybridSSMinMod =  "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-ss-min.exe\" --NA=DNA -q ";
+	private static final String absPathToHybridMinMod = "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-min.exe\" --NA=DNA -q ";
 	
 	int rule_4g, rule_6at;
 	{
@@ -570,12 +570,6 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 				isOnFringeOfMap = bestI==len1-1 || bestJ==0;
 			}
 			MFE_pointlist.add(new Point(bestI,bestJ));
-			if (inHelix){ //Continuing helix (assumed to start in a helix)
-				if (Std.monomer.bindScore(base(seq,bestI,domain), base(seq2,bestJ,domain)) < 0){
-					seq.mark(bestI, domain, domain_markings);
-					seq2.mark(bestJ, domain, domain_markings);
-				}
-			}
 			if (isOnFringeOfMap){
 				if (inHelix){
 					if (Std.monomer.bindScore(base(seq,bestI,domain), base(seq2,bestJ,domain)) < 0){
@@ -583,6 +577,14 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 						MFE_longestHelixLength = Math.max(MFE_longestHelixLength,helixLength);
 					}
 				}
+			}
+			if (inHelix && (!isOnFringeOfMap || (MFE_longestHelixLength > 1))){ 
+				if (Std.monomer.bindScore(base(seq,bestI,domain), base(seq2,bestJ,domain)) < 0){
+					seq.mark(bestI, domain, domain_markings);
+					seq2.mark(bestJ, domain, domain_markings);
+				}
+			}
+			if (isOnFringeOfMap){
 				break;
 			}
 			//inHelix = false;

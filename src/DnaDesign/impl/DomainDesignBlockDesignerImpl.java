@@ -15,7 +15,6 @@ import DnaDesign.DomainDesigner.ScorePenalty;
  * Implementation of BlockDesigner
  */
 public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDesignPMemberImpl>{
-	
 	public DomainDesignBlockDesignerImpl(int[] mutableDomains, DesignerCode[] mutators, DomainStructureData dsd, DomainDesigner domainDesigner, DomainDesignPMemberImpl backupPMember){
 		//Temporary backup member for performing reversions
 		this.defaultBackupCache = backupPMember;

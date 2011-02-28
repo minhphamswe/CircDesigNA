@@ -44,7 +44,7 @@ public class InfiniteResourceTournament <T extends PopulationDesignMember<T>>  e
 					} else {
 						//a backup was performed.
 					}
-					if(runner.abort){
+					if(runner != null && runner.abort){
 						break;
 					}
 				}
