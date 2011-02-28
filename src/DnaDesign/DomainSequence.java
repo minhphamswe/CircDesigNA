@@ -87,11 +87,11 @@ public class DomainSequence {
 	public void setDomains(DomainStructure ds, DomainStructureBNFTree dsd) {
 		setFromComplex(dsd);
 		domainList = new int[ds.sequencePartsInvolved.length];
-		for(int i = 0; i < domainList.length; i++){
+		numDomains = domainList.length;
+		for(int i = 0; i < numDomains; i++){
 			int k = ds.sequencePartsInvolved[i];
 			domainList[i] = dsd.domains[k];
 		}
-		numDomains = domainList.length;
 	}
 	//GETTERS
 	public int length(int[][] domain){

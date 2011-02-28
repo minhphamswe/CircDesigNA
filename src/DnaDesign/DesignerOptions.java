@@ -34,25 +34,6 @@ public class DesignerOptions {
 		}
 	};
 	
-	public SeqDesignerOption.Boolean sort_markings = new SeqDesignerOption.Boolean(){
-		public String getDescription() {
-			return "Create a priority queue of bases to mutate, and mutate the problematic ones first";
-		}
-		private boolean sort_markings = getDefaultState();
-		public boolean getState() {
-			return sort_markings;
-		}
-		public synchronized void toggle() {
-			sort_markings = !sort_markings;
-		}
-		public boolean getDefaultState() {
-			return false;
-		}
-		public void setState(boolean state) {
-			sort_markings = state;
-		}
-	};
-	
 	public SeqDesignerOption.Double end_score_threshold = new SeqDesignerOption.Double(){
 		public String getDescription() {
 			return "When a solution with a score less than this value is found, design will stop.";
@@ -107,10 +88,10 @@ public class DesignerOptions {
 	
 	public SeqDesignerOption.Double bimolecularPenalty = new SeqDesignerOption.Double(){
 		public String getDescription() {
-			return "Delta G (in kcal per mol) of intermolecular structure formations";
+			return "Delta G (in kcal per mol) of intermolecular structure formations. Ref: Zuker, 2003";
 		}
 		public double getDefaultState(){
-			return 1.513;
+			return 1.96;
 		}
 		private double time = getDefaultState(); 
 		public double getState() {
@@ -145,7 +126,7 @@ public class DesignerOptions {
 			return "Minimum length of domain to apply \"Self Similarity\" penalty to. Negative input disables.";
 		}
 		public int getDefaultState(){
-			return -1;
+			return 20;
 		}
 		private int minimumForSelfSimilarity = getDefaultState(); 
 		public int getState() {
@@ -159,7 +140,7 @@ public class DesignerOptions {
 	
 	//Make sure to update this please.
 	public final SeqDesignerOption[] options = new SeqDesignerOption[]{
-			rule_ccend_option, sort_markings, end_score_threshold, standardUseGA, resourcePerMember, population_size, selfSimilarityPenalty
+			rule_ccend_option, end_score_threshold, standardUseGA, resourcePerMember, population_size, selfSimilarityPenalty, bimolecularPenalty
 	};
 	
 }

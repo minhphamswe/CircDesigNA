@@ -1,6 +1,7 @@
 package DnaDesign.impl;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -10,6 +11,7 @@ import DnaDesign.DesignerOptions;
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainDesigner_SharedUtils;
 import DnaDesign.DomainSequence;
+import DnaDesign.DomainStructureData;
 import DnaDesign.NAFolding;
 import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
 import DnaDesign.Config.CircDesigNAConfig;
@@ -365,7 +367,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 
 	public List<ScorePenalty> listPenalties(
 			AbstractDomainDesignTarget designTarget,
-			DesignIntermediateReporter DIR, int[][] domain2, DesignerOptions options) {
+			DesignIntermediateReporter DIR, int[][] domain2, DesignerOptions options, DomainStructureData dsd) {
 		
 		ArrayList<DomainSequence> rawStrands = designTarget.wholeStrands;
 		ArrayList<DomainSequence> makeSS = new ArrayList();
@@ -381,6 +383,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		List<ScorePenalty> allScores = new LinkedList<ScorePenalty>();
 		allScores.add(new VariousSequencePenalties(rawStrands,DIR));
 		
+		ArrayList<MFEHybridScore> hybridScorings = new ArrayList<MFEHybridScore>();
 		for(int i = 0; i < makeSS.size(); i++){
 			DomainSequence ds = makeSS.get(i);
 			//Secondary Structure Formation
@@ -392,7 +395,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 				*/
 			} else {
 				allScores.add(new SelfFold(ds, DIR));
-				allScores.add(new MFEHybridScore(ds, ds, DIR, ds.numDomains==1));
+				hybridScorings.add(new MFEHybridScore(ds, ds, DIR, ds.numDomains==1));
 			}
 
 			//Hybridization
@@ -402,10 +405,12 @@ public class DomainDesignerImpl extends DomainDesigner{
 				if (DomainDesigner_SharedUtils.checkComplementary(ds, ds2)){
 					//allScores.add(new PairDefectScore(ds, ds2, DIR, sameMol, designTarget));
 				} else {
-					allScores.add(new MFEHybridScore(ds, ds2, DIR, sameMol || (ds.numDomains==1 && ds2.numDomains==1)));
+					hybridScorings.add(new MFEHybridScore(ds, ds2, DIR, sameMol || (ds.numDomains==1 && ds2.numDomains==1)));
 				}
 			}
 		}
+		
+		allScores.addAll(hybridScorings);
 		
 		for(HairpinClosingTarget hairpin : hairpinClosings){
 			allScores.add(new HairpinOpening(hairpin, DIR));

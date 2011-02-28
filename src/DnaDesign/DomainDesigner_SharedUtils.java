@@ -126,6 +126,10 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 
+	/**
+	 * Removes subsequences
+	 * @param seqs
+	 */
 	public static void utilRemoveSubsequences(
 			List<DomainSequence> seqs) {
 		ListIterator<DomainSequence> itr = seqs.listIterator();

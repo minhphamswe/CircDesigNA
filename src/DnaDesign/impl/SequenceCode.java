@@ -23,7 +23,7 @@ public class SequenceCode implements DesignerCode{
 		if (choices==0){
 			return false;
 		}
-		int choice = (int) (Math.random()*choices);
+		int choice = (int) (Math.random()*(choices));
 		dsc.makeAvailableMutationNo(choice,mut_new,j);
 		return true;
 		
