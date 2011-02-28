@@ -223,11 +223,10 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 				if (testBase==oldBase_pure){
 					continue; //This wouldn't be a changing mutation.
 				}
-				//
+				isDirectMutation = false;
 				if (isDirectMutation = canMutateBaseDirectly()){
 					return isDirectMutation;
 				}
-				isDirectMutation = false;
 				if (canMutateBySwapping()){
 					return true;
 				}
@@ -247,8 +246,12 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 			//base type "testBase". This is because swapping doesn't change composition.
 			//If we allow more complicated constraints, this assumption will change.
 			int testBase = b_inBaseOrders;
-			for(int i = 0; i < mut_new.length; i++){
-				if (i==j){
+			int i_off = (int) (Math.random()*mut_new.length);
+			for(int i_true = 0; i_true < mut_new.length; i_true++){
+				int i = (i_off + i_true) % mut_new.length;
+				
+				//Can we swap i with j, to achieve testBase at j?
+				if (i==j){ //No, same base.
 					continue;
 				}
 				int swapBase = Std.monomer.noFlags(mut_new[i]);
@@ -257,7 +260,7 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 				if (!(swapBase==testBase)){
 					continue;
 				}
-				//ok. so, is the swap allowed?
+				//so, is the swap allowed?
 				if (!(isAllowableBaseforFlags(oldBase_flag,swapBase) && isAllowableBaseforFlags(swapBase_flag,oldBase_pure))){
 					continue;
 				}

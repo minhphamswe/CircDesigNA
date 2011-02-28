@@ -271,7 +271,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					domain = revComp(domain);
 				}
 				sb.append(domain);
-				if (withSeperator && k + 1 < ds.domainList.length){
+				if (withSeperator && k + 1 < ds.numDomains){
 					sb.append("|");
 				}
 			}
@@ -352,6 +352,10 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	 * and mutate them. Recommended, otherwise you're merely randomly mutating.
 	 */
 	private boolean ENABLE_MARKINGS = true;
+	/**
+	 * Use to add probability of mutation to bases involved in many penalties. 
+	 */
+	private boolean SORT_MARKINGS = true;
 	
 	/**
 	 * Take the evaluators word as absolute, and never mutate bases that
@@ -431,6 +435,22 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			return sum;
 		}
 		public abstract int getPriority();
+		public String toString(DomainStructureData dsd) {
+			String myString = getClass().getSimpleName();
+			DomainSequence[] seqs = getSeqs();
+			if (seqs.length>0){
+				myString += " : ";
+				for(int k = 0; k < seqs.length; k++){
+					myString += seqs[k].toString(dsd);
+					if (k + 1 < seqs.length){
+						myString += " vs ";
+					}
+				}
+			} else {
+				myString += " (On all molecules)";
+			}
+			return myString;
+		}
 	}
 	
 	/**
@@ -546,10 +566,13 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		//Assertion: all domains are valid according to their respective mutation strategies. 
 
 		//Enumerate penalty scores (see FoldingImplTestGUI for a visual of this process) via "listPenalties"
-		List<ScorePenalty> allScores = listPenalties(designTarget,DIR,domain,options);		
-		System.out.println("Discovered "+allScores.size()+" score elements");
+		List<ScorePenalty> allScores = listPenalties(designTarget,DIR,domain,options,dsd);
 		if (allScores.isEmpty()){
 			throw new RuntimeException("No scores to optimize : Algorithm has nothing to do!");
+		}		
+		System.out.println("Discovered "+allScores.size()+" score elements. Listing them:");
+		for(ScorePenalty q : allScores){
+			System.out.println(q.toString(dsd));
 		}
 
 		//Select the penalties which depend on certain domains. (optimization).
@@ -692,7 +715,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		return num_mut_attempts;
 	}
 	public abstract List<ScorePenalty> listPenalties(
-			AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, int[][] domain, DesignerOptions options2) ;
+			AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, int[][] domain, DesignerOptions options2, DomainStructureData dsd) ;
 
 	public static final void deepFill(int[][] domain_markings, int i) {
 		for(int[] row : domain_markings){
@@ -737,6 +760,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 						mutator.mutateToOther(domain,mut_domain,j-(j%3));
 					}
 					if (Std.monomer.noFlags(domain[mut_domain][j])==0){
+						/*
 						for(int i : domain[mut_domain]){
 							if (Std.monomer.noFlags(i)==0){
 								System.err.print("?");
@@ -745,6 +769,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 							}
 						}
 						System.err.println();
+						*/
 						//Mutation failed to replace a 0. rules must have been too strict; try again from the start.
 						continue initialLoop;
 					}
@@ -782,7 +807,6 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			int val = o.b-b;
 			if (val==0){
 				return Math.random()<.5 ? -1:1;
-				//val = a-o.a;
 			}
 			return val;
 		}
@@ -808,7 +832,6 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		//How many mutations will we try now?
 		int num_mut;
 		//Count the reccomended bases to mutate
-		boolean SORT_MARKINGS = options.sort_markings.getState();
 		
 		if (ENABLE_MARKINGS){
 			if (inplacePrioritySort_shared==null || inplacePrioritySort_shared.length<len){
@@ -818,6 +841,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				}
 			}
 			for(int k = 0; k < len; k++){
+				inplacePrioritySort_shared[oneC].set(k,DNAMARKER_DONTMUTATE);
 				int q = domain_markings[mut_domain][k];
 				if (q!=DNAMARKER_DONTMUTATE || SORT_MARKINGS){
 					inplacePrioritySort_shared[oneC].set(k,q);
@@ -847,13 +871,13 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		//System.out.println(num_mut+" "+min_mutations);
 
 		//int timesInLoop = 0;
-		for (int k = 0; k < num_mut; k++) {
+		mutloop: for (int k = 0; k < num_mut; k++) {
 			// Attempt a mutation
 			int j;
 			if (ENABLE_MARKINGS){
 				if (SORT_MARKINGS){
-					if (k >= inplacePrioritySort_shared.length){
-						throw new RuntimeException("Assertion error");
+					if (k >= oneC){
+						break mutloop;
 					}
 					j = inplacePrioritySort_shared[k].a;
 				} else {

@@ -9,7 +9,7 @@ package DnaDesign;
  */
 public interface DDSeqDesigner<T extends DesignerOptions> {
 	public interface SeqDesignerOption{
-		public String getDescription();
+		public java.lang.String getDescription();
 		public interface Boolean extends SeqDesignerOption {
 			public boolean getState();
 			public boolean getDefaultState();
@@ -25,6 +25,11 @@ public interface DDSeqDesigner<T extends DesignerOptions> {
 			public int getState();
 			public int getDefaultState();
 			public void setState(int newVal);
+		}
+		public interface Str extends SeqDesignerOption{
+			public java.lang.String getState();
+			public java.lang.String getDefaultState();
+			public void setState(java.lang.String newVal);
 		}
 	}
 	/**
