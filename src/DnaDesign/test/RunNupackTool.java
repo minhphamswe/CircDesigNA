@@ -54,7 +54,7 @@ public class RunNupackTool {
 		System.err.println(">"+string);
 
 		final Process p = Runtime.getRuntime().exec(string,env,nupackDir);
-		if(true){
+		if(false){
 			new Thread(){
 				public void run(){
 					InputStream is = new BufferedInputStream(p.getInputStream());
