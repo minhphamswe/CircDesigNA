@@ -436,6 +436,16 @@ public class DomainDesignerImpl extends DomainDesigner{
 			}
 		}
 		
+		for(int i = 0; i < hybridScorings.size(); i++){
+			MFEHybridScore target = hybridScorings.get(i);
+			for(int j = i+1; j < hybridScorings.size(); j++){
+				MFEHybridScore match = hybridScorings.get(j);
+				if (match.ds[0].isSubsequenceOf(target.ds[0]) && match.ds[1].isSubsequenceOf(target.ds[1])){
+					hybridScorings.remove(j--);
+				}
+			}
+		}
+		
 		allScores.addAll(hybridScorings);
 		
 		for(HairpinClosingTarget hairpin : hairpinClosings){
