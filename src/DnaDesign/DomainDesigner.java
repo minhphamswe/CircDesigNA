@@ -373,11 +373,15 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	public abstract static class ScorePenalty {
 		public static final double MAX_SCORE = 1e18;
 		public double old_score, cur_score;
+		//This is only true if we have evaluated this penalty, but not committed or reverted it yet.
+		//Set by the USER of this class.
+		public boolean in_intermediate_state;
 		public DesignIntermediateScore dis;
 		public DesignIntermediateReporter dir;
 		public ScorePenalty(DesignIntermediateReporter dir){
 			old_score = cur_score = MAX_SCORE; //A suitably large number
 			this.dir = dir;
+			in_intermediate_state = false;
 		}
 		public double getScore(int[][] domain, int[][] domain_markings){
 			evalScore(domain, domain_markings);
@@ -386,9 +390,11 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		}
 		public void revert(){
 			cur_score = old_score;
+			in_intermediate_state = false;
 		}
 		public void dedicate(){
 			old_score = cur_score;
+			in_intermediate_state = false;
 		}
 		public final double check(double possScore){
 			return Math.min(possScore,MAX_SCORE);
@@ -760,22 +766,22 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 						mutator.mutateToOther(domain,mut_domain,j-(j%3));
 					}
 					if (Std.monomer.noFlags(domain[mut_domain][j])==0){
-						/*
-						for(int i : domain[mut_domain]){
-							if (Std.monomer.noFlags(i)==0){
-								System.err.print("?");
-							} else {
-								System.err.print(Std.monomer.displayBase(i));
-							}
-						}
-						System.err.println();
-						*/
 						//Mutation failed to replace a 0. rules must have been too strict; try again from the start.
 						continue initialLoop;
 					}
 				}
 			}
 			if (!mutator.isValid(domain,mut_domain)){
+				
+				for(int i : domain[mut_domain]){
+					if (Std.monomer.noFlags(i)==0){
+						System.err.print("?");
+					} else {
+						System.err.print(Std.monomer.displayBase(i));
+					}
+				}
+				System.err.println();
+				
 				continue initialLoop;
 			}
 			break;
@@ -822,7 +828,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	 * @param mutators 
 	 * @param max_mutations 
 	 */
-	public boolean mutateUntilValid(int mut_domain, int[][] domain,
+	public int mutateUntilValid(int mut_domain, int[][] domain,
 			int[][] domain_markings, DesignerCode mutator, int min_mutations, int max_mutations) {
 		int len = domain[mut_domain].length;
 
@@ -865,11 +871,12 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			num_mut = int_urn(min_mutations,num_mut);
 		} else {
 			//Was not able to mutate.
-			return false;
+			return 0;
 		}
 		
 		//System.out.println(num_mut+" "+min_mutations);
 
+		int successful = 0;
 		//int timesInLoop = 0;
 		mutloop: for (int k = 0; k < num_mut; k++) {
 			// Attempt a mutation
@@ -903,6 +910,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					num_mut++;
 					continue;
 				}
+				successful ++;
 			} else { //Codon table: 3 mutation points = 1 amino swap.
 				//Round to codon
 				j -= j%3;
@@ -916,10 +924,11 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				
 				//+3.
 				k+=2;
+				successful += 3;
 			}      
 			
 		}
-		return true;
+		return successful;
 	}
 
 	private void printDebugPenalties(){

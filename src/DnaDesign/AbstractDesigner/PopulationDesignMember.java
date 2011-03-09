@@ -5,9 +5,12 @@ package DnaDesign.AbstractDesigner;
  */
 public abstract class PopulationDesignMember<T extends PopulationDesignMember> implements Comparable<T> {
 	//Population design members are sorted by number in the population.
-	protected int myID = 0;
+	private int myID = 0;
 	public final int compareTo(T o) {
 		return myID - o.myID;
+	}
+	public int getID(){
+		return myID;
 	}
 	public T designerCopyConstructor(int myID){
 		T toRet = designerCopyConstructor();

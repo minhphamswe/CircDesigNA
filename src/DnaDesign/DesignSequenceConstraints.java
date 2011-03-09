@@ -2,6 +2,14 @@ package DnaDesign;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+
+import org.apache.commons.math.optimization.GoalType;
+import org.apache.commons.math.optimization.RealPointValuePair;
+import org.apache.commons.math.optimization.linear.LinearConstraint;
+import org.apache.commons.math.optimization.linear.LinearObjectiveFunction;
+import org.apache.commons.math.optimization.linear.Relationship;
+import org.apache.commons.math.optimization.linear.SimplexSolver;
 
 import DnaDesign.AbstractPolymer.MonomerDefinition;
 import DnaDesign.Config.CircDesigNAConfig;
@@ -46,6 +54,7 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 	}
 	private ArrayList<Constraint> maxConstituents;
 	private ArrayList<Constraint> minConstituents;
+	private double[] simplexSolution;
 	//-1 means no lower bound
 	public DesignSequenceConstraints(CircDesigNAConfig system){
 		super(system);
@@ -81,7 +90,53 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 		made.constraintValue = maxVal;
 		boolean removed = toSet.remove(made);
 		toSet.add(made);
+		
+		//Check consistency:
+		solveSimplex();
+		
 		return removed;
+	}
+	private void solveSimplex(){
+		//Closest-To-Origin objective
+		double[] ones = new double[Std.monomer.getNumMonomers()];
+		for(int i = 0; i < ones.length; i++){
+			ones[i] = 1;
+		}
+		LinearObjectiveFunction f = new LinearObjectiveFunction(ones, 0);
+		
+		List<LinearConstraint> constraints = new ArrayList();
+		for(Constraint d : maxConstituents){
+			if (d.constraintValue==-1){
+				continue;
+			}
+			double[] ei = new double[Std.monomer.getNumMonomers()];
+			for(int i = 0; i < ei.length; i++){
+				if (d.regulates[i]){
+					ei[i] = 1;
+				}
+			}
+			constraints.add(new LinearConstraint(ei, Relationship.LEQ, d.constraintValue));
+		}
+		for(Constraint d : minConstituents){
+			if (d.constraintValue==-1){
+				continue;
+			}
+			double[] ei = new double[Std.monomer.getNumMonomers()];
+			for(int i = 0; i < ei.length; i++){
+				if (d.regulates[i]){
+					ei[i] = 1;
+				}
+			}
+			constraints.add(new LinearConstraint(ei, Relationship.GEQ, d.constraintValue));
+		}
+		try {
+			RealPointValuePair optimize = new SimplexSolver().optimize(f, constraints, GoalType.MINIMIZE, true);
+			simplexSolution = optimize.getPoint();
+			//System.out.println(Arrays.toString(simplexSolution));
+		} catch (Throwable e) {
+			throw new RuntimeException("Constraints are too strict: "+e.getMessage());
+		}
+		
 	}
 	/**
 	 * Not multithreaded.
@@ -214,6 +269,7 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 				return false;
 			}
 			while(true){
+				//State machine tick.
 				if (i_inBaseOrders+1>=Std.monomer.getMonomers().length){
 					break;
 				}
@@ -308,31 +364,43 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 			i_inBaseOrders = -1;
 			isDirectMutation = true;
 			b_inBaseOrders = -1;
-			//Invalidates base counts
-			isUnderQuotaInBase = checkUnderQuota(j);
-			
 			//Get base counts.
 			getBaseCounts(mut_new,j);
+			
+			//This call provides the ability to move "into" valid sequence space from outside.
+			//If isUnderQuotaInBase is equal to "UnderQuotaButImpossibleToChange", then
+			//this mutation must fail, because none of the bases which are under quota can be applied
+			//here.
+			//Otherwise, if isUnderQuota is positive, then set this mutation to be base isUnderQuota.
+			//The target point is calculated by evaluating the simplex solution of the system of linear equations.
+			//It may not be attainable, because the base-specific sequence constraints may further restrict
+			//the solution space.
+			isUnderQuotaInBase = checkUnderQuota(j);
 		}
 
 		private int checkUnderQuota(int j) {
+			int[] underQuota = new int[Std.monomer.getNumMonomers()];
+			int underQuota_Used = 0;
 			boolean hadUnderValid = false;
-			//Is mut_new[j] underquota?
-			if (getBaseCounts(mut_new)){
-				if (isUnderValidMin(Std.monomer.noFlags(mut_new[j])) && !isOverValidMax(Std.monomer.noFlags(mut_new[j]))){
-					return UnderQuotaButImpossibleToChange;
-				}
-				for(int test_base : Std.monomer.getMonomers()){
-					if (Std.monomer.noFlags(mut_new[j])==test_base){
-						continue; //These don't count.
-					}
-					if (isUnderValidMin(test_base) && !isOverValidMax(test_base)){
-						hadUnderValid = true;
-						if (isAllowableBaseforFlags(mut_new[j],test_base)){
-							return test_base;
+			for(int test_base : Std.monomer.getMonomers()){
+				if (isUnderValidMin(test_base) && !isOverValidMax(test_base)){
+					//Ok, we MUST add more of this kind of base, to make our quota.
+					hadUnderValid = true;
+					if (isAllowableBaseforFlags(mut_new[j],test_base)){
+						//The following inequality returns false only if there are multiple
+						//ways to make a quota (say, a G+C limit). It chooses the base which
+						//is still under the simple solution, which is a valid tradeoff.
+						//Leaving out this additional check leads to the possibility of us putting
+						//too many of a single base in a multiple-base quota, and then not having
+						//any way of fixing thir problem. It's similar to resource allocation.
+						if (getBaseCounts_shared[test_base] < simplexSolution[test_base]){
+							underQuota[underQuota_Used++] = test_base;	
 						}
 					}
 				}
+			}
+			if (underQuota_Used>0){
+				return underQuota[(int) (Math.random()*underQuota_Used)]; 
 			}
 			return hadUnderValid?UnderQuotaButImpossibleToChange:UnderQuota_Not;
 		}

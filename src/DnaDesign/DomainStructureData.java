@@ -225,7 +225,10 @@ public class DomainStructureData extends CircDesigNASystemElement{
 		if (array.length%3!=0){
 			throw new RuntimeException("Each contraint has 3 parts: base, min, and max");
 		}
-		
+
+		{ //Set ceiling: all bases.
+			dsc.setMaxConstraint(domainLengths[i], Std.monomer.getMonomers());
+		}
 		for(int k = 0; k < array.length; k+=3){
 			ArrayList<Integer> bases = new ArrayList();
 			for(char q : array[k].toCharArray()){

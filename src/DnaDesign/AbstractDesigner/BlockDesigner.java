@@ -45,11 +45,11 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	 */
 	public void runBlockIteration(DomainDesigner runner, double endThreshold){
 		iterations++;
-		System.out.print("Iteration "+iterations);
+		System.out.print("Iteration "+iterations+" ");
 		
 		runBlockIteration_(runner,endThreshold);
 		
-		System.out.println(" Score "+SingleDesigner.getOverallScore(getBestPerformingChild()));
+		System.out.println("Score "+SingleDesigner.getOverallScore(getBestPerformingChild()));
 	}
 	/**
 	 * Overridden by design implementations.

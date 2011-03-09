@@ -5,6 +5,8 @@ import static DnaDesign.DomainSequence.DNAMARKER_DONTMUTATE;
 
 import java.util.Arrays;
 
+import processing.xml.StdXMLBuilder;
+
 import DnaDesign.DesignerCode;
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainStructureData;
@@ -85,6 +87,10 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 				backup.seedFromOther(q);
 			}
 			
+			//System.out.print("#ds="+num_domains_mut+" ");
+			
+			int total_mutated = 0;
+			
 			for(int i = 0; i < num_domains_mut; i++){
 				int min_mutations = 1;
 				int max_mutations = dd.MAX_MUTATIONS_LIMIT;
@@ -95,8 +101,15 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 					System.arraycopy(q.domain_markings[mut_domain],0,backup.domain_markings[mut_domain],0,q.domain[mut_domain].length);
 				}
 				//Mutate
-				dd.mutateUntilValid(mut_domain, q.domain, q.domain_markings, mutators[mut_domain], min_mutations, max_mutations);
+				int mutated = dd.mutateUntilValid(mut_domain, q.domain, q.domain_markings, mutators[mut_domain], min_mutations, max_mutations);
+				if (mutated==0){
+					//Do nothing.
+					System.err.println("WHOA~!");
+				}
+				total_mutated += mutated;
 			}
+			
+			//System.out.print("#ns="+total_mutated+" ");
 		}
 		
 		public void Evaluate(DomainDesignPMemberImpl q, boolean ShortcircuitOnRegression){
@@ -113,8 +126,12 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 					int mut_domain = mut_domains[k];
 					for(int sd : q.scoredElements[mut_domain]){
 						ScorePenalty s = q.penalties.get(sd);
+						if (s.in_intermediate_state){
+							continue; //Already scored this penalty (perhaps it uses more than one domain)
+						}
 						if (s.getPriority()==priority){
 							s.evalScore(q.domain,q.domain_markings); //STATE CHANGE
+							s.in_intermediate_state = true; //Set scored flag.
 						}
 					}
 				}
@@ -185,21 +202,23 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 				//Have to go back to old sequences..
 				System.arraycopy(defaultBackupCache.domain[mut_domain],0,q.domain[mut_domain],0,q.domain[mut_domain].length);
 				System.arraycopy(defaultBackupCache.domain_markings[mut_domain],0,q.domain_markings[mut_domain],0,q.domain[mut_domain].length);
-			}	
+			}
 		}
 	}
 	
 	public boolean mutateAndTestAndBackup(DomainDesignPMemberImpl q) {
 		//num_domains_mut = int_urn(1,Math.min(Math.min(worstPenalty==null?1:worstPenalty.getNumDomainsInvolved()-1,MAX_MUTATION_DOMAINS),mutableDomains.length-1));
+		//System.out.print("M ");
 		mutation_shared.Mutate(q, defaultBackupCache, false);
-		mutation_shared.Evaluate(q, true);
-
+		//System.out.print("E ");
 		//Short circuiting constraint evaluation: If score was improved, keep, otherwise, break.
 		//Penalties with higher priority are presumably harder to compute, thus the shortcircuiting advantage
+		mutation_shared.Evaluate(q, true);
+		//System.out.print("D ");
+
 
 		//Having run some or all of the affected penalty calculations,
 		//Revert the states or Dedicate them as need be here.
-
 		if (mutation_shared.revert_mutation){
 			//Revert
 			/*
