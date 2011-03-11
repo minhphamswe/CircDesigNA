@@ -4,6 +4,7 @@ import java.util.ArrayList;
 
 public abstract class ParetoSort <T extends PopulationDesignMember<T>>{
 	private boolean[][] dominatedMat;
+	private ArrayList<Integer> front = new ArrayList();
 	
 	/**
 	 * Forms at most fnum pareto fronts. Adds penalty * (fi-1) to each item, where fi is its pareto ranking, fi <= fnum.
@@ -22,7 +23,6 @@ public abstract class ParetoSort <T extends PopulationDesignMember<T>>{
 				dominatedMat[y][x] = isDominated;
 			}
 		}
-		ArrayList<Integer> front = new ArrayList();
 		for(int fi = 0; fi < fnum; fi++){
 			front.clear();
 			for(int y = 0; y < dominatedMat.length; y++){

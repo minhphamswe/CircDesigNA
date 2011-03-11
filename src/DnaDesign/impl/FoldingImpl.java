@@ -196,8 +196,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 
 	public double mfeHybridDeltaG(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] problemAreas) {
 		if (mfeMODE==UNAFOLD){
-			//0 is the target (so shift the score to make it 0) for unafold delta G output 
-			return Math.max(mfeHybridDeltaG_viaUnafold(seq1, seq2, domain, problemAreas) - (0), -1);
+			return Math.min(mfeHybridDeltaG_viaUnafold(seq1, seq2, domain, problemAreas) - (0), 0);
 		} else {
 			return Math.min(mfeHybridDeltaG_viaMatrix(seq1,seq2,domain,problemAreas) - (0), 0) ;
 		}
@@ -206,8 +205,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 	
 	public double mfeSSDeltaG(DomainSequence seq, int[][] domain, int[][] domain_markings){
 		if (mfeMODE==UNAFOLD){
-			//0 is the target (so shift the score to make it 0) for unafold delta G output 
-			return Math.max(foldSingleStranded_viaUnafold(seq, domain, domain_markings) - (0),-1);
+			return Math.max(foldSingleStranded_viaUnafold(seq, domain, domain_markings) - (0), 0);
 		} else {
 			return Math.min(foldSingleStranded_viaMatrix(seq, domain, domain_markings) - (0), 0);
 		}
@@ -248,12 +246,12 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 			Process p = Runtime.getRuntime().exec(absPathToHybridMinMod+str);
 			Scanner in = new Scanner(p.getInputStream());
 			double val = 0;
-			double PERFECTscore = -20;
+			double PERFECTscore = 0;
 			try {
 				while(in.hasNextLine()){
 					String line = in.nextLine();
 					val = new Double(line.split("\\s+")[0]);
-					val = Math.max(-val,PERFECTscore);
+					val = Math.min(val,PERFECTscore);
 					return val;
 				}
 		 	} finally {
@@ -307,11 +305,11 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 			Process p = Runtime.getRuntime().exec(absPathToHybridSSMinMod+str);
 			Scanner in = new Scanner(p.getInputStream());
 			double val = 0;
-			double PERFECTscore = -20;
+			double PERFECTscore = 0;
 			try {
 				while(in.hasNextLine()){
 					val = new Double(in.nextLine());
-					val = Math.max(-val,PERFECTscore);
+					val = Math.min(val,PERFECTscore);
 					return val;
 				}
 			} finally {

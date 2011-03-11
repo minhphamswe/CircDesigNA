@@ -188,20 +188,26 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 	
 
 	private boolean isOverValidMax(int base){
-		return checkInvalidating(maxConstituents,base,true);
+		return isOverValidMax(base, 0);
+	}
+	private boolean isOverValidMax(int base, int addToComp){
+		return checkInvalidating(maxConstituents,base,true,addToComp);
 	}
 	private boolean isUnderValidMin(int base){
-		return checkInvalidating(minConstituents,base,false);
+		return isUnderValidMin(base, 0);
+	}
+	private boolean isUnderValidMin(int base, int addToComp){
+		return checkInvalidating(minConstituents,base,false,addToComp);
 	}
 	/**
 	 * Assumes isValid_shared is filled with the base counts.
 	 */
-	private boolean checkInvalidating(ArrayList<Constraint> constraints, int base, boolean isMaxConstraint) {
+	private boolean checkInvalidating(ArrayList<Constraint> constraints, int base, boolean isMaxConstraint, int addToComp) {
 		base = Std.monomer.noFlags(base);
 		for(Constraint q : constraints){
 			if (q.constraintValue!=-1){
 				if (q.regulates[base]){
-					int sum = 0;
+					int sum = addToComp;
 					for(int k = 0; k < Std.monomer.getNumMonomers(); k++){
 						if (q.regulates[k]){
 							sum += getBaseCounts_shared[k];
@@ -383,10 +389,10 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 			int underQuota_Used = 0;
 			boolean hadUnderValid = false;
 			for(int test_base : Std.monomer.getMonomers()){
-				if (isUnderValidMin(test_base) && !isOverValidMax(test_base)){
-					//Ok, we MUST add more of this kind of base, to make our quota.
-					hadUnderValid = true;
+				if (isUnderValidMin(test_base) && !isOverValidMax(test_base,1)){
 					if (isAllowableBaseforFlags(mut_new[j],test_base)){
+						//Ok, we MUST add more of this kind of base, to make our quota.
+						hadUnderValid = true;
 						//The following inequality returns false only if there are multiple
 						//ways to make a quota (say, a G+C limit). It chooses the base which
 						//is still under the simple solution, which is a valid tradeoff.

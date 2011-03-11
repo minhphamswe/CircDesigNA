@@ -22,7 +22,7 @@ public class StandardTournament <T extends PopulationDesignMember<T>>  extends T
 			long now = System.nanoTime();
 			while(true){
 				boolean mutationSuccessful = SingleDesigner.mutateAndTestAndBackup(population_mutable[i]);
-				if(runner.abort){
+				if(runner!=null && runner.abort){
 					return; //OUT OUT OUT
 				}	
 				if (System.nanoTime()-now > designTime){

@@ -352,10 +352,11 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	 * and mutate them. Recommended, otherwise you're merely randomly mutating.
 	 */
 	private boolean ENABLE_MARKINGS = true;
+	
 	/**
 	 * Use to add probability of mutation to bases involved in many penalties. 
 	 */
-	private boolean SORT_MARKINGS = true;
+	private boolean SORT_MARKINGS = false;
 	
 	/**
 	 * Take the evaluators word as absolute, and never mutate bases that
@@ -766,13 +767,22 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 						mutator.mutateToOther(domain,mut_domain,j-(j%3));
 					}
 					if (Std.monomer.noFlags(domain[mut_domain][j])==0){
+
+						for(int i : domain[mut_domain]){
+							if (Std.monomer.noFlags(i)==0){
+								System.err.print("?");
+							} else {
+								System.err.print(Std.monomer.displayBase(i));
+							}
+						}
+						System.err.println();
+						
 						//Mutation failed to replace a 0. rules must have been too strict; try again from the start.
 						continue initialLoop;
 					}
 				}
 			}
 			if (!mutator.isValid(domain,mut_domain)){
-				
 				for(int i : domain[mut_domain]){
 					if (Std.monomer.noFlags(i)==0){
 						System.err.print("?");
@@ -896,7 +906,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					*/
 				}
 			} else {
-				j = int_urn(0, oneC-1);
+				j = int_urn(0, len-1);
 			}
 			/*
 			timesInLoop++;

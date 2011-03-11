@@ -52,6 +52,9 @@ public class GADesigner <T extends PopulationDesignMember<T>>  extends BlockDesi
 			redist[i*2].myScore=SingleDesigner.getOverallScore(toMutate);
 			redist[i*2+1].myKey=backup;
 			redist[i*2+1].myScore=SingleDesigner.getOverallScore(backup);
+			if (runner!=null && runner.abort){
+				return;
+			}
 		}
 		for(int i = 0; i < redist.length; i++){
 			maxFitness = Math.max(maxFitness,redist[i].myScore);

@@ -63,5 +63,4 @@ public class InfiniteResourceTournament <T extends PopulationDesignMember<T>>  e
 		
 		tournamentSelect(numElites);
 	}
-	
 }

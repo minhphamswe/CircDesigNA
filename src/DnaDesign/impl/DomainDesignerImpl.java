@@ -29,6 +29,12 @@ public class DomainDesignerImpl extends DomainDesigner{
 			for(int i = 0; i < t.penalties.size(); i++){
 				int index = 0;
 				ScorePenalty sp = t.penalties.get(i);
+				if (sp instanceof MFEHybridScore || sp instanceof SelfFold){
+					index = 0;
+				} else {
+					index = 1;
+				}
+				/*
 				if (sp instanceof SelfSimilarityScore){
 					index = 0;
 				} else if (sp instanceof MFEHybridScore || sp instanceof SelfFold){
@@ -36,6 +42,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 				} else {
 					index = 2;
 				}
+				*/
 				scores[index] += t.penalties.get(i).cur_score - t2.penalties.get(i).cur_score;
 			}
 			for(int i = 0; i < scores.length; i++){
@@ -186,7 +193,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double deltaG = flI.mfeNoDiagonalPairing(ds[0], ds[1], domain, null);
+			double deltaG = flI.mfeNoDiagonalPairing(ds[0], ds[1], domain, domain_markings);
 			deltaG -= Math.min(0,-.569*ds[0].length(domain) + 5.4055); //DNA parameters
 			return Math.max(0,-deltaG);
 		}

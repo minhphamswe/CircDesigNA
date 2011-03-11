@@ -18,7 +18,8 @@ public class FoldingImplTest4 {
 		System.out.println(outFile.getAbsolutePath());
 		System.setOut(new PrintStream(new FileOutputStream(outFile)));
 		//Error in this file. third column represents pairing of seq1 with seq1! Embarrasing.
-		Scanner in = new Scanner(new File("C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\Circ_DesigNAPaper\\AssemblaRepo\\circdesignapaper_w_figures\\scoresComparison_SS.txt"));
+		//Scanner in = new Scanner(new File("C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\Circ_DesigNAPaper\\AssemblaRepo\\circdesignapaper_w_figures\\scoresComparison_SS.txt"));
+		Scanner in = new Scanner(new File(System.getProperty("inFile")));
 		in.nextLine();
 		FoldingImpl fl = new FoldingImpl(config);
 		DomainStructureData dsd = new DomainStructureData(config);
@@ -41,8 +42,11 @@ public class FoldingImplTest4 {
 				}
 			}
 			//double result = fl.mfeHybridDeltaG_viaUnafold(ds1, ds2, domain, domain_markings);
-			double result = fl.foldSingleStranded_viaUnafold(ds1, domain, domain_markings);
-			System.out.println(line2+" "+(-result));
+			double result = -fl.foldSingleStranded_viaUnafold(ds1, domain, domain_markings);
+			if (result > 0){
+				result = 0;
+			}
+			System.out.println(line2+" "+(result));
 		}
 		System.out.flush();
 	}

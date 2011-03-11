@@ -17,7 +17,7 @@ public class DesignerOptions {
 
 	public SeqDesignerOption.Boolean rule_ccend_option = new SeqDesignerOption.Boolean(){
 		public String getDescription() {
-			return "Force domains to begin / end with G or C, where not specified";
+			return "Force domains to begin and end with either G or C. Other sequence constraints take priority.";
 		}
 		private boolean rule_ccend = getDefaultState();
 		public boolean getState() {
@@ -36,7 +36,7 @@ public class DesignerOptions {
 	
 	public SeqDesignerOption.Double end_score_threshold = new SeqDesignerOption.Double(){
 		public String getDescription() {
-			return "When a solution with a score less than this value is found, design will stop.";
+			return "Stop design when a design candidate with a score less than this value is found.";
 		}
 		public double getDefaultState(){
 			return 0;
@@ -52,7 +52,7 @@ public class DesignerOptions {
 	
 	public SeqDesignerOption.Boolean standardUseGA = new SeqDesignerOption.Boolean(){
 		public String getDescription() {
-			return "Allow regressive mutations (More standard genetic algorithm, doubles memory usage)";
+			return "Allow regressive mutations (more standard genetic algorithm, doubles memory usage)";
 		}
 		private boolean sort_markings = getDefaultState();
 		public boolean getState() {
@@ -71,7 +71,7 @@ public class DesignerOptions {
 	
 	public SeqDesignerOption.Double resourcePerMember = new SeqDesignerOption.Double(){
 		public String getDescription() {
-			return "Amount of computer time (in seconds) to apply random-walk optimizaiton on each member each iteration (in-progress mutations are allowed to complete). Negative toggles Infinite Resource Tournament";
+			return "Time to spend in local search loop on each population member before reporting the best candidate or reproducing the fittest member. Defines an \"iteration.\" When time limit is exceeded, any running score evaluations are allowed to finish.";
 		}
 		public double getDefaultState(){
 			return .1;
@@ -81,6 +81,9 @@ public class DesignerOptions {
 			return time;
 		}
 		public synchronized void setState(double newVal) {
+			if (newVal < 0){
+				throw new RuntimeException("Error: time < 0");
+			}
 			time = newVal;
 		}
 	};
@@ -104,7 +107,7 @@ public class DesignerOptions {
 	
 	public SeqDesignerOption.Integer population_size = new SeqDesignerOption.Integer(){
 		public String getDescription() {
-			return "Population size for \"Block Designer.\"";
+			return "Population size";
 		}
 		public int getDefaultState(){
 			return 30;
@@ -123,7 +126,7 @@ public class DesignerOptions {
 	
 	public SeqDesignerOption.Integer selfSimilarityPenalty = new SeqDesignerOption.Integer(){
 		public String getDescription() {
-			return "Minimum length of domain to apply \"Self Similarity\" penalty to. Negative input disables.";
+			return "Apply the \"Self Similarity\" penalty only to domains of length greater than or equal to this value. Negative input disables the penalty for all domains.";
 		}
 		public int getDefaultState(){
 			return 20;
