@@ -6,14 +6,19 @@ import static DnaDesign.AbstractPolymer.DnaDefinition.G;
 import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 import static DnaDesign.AbstractPolymer.RnaDefinition.U;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Scanner;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import DnaDesign.ExperimentDatabase;
-import DnaDesign.AbstractPolymer.DnaDefinition;
-import DnaDesign.AbstractPolymer.MonomerDefinition;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.Config.CircDesigNASystemElement;
 
@@ -23,7 +28,39 @@ import DnaDesign.Config.CircDesigNASystemElement;
 public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement implements ExperimentDatabase{
 	public ExperimentalDuplexParamsImpl(CircDesigNAConfig config){
 		super(config);
-		makeTable();
+		
+		ZipInputStream paramZip = new ZipInputStream(ExperimentalDuplexParamsImpl.class.getResourceAsStream("/parameters.zip")); 
+		ZipEntry nextEntry;
+		String dG = null, dH = null;
+		try {
+			while((nextEntry= paramZip.getNextEntry())!=null){
+				if (nextEntry.getName().startsWith(config.getParameterName())){
+					ByteArrayOutputStream baos = new ByteArrayOutputStream();
+					byte[] buf = new byte[1024];
+					int read = -1;
+					while((read=paramZip.read(buf))>0){
+						baos.write(buf, 0, read);
+					}
+					if (nextEntry.getName().endsWith(".dG")){
+						dG = baos.toString();	
+					}
+					if (nextEntry.getName().endsWith(".dH")){
+						dH = baos.toString();
+					}
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		if (true){
+			StandardizedThermoFileLoader.makeTable(this,dG,dH);
+		} else {
+			if (Std.isDNAMode()){
+				makeTable_DNA();
+			} else {
+				makeTable_RNA();
+			}
+		}
 	}
 	private int getNormalBase(int nonnormalBase){
 		return Std.monomer.getNormalBaseFromZero(nonnormalBase);
@@ -66,8 +103,10 @@ public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement imple
 		//x.parseMFoldParamsFile("nns.add(new NearestNeighborScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\stack.dg",false,"));");
 		//x.parseMFoldParamsFile("tns.add(new TerminalMismatchPairScore(","C:\\Users\\Benjamin\\PROGRAMMING\\Libraries\\Compiled-Proprietary\\unafold\\unafold-3.8\\data\\rules\\tstackh.dg",false,"));");
 		
-		System.out.println(x.getDeltaGAssoc(2, 310.15));
+		//System.out.println(x.getDeltaGAssoc(2, 310.15));
 		System.out.println(x.getNNdeltaG(A,T,G,T));
+		System.out.println(x.getNNdeltaGterm(A,T,G,G));
+		
 		//OK!
 	}
 	private void parseMFoldParamsFile(String prefix, String file, boolean dangleMode, String postum) throws FileNotFoundException {
@@ -119,13 +158,6 @@ public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement imple
 					}
 				}
 			}
-		}
-	}
-	private void makeTable(){
-		if (Std.isDNAMode()){
-			makeTable_DNA();
-		} else {
-			makeTable_RNA();
 		}
 	}
 
@@ -534,7 +566,7 @@ public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement imple
 	/**
 	 * Called after makeTable*
 	 */
-	private void reformScoreLists(ArrayList<NearestNeighborScore> nns,
+	public void reformScoreLists(ArrayList<NearestNeighborScore> nns,
 			ArrayList<TerminalMismatchPairScore> tns,
 			ArrayList<DangleScore> dangles) {
 		//Ok! parse the arraylists to actual tables.
@@ -559,8 +591,13 @@ public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement imple
 			           [dang.Z]
 			            [dang.is3PrimeEnd?1:0] = dang.score;
 		}
+		
+		//Print them out:
+		//System.out.println("NNDelta: "+Arrays.deepToString(getNNdeltaG));
+		//System.out.println("Terminating: "+Arrays.deepToString(getNNdeltaGterm));
+		//System.out.println("Dangles: "+Arrays.deepToString(getDangle));
 	}
-	private class DangleScore extends NearestNeighborScore{
+	public class DangleScore extends NearestNeighborScore{
 		private boolean is3PrimeEnd;
 		public DangleScore(int W, int X, String prEnd, int Z, double score) {
 			super(W, X, A, Z, score);
@@ -568,13 +605,13 @@ public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement imple
 		}
 		
 	}
-	private class TerminalMismatchPairScore extends NearestNeighborScore{
+	public class TerminalMismatchPairScore extends NearestNeighborScore{
 		public TerminalMismatchPairScore(int W, int X, int Y, int Z,
 				double score) {
 			super(W, X, Y, Z, score);
 		}
 	}
-	private class NearestNeighborScore{
+	public class NearestNeighborScore{
 		public NearestNeighborScore(int W, int X, int Y, int Z, double score){
 			this.W = getNormalBase(W);
 			this.X = getNormalBase(X);

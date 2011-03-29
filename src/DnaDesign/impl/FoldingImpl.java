@@ -13,15 +13,17 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
 import DnaDesign.DomainSequence;
 import DnaDesign.ExperimentDatabase;
 import DnaDesign.NAFolding;
-import DnaDesign.AbstractPolymer.DnaDefinition;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.Config.CircDesigNASystemElement;
+import DnaDesign.impl.FoldingImpl_UnafoldExt.UnafoldFoldEntry;
+import DnaDesign.impl.FoldingImpl_UnafoldExt.UnafoldRunner;
 
 /**
  * Implements MFE prediction and folding score functions
@@ -45,12 +47,12 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 	/**
 	 * Use Unafold to evaluate selffolding score?
 	 */
-	private int mfeMODE = SELF;
+	private int mfeMODE = UNAFOLD;//SELF;
 	private int pairPrMODE = NUPACK;
 	private static final int NUPACK = 0, VIENNARNA=1, UNAFOLD=2, SELF=3;
 
-	private static final String absPathToHybridSSMinMod =  "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-ss-min.exe\" --NA=DNA -q ";
-	private static final String absPathToHybridMinMod = "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-min.exe\" --NA=DNA -q ";
+	//private static final String absPathToHybridSSMinMod =  "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-ss-min.exe\" --NA=DNA ";
+	//private static final String absPathToHybridMinMod = "\"C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\AutoAmplifierDesign\\unafold\\hybrid-min.exe\" --NA=DNA ";
 	
 	int rule_4g, rule_6at;
 	{
@@ -230,71 +232,96 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 		}
 	}
 	public double mfeHybridDeltaG_viaUnafold(DomainSequence ds, DomainSequence ds2, int[][] domain, int[][] domain_markings) {
-		StringBuffer create = new StringBuffer();
+		UnafoldRunner ufr = new UnafoldRunner();
+
 		int len = ds.length(domain);
-		for(int k = 0; k < len; k++){
-			create.append(Std.monomer.displayBase(base(ds, k, domain)));
-		}
-		create.append(" ");
 		int len2 = ds2.length(domain);
-		for(int k = 0; k < len2; k++){
-			create.append(Std.monomer.displayBase(base(ds2, k, domain)));
-		}
-		
-		String str = create.toString();
-		try {
-			Process p = Runtime.getRuntime().exec(absPathToHybridMinMod+str);
-			Scanner in = new Scanner(p.getInputStream());
-			double val = 0;
-			double PERFECTscore = 0;
-			try {
-				while(in.hasNextLine()){
-					String line = in.nextLine();
-					val = new Double(line.split("\\s+")[0]);
-					val = Math.min(val,PERFECTscore);
-					return val;
-				}
-		 	} finally {
-				if (val == PERFECTscore){ //"Infinite" Free Energy (?)
-					return val;
-				}
-				for(int k = 0; k < len+len2; k++){
-					char[] arr = in.nextLine().toCharArray();
-					int regions = 0;
-					int z, end;
-					for(z = 0; z < arr.length && regions < 4; z++){
-						if (arr[z]=='\t'){
-							regions++;
-						}
-					}
-					for(end = z+1; end < arr.length; end++){
-						if (arr[end]=='\t'){
-							break;
-						}
-					}
-					//System.out.println(new String(arr));
-					int num = new Integer(new String(arr,z,end-z));
-					//System.out.println(num);
-					if (num > 0){
-						if (k < len){
-							//Continuous numbering, for some reason, in hybrid.exe
-							ds2.mark(num-1-len, domain, domain_markings);
-						} else {
-							ds.mark(num-1, domain, domain_markings);
-						}
-					}
-					//Thread.sleep(100);
-				}
-				in.close();
-				p.waitFor();
+		PrintWriter out = new PrintWriter(ufr.getArgsFile(0));
+		{
+			StringBuffer create = new StringBuffer();
+			for(int k = 0; k < len; k++){
+				create.append(Std.monomer.displayBase(base(ds, k, domain)));
 			}
-		} catch (Throwable e) {
-			// TODO Auto-generated catch block
+			out.println(">A");
+			out.println(create.toString());
+		}
+		out.close();
+
+		out = new PrintWriter(ufr.getArgsFile(1));
+		{
+			StringBuffer create = new StringBuffer();
+			for(int k = 0; k < len2; k++){
+				create.append(Std.monomer.displayBase(base(ds2, k, domain)));
+			}
+			out.println(">B");
+			out.println(create.toString());
+		}
+		out.close();
+		
+		double val = 0;
+		double PERFECTscore = 0;
+		try {
+			ufr.runHybridizedJob();
+			final UnafoldFoldEntry next = ufr.getResults().iterator().next();
+			val = next.mfeDG;
+			val = Math.min(val,PERFECTscore);
+			if (val == PERFECTscore){ //Unafold does not give structures in this case.
+				return val;
+			}
+			//We have structure:
+			for(int k = 0; k < len; k++){
+				if (next.pairs[k]>0){
+					ds.mark(k, domain, domain_markings);
+				}
+			}
+			for(int k = 0; k < len2; k++){
+				if (next.pairs[k+len]>0){
+					ds2.mark(k, domain, domain_markings);
+				}
+			}
+			
+		} catch( Throwable e){
 			e.printStackTrace();
 		}
-		throw new RuntimeException();
+		return val;
 	}
 	public double foldSingleStranded_viaUnafold(DomainSequence seq, int[][] domain, int[][] domain_markings) {
+		UnafoldRunner ufr = new UnafoldRunner();
+
+		int len = seq.length(domain);
+		PrintWriter out = new PrintWriter(ufr.getArgsFile(0));
+		{
+			StringBuffer create = new StringBuffer();
+			for(int k = 0; k < len; k++){
+				create.append(Std.monomer.displayBase(base(seq, k, domain)));
+			}
+			out.println(">A");
+			out.println(create.toString());
+		}
+		out.close();
+		
+		double val = 0;
+		double PERFECTscore = 0;
+		try {
+			ufr.runSingleStrandedJob();
+			final UnafoldFoldEntry next = ufr.getResults().iterator().next();
+			val = next.mfeDG;
+			val = Math.min(val,PERFECTscore);
+			if (val == PERFECTscore){ //Unafold does not give structures in this case.
+				return val;
+			}
+			//We have structure:
+			for(int k = 0; k < len; k++){
+				if (next.pairs[k]>0){
+					seq.mark(k, domain, domain_markings);
+				}
+			}
+		} catch( Throwable e){
+			e.printStackTrace();
+		}
+		return val;
+		
+		/*
 		StringBuffer create = new StringBuffer();
 		int len = seq.length(domain);
 		for(int k = 0; k < len; k++){
@@ -348,6 +375,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 			e.printStackTrace();
 		}
 		throw new RuntimeException();
+		*/
 	}
 
 	/**
@@ -556,6 +584,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 		double overCount = 0;
 		
 		while(true){
+			//System.out.println(inHelix+" "+bestI+" "+bestJ+" "+Arrays.toString(domain_markings[0]));
 			//Break condition:
 			//System.out.println(bestI+" "+bestJ);
 			if (bestI>=len1 || bestJ < 0){
@@ -576,7 +605,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 					}
 				}
 			}
-			if (inHelix && (!isOnFringeOfMap || (MFE_longestHelixLength > 1))){ 
+			if (inHelix && isOnFringeOfMap){ 
 				if (Std.monomer.bindScore(base(seq,bestI,domain), base(seq2,bestJ,domain)) < 0){
 					seq.mark(bestI, domain, domain_markings);
 					seq2.mark(bestJ, domain, domain_markings);
@@ -601,11 +630,9 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 				inHelix = false;
 				bestJ--;
 			} else if (gamma3 == best){
-				if (!inHelix){ //Positive edge: entering a helix
-					if (Std.monomer.bindScore(base(seq,bestI,domain), base(seq2,bestJ,domain)) < 0){
-						seq.mark(bestI, domain, domain_markings);
-						seq2.mark(bestJ, domain, domain_markings);
-					}
+				if (Std.monomer.bindScore(base(seq,bestI,domain), base(seq2,bestJ,domain)) < 0){
+					seq.mark(bestI, domain, domain_markings);
+					seq2.mark(bestJ, domain, domain_markings);
 				}
 				inHelix = true;
 			}

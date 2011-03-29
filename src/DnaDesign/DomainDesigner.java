@@ -356,7 +356,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	/**
 	 * Use to add probability of mutation to bases involved in many penalties. 
 	 */
-	private boolean SORT_MARKINGS = false;
+	private boolean SORT_MARKINGS = true;
 	
 	/**
 	 * Take the evaluators word as absolute, and never mutate bases that
@@ -783,6 +783,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				}
 			}
 			if (!mutator.isValid(domain,mut_domain)){
+				/*
 				for(int i : domain[mut_domain]){
 					if (Std.monomer.noFlags(i)==0){
 						System.err.print("?");
@@ -791,6 +792,8 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					}
 				}
 				System.err.println();
+				*/
+				System.err.println("Sequence constraints invalidated; Trying again: "+k);
 				
 				continue initialLoop;
 			}

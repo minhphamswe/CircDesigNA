@@ -40,6 +40,14 @@ public class CircDesigNAConfig {
 		current_mode = mode;
 	}
 
+	public String getParameterName() {
+		if (isDNAMode()){
+			return "DNA_mfold2.3";
+		} else {
+			return "RNA_mfold3.0";
+		}
+	}
+
 	public boolean isDNAMode() {
 		return current_mode==DNA_MODE;
 	}

@@ -102,7 +102,7 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 				}
 				//Mutate
 				int mutated = dd.mutateUntilValid(mut_domain, q.domain, q.domain_markings, mutators[mut_domain], min_mutations, max_mutations);
-				if (mutated==0){
+				if (mutated==0 && q.domain[mut_domain].length > 4){
 					//Do nothing.
 					System.err.println("WHOA~!");
 				}
