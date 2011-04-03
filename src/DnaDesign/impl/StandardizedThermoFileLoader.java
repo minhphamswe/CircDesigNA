@@ -5,6 +5,8 @@ import static DnaDesign.AbstractPolymer.DnaDefinition.C;
 import static DnaDesign.AbstractPolymer.DnaDefinition.G;
 import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Scanner;
 
@@ -35,7 +37,7 @@ public class StandardizedThermoFileLoader {
 		
 		Scanner in = new Scanner(dg);
 		
-		System.out.println(dg);
+		//System.out.println(dg);
 		
 		int[] bases = new int[]{A,C,G,T};
 		int[][] headers = new int[][]{{A,T},{C,G},{G,C},{T,A},{G,T},{T,G}};
@@ -43,7 +45,6 @@ public class StandardizedThermoFileLoader {
 		for(int k = 0; k < headers.length; k++){
 			String[] nextLine = spinToNextRealLine(in).trim().split("\\s+");
 			for(int u = 0; u < headers.length; u++){
-				
 				double dgv = convertFloat(nextLine[u]);
 				nns.add(ex.new NearestNeighborScore(headers[k][0], headers[k][1], headers[u][0], headers[u][1], dgv));
 			}
@@ -180,4 +181,5 @@ public class StandardizedThermoFileLoader {
 		}
 		return null;
 	}
+
 }

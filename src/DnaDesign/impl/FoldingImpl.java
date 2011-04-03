@@ -47,7 +47,7 @@ public class FoldingImpl extends CircDesigNASystemElement implements NAFolding{
 	/**
 	 * Use Unafold to evaluate selffolding score?
 	 */
-	private int mfeMODE = UNAFOLD;//SELF;
+	private int mfeMODE = SELF;//SELF;
 	private int pairPrMODE = NUPACK;
 	private static final int NUPACK = 0, VIENNARNA=1, UNAFOLD=2, SELF=3;
 

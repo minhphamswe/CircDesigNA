@@ -735,7 +735,12 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	 */
 	private void pickInitialSequence(int[][] domain, int mut_domain, DesignerCode mutator) {
 		boolean[] preserveInitial = new boolean[domain[mut_domain].length];
-		initialLoop: for(int k = 0; ; k++){
+		boolean allowModifyInitialSpecifiedSequence = false;
+		initialLoop: for(int k = 0; !abort; k++){
+			if (k > 10 && !allowModifyInitialSpecifiedSequence){ //10 times before allowing modifications to initial sequence.
+				System.err.println("Attempting to modify initial sequence to get inside constraints...");
+				allowModifyInitialSpecifiedSequence = true;
+			}
 			if ( k > 1000 ){
 				throw new RuntimeException("Initial constraints were too strict.");
 			}
@@ -752,7 +757,14 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 						if (flag==0){
 							//Ok, initial base specified. Leave it alone.
 							preserveInitial[j] = true;
-							continue;
+							if (!allowModifyInitialSpecifiedSequence){
+								continue;
+							}
+							//Ok, we're allowed to mutate. But still, don't completely get rid of the sequence...
+							if (Math.random()>4./Math.max(domain[mut_domain].length,10)){
+								continue; //Modify 10 bases at a time.
+							}
+							System.err.println("Allowing initial sequence override at position "+j+" in domain "+mut_domain);
 						}
 						//Otherwise, it's free to mutate.
 					}
