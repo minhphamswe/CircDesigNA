@@ -33,7 +33,7 @@ public abstract class MonomerDefinition {
 	}
 	
 	/**
-	 * From Nupack's package:
+	 * IUPAC's definitions:
 	 * 
 	 * Flag	Char	Allows
 	 * 0	N		A,C,G,U
@@ -72,9 +72,6 @@ public abstract class MonomerDefinition {
 		}
 	}
 	public int decodeConstraintChar(char charAt){
-		if (!Character.isLetter(charAt)){
-			return 0;
-		}
 		int flagMult = getNumMonomers();
 		int degenerate = -1;
 		switch(Character.toUpperCase(charAt)){
@@ -102,25 +99,23 @@ public abstract class MonomerDefinition {
 			degenerate = D*flagMult; break;
 		}
 		if (degenerate!=-1){
-			if (Character.isLowerCase(charAt)){
-				throw new RuntimeException("Cannot \"lock\" a base with degenerate "+Character.toUpperCase(charAt));
-			}
 			//Ok, initial degenerate. Not locked.
 			return degenerate;
 		}
-		//Ok, not degenerate. Locked or initial base?
+		//Locked flag.
 		int ret = decodeBaseChar(charAt);
-		if (Character.isLowerCase(charAt)){
-			ret += LOCK_FLAG();
-		};
+		ret += LOCK_FLAG();
 		return ret;
 	}
 	/**
 	 * Assumes both 
 	 */
-	public boolean allowBase(int oldBase_flag, int testBase) {
-		oldBase_flag /= getNumMonomers();
-		return flagsAllowsMap[oldBase_flag][getNormalBaseFromZero(testBase)]==1;
+	public boolean allowBase(int oldBase_wflag, int testBase) {
+		if (oldBase_wflag - noFlags(oldBase_wflag) == LOCK_FLAG()){
+			return noFlags(oldBase_wflag) == testBase;
+		}
+		oldBase_wflag /= getNumMonomers();
+		return flagsAllowsMap[oldBase_wflag][getNormalBaseFromZero(testBase)]==1;
 	}
 
 	public abstract int decodeBaseChar(char charAt);

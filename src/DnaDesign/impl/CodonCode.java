@@ -3,7 +3,6 @@ package DnaDesign.impl;
 import java.util.Scanner;
 
 import DnaDesign.DesignerCode;
-import DnaDesign.AbstractPolymer.DnaDefinition;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.Config.CircDesigNASystemElement;
 
@@ -343,4 +342,7 @@ public class CodonCode extends CircDesigNASystemElement implements DesignerCode{
 		writeCodon(212,'Y');
 		writeCodon(211,'Y');
 	}*/
+	public boolean mutateToOther(int[][] domain, int whichDomain, int i, int newbase) {
+		throw new RuntimeException("Do not use the crossover operator when doing protein design.");
+	}
 }

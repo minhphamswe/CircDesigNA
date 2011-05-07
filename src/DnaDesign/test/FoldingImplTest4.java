@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.Scanner;
 
 import DnaDesign.DomainSequence;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.FoldingImpl;
 
@@ -21,7 +21,7 @@ public class FoldingImplTest4 {
 		Scanner in = new Scanner(new File(System.getProperty("inFile")));
 		in.nextLine();
 		FoldingImpl fl = new FoldingImpl(config);
-		DomainStructureData dsd = new DomainStructureData(config);
+		DomainDefinitions dsd = new DomainDefinitions(config);
 		int[][] domain = new int[2][];
 		int[][] domain_markings = new int[2][];
 

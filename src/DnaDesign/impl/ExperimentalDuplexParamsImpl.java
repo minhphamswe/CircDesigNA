@@ -4,16 +4,13 @@ import static DnaDesign.AbstractPolymer.DnaDefinition.A;
 import static DnaDesign.AbstractPolymer.DnaDefinition.C;
 import static DnaDesign.AbstractPolymer.DnaDefinition.G;
 import static DnaDesign.AbstractPolymer.DnaDefinition.T;
-import static DnaDesign.AbstractPolymer.RnaDefinition.U;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Scanner;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -29,7 +26,21 @@ public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement imple
 	public ExperimentalDuplexParamsImpl(CircDesigNAConfig config){
 		super(config);
 		
-		ZipInputStream paramZip = new ZipInputStream(ExperimentalDuplexParamsImpl.class.getResourceAsStream("/parameters.zip")); 
+		ZipInputStream paramZip = null;
+		try {
+			System.out.print("Unpacking Thermo Parameters ... ");
+			paramZip = new ZipInputStream(ExperimentalDuplexParamsImpl.class.getResourceAsStream("/parameters.zip"));
+			System.out.println("Done (1)");
+		} catch (Throwable e){
+			//Try loading it as a file.
+			try {
+				paramZip = new ZipInputStream(new FileInputStream("parameters.zip"));
+				System.out.println("Done (2)");
+				//System.out.println("Loaded parameters file from disk.");
+			} catch (Throwable f){
+				throw new RuntimeException("Could not load parameters.zip file. Please include this file in the working directory!");
+			}
+		}
 		ZipEntry nextEntry;
 		String dG = null, dH = null;
 		try {

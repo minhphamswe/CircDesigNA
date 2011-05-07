@@ -5,11 +5,9 @@ import static DnaDesign.DomainSequence.DNAMARKER_DONTMUTATE;
 
 import java.util.Arrays;
 
-import processing.xml.StdXMLBuilder;
-
 import DnaDesign.DesignerCode;
 import DnaDesign.DomainDesigner;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.AbstractDesigner.SingleMemberDesigner;
 import DnaDesign.DomainDesigner.ScorePenalty;
 
@@ -17,7 +15,7 @@ import DnaDesign.DomainDesigner.ScorePenalty;
  * Implementation of BlockDesigner
  */
 public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDesignPMemberImpl>{
-	public DomainDesignBlockDesignerImpl(int[] mutableDomains, DesignerCode[] mutators, DomainStructureData dsd, DomainDesigner domainDesigner, DomainDesignPMemberImpl backupPMember){
+	public DomainDesignBlockDesignerImpl(int[] mutableDomains, DesignerCode[] mutators, DomainDefinitions dsd, DomainDesigner domainDesigner, DomainDesignPMemberImpl backupPMember){
 		//Temporary backup member for performing reversions
 		this.defaultBackupCache = backupPMember;
 		this.dsd = dsd;
@@ -31,7 +29,7 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 	private Mutation mutation_shared;
 	int[] mutableDomains;
 	private DomainDesigner dd;
-	private DomainStructureData dsd;
+	private DomainDefinitions dsd;
 
 	public double getOverallScore(DomainDesignPMemberImpl q) {
 		double current_score = 0;
@@ -53,8 +51,8 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 		
 		public void Mutate(DomainDesignPMemberImpl q, DomainDesignPMemberImpl backup, boolean fullBackup){
 			domain_mutated = new boolean[q.domain.length];
-			num_domains_mut = int_urn(1,Math.min(dd.MAX_MUTATION_DOMAINS,mutableDomains.length));
 			Arrays.fill(domain_mutated,false);
+			num_domains_mut = int_urn(1,Math.min(dd.MAX_MUTATION_DOMAINS,mutableDomains.length));
 			
 			//Select random domains to mutate
 			for(int k = 0; k < num_domains_mut; k++){
@@ -104,7 +102,7 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 				int mutated = dd.mutateUntilValid(mut_domain, q.domain, q.domain_markings, mutators[mut_domain], min_mutations, max_mutations);
 				if (mutated==0 && q.domain[mut_domain].length > 4){
 					//Do nothing.
-					System.err.println("WHOA~!");
+					//System.err.println("WHOA~!");
 				}
 				total_mutated += mutated;
 			}
@@ -216,7 +214,6 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 		mutation_shared.Evaluate(q, true);
 		//System.out.print("D ");
 
-
 		//Having run some or all of the affected penalty calculations,
 		//Revert the states or Dedicate them as need be here.
 		if (mutation_shared.revert_mutation){
@@ -317,13 +314,143 @@ public class DomainDesignBlockDesignerImpl extends SingleMemberDesigner<DomainDe
 		}
 	}
 
+	/**
+	 * Copies q into into, and then mutates into, evaluating its new penalties.
+	 * Allows into to be a regression of q.
+	 */
 	public boolean mutateAndTest(DomainDesignPMemberImpl q, DomainDesignPMemberImpl into) {
-		mutation_shared.Mutate(q, into, true);
-		mutation_shared.Evaluate(q, false);
-		for(ScorePenalty s : q.penalties){
+		into.seedFromOther(q);
+		mutation_shared.Mutate(into, defaultBackupCache, true);
+		mutation_shared.Evaluate(into, false);
+		for(ScorePenalty s : into.penalties){
 			double l = s.cur_score;
 		 	s.dedicate();
 		}
 		return !mutation_shared.revert_mutation;
 	}
+
+	/**
+	 * Chromosomal-style crossover of solutions. Creates a new member (into) which is
+	 * still inside the search space, assuming a and b were.
+	 */
+	public boolean fourPtCrossoverAndTest(DomainDesignPMemberImpl a,
+			DomainDesignPMemberImpl b, DomainDesignPMemberImpl into) {
+		
+		into.seedFromOther(a);
+		
+		//is totalBases calculated?
+		if (a.totalBases==0 || into.totalBases==0){
+			int totalBases = 0;
+			for(int[] row : a.domain){
+				totalBases += row.length;
+			}
+			into.totalBases = a.totalBases = b.totalBases = totalBases;
+		}
+		
+		int ptA = (int)(Math.random()*a.totalBases);
+		//ptB not calculated
+		int windowSize = (int)(Math.random()*(a.totalBases-ptA)) + 1;
+		int ptC = (int)(Math.random()*(a.totalBases-windowSize));
+		//ptD not calculated.
+		
+		//for(int domain = 0; domain < a.domain.length; domain++){
+		//	System.arraycopy(a.domain[domain], 0, into.domain[domain], 0, a.domain[domain].length);
+		//}
+		//Keep track of which domains were mutated:
+		mutation_shared.num_domains_mut = 0;
+		
+		//0..ptA from a :: ptC..ptD from b :: ptB to totalBits from b
+		//copy2d(a.domain,0,into.domain,0,ptA);
+		copy2d(b.domain,ptC,into.domain,ptA,windowSize,mutation_shared);
+		//copy2d(a.domain,ptA+windowSize,into.domain,ptA+windowSize,a.totalBases - (ptA+windowSize));
+		
+		//copy2d(a.domain_markings,0,into.domain_markings,0,ptA);
+		//copy2d(b.domain_markings,ptC,into.domain_markings,ptA,windowSize);
+		//copy2d(a.domain_markings,ptA+windowSize,into.domain_markings,ptA+windowSize,a.totalBases - (ptA+windowSize));
+		
+		//System.out.println(Arrays.deepToString(a.bits));
+		//System.out.println(Arrays.deepToString(b.bits));
+		//System.out.println(Arrays.deepToString(into.bits));
+		
+		//Clear markings
+		if (false){
+			for(int[] row : into.domain_markings){
+				Arrays.fill(row,0);
+			}
+			//Reevaluate ALL penalties
+			for(ScorePenalty q : into.penalties){
+				q.getScore(into.domain, into.domain_markings);
+			}
+		} else {
+			//Reevaluate only penalties that copy2d marked.
+			mutation_shared.Evaluate(into, false);
+			for(ScorePenalty q : into.penalties){
+				q.dedicate();
+			}
+		}
+		//One of the parents is favored. This appears to be by design.
+		//Improvement over both parents?
+		double newScore = getOverallScore(into);
+		if (newScore < getOverallScore(a) && newScore < getOverallScore(b)){
+			return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * Copy exactly end-start+1 bits from bits to bits2, starting at bits.
+	 */
+	private int copy2d_ai, copy2d_ay, copy2d_bi, copy2d_by;
+	private void copy2d_step(int[][] bits){
+		copy2d_ay++;
+		if (copy2d_ay >= bits[copy2d_ai].length){
+			copy2d_ay = 0;
+			copy2d_ai++;
+		}
+		copy2d_by++;
+		if (copy2d_by >= bits[copy2d_bi].length){
+			copy2d_by = 0;
+			copy2d_bi++;
+		}
+	}
+	private void copy2d(int[][] bits, int srcoff, int[][] bits2, int dstoff, int num, Mutation recorder) {
+		int i,y = 0, ct = 0;
+		big: for(i = 0; i < bits.length; i++){
+			for(y = 0; y < bits[i].length; y++){
+				if (ct++ == dstoff){
+					break big;
+				}
+			}
+		}
+		copy2d_bi = i;
+		copy2d_by = y; 
+		ct = 0;
+		big: for(i = 0; i < bits.length; i++){
+			for(y = 0; y < bits[i].length; y++){
+				if (ct++ == srcoff){
+					break big;
+				}
+			}
+		}
+		copy2d_ai = i;
+		copy2d_ay = y;
+		int sucessful = 0;
+		for(i = 0; i < num; i++){
+			//Record that we're writing to a domain:
+			if (recorder.num_domains_mut==0 || recorder.mut_domains[recorder.num_domains_mut-1]!=copy2d_bi){
+				recorder.mut_domains[recorder.num_domains_mut++] = copy2d_bi;
+			}
+			if (bits2[copy2d_bi][copy2d_by] == bits[copy2d_ai][copy2d_ay]){
+				sucessful++;
+			} else {
+				if (mutators[copy2d_bi].mutateToOther(bits2, copy2d_bi, copy2d_by, bits[copy2d_ai][copy2d_ay])){
+					sucessful++;
+				}
+			}
+			//bits2[copy2d_bi][copy2d_by] = bits[copy2d_ai][copy2d_ay];
+			copy2d_step(bits);
+		}
+		//System.out.printf("%d of %d crossover bases successfully transferred.\n",sucessful,num);
+	}
+
 }

@@ -9,7 +9,7 @@ import java.util.Arrays;
 
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainSequence;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.AbstractPolymer.DnaDefinition;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.FoldingImpl;
@@ -20,7 +20,7 @@ public class PairscoreImplTest {
 			FoldingImpl fl = new FoldingImpl(config);
 			DomainSequence seqS = new DomainSequence();
 			DomainSequence seq2S = new DomainSequence();
-			DomainStructureData dsd = new DomainStructureData(config);
+			DomainDefinitions dsd = new DomainDefinitions(config);
 			seqS.setDomains(0, null);
 			seq2S.setDomains(1, null);
 			String Seq1 = "ATGCATGC";//"GTGTTCTTGA";

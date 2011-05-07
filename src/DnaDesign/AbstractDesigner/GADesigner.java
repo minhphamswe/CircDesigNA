@@ -2,7 +2,6 @@ package DnaDesign.AbstractDesigner;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
-import java.util.Comparator;
 
 import DnaDesign.DomainDesigner;
 
@@ -12,8 +11,6 @@ import DnaDesign.DomainDesigner;
  * (N mutated products, select down to N.)
  * 
  * Implements MOGA.
- * 
- * No sharing. No crossover.
  */
 public class GADesigner <T extends PopulationDesignMember<T>>  extends BlockDesigner <T> {
 
@@ -72,4 +69,3 @@ public class GADesigner <T extends PopulationDesignMember<T>>  extends BlockDesi
 		}
 	}
 }
-	

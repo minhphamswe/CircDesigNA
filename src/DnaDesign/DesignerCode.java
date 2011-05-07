@@ -28,4 +28,9 @@ public interface DesignerCode {
 	 * Remark: do not assume that base i was the only base that was mutated.
 	 */
 	public boolean mutateToOther(int[][] domain, int whichDomain, int i);
+	/**
+	 * If possible, make base i of whichdomain newbase. Returns false if this would invalidate
+	 * the sequence constraints.
+	 */
+	public boolean mutateToOther(int[][] domain, int whichDomain, int i, int newbase);
 }

@@ -18,19 +18,19 @@ public class StandardTournament <T extends PopulationDesignMember<T>>  extends T
 	private int numElites = 1;
 	private long designTime;
 	public void runBlockIteration_(DomainDesigner runner, double endThreshold) {
-		for(int i = 0; i < populationSize; i++){
-			long now = System.nanoTime();
-			while(true){
+		long now = System.nanoTime();
+		while(true){
+			for(int i = 0; i < populationSize; i++){
 				boolean mutationSuccessful = SingleDesigner.mutateAndTestAndBackup(population_mutable[i]);
+				//System.out.println(mutationSuccessful);
 				if(runner!=null && runner.abort){
 					return; //OUT OUT OUT
 				}	
-				if (System.nanoTime()-now > designTime){
-					break; //Timeup
-				}
+			}
+			tournamentSelect(numElites);
+			if (System.nanoTime()-now > designTime){
+				break; //Timeup
 			}
 		}
-
-		tournamentSelect(numElites);
 	}
 }

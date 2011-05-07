@@ -2,7 +2,7 @@ package DnaDesign.test;
 
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainSequence;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.NAFolding;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.FoldingImpl;
@@ -15,14 +15,13 @@ public class CloverTRnaFoldTest {
 	public static void main(String[] args){
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		NAFolding na = new FoldingImpl(config);
-		FoldingImpl.DEBUG_selfCrosstalkMethod = true;
 		String seq = "AAATGGCCAAACAGGCCGGCGCCGAACGCCCGGGAGCAGCCCGATTT";
 		int[][] domain = new int[1][seq.length()];
 		int[][] domainMark= new int[1][seq.length()];
 		for(int k = 0; k < seq.length(); k++){
 			domain[0][k] = config.monomer.decodeConstraintChar(seq.charAt(k));
 		}
-		DomainStructureData dsd = new DomainStructureData(config);
+		DomainDefinitions dsd = new DomainDefinitions(config);
 		DomainSequence ds = new DomainSequence();
 		ds.setDomains(0, null);
 		System.out.println(na.mfeSSDeltaG(ds, domain, domainMark));

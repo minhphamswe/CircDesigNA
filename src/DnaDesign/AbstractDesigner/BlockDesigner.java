@@ -1,6 +1,8 @@
 package DnaDesign.AbstractDesigner;
 
 import DnaDesign.DomainDesigner;
+import DnaDesign.DomainDesigner.ScorePenalty;
+import DnaDesign.impl.DomainDesignPMemberImpl;
 
 /**
  * Possible other names: Equal Opportunity Designer, or Patient Designer
@@ -48,8 +50,26 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 		System.out.print("Iteration "+iterations+" ");
 		
 		runBlockIteration_(runner,endThreshold);
+	
+		if (ASSERT_SCOREFUNC_ISOLATION){
+			for(int i = 0; i < population_mutable.length; i++){
+				DomainDesignPMemberImpl q = (DomainDesignPMemberImpl)(Object)population_mutable[i];
+				//Check: before mutation, all penalties should have change in score of 0.
+				for(ScorePenalty s : q.penalties){
+					if (s.evalScore(q.domain,q.domain_markings)!=0){
+						throw new RuntimeException("FAIL");
+					}
+					s.dedicate();
+				}
+			}
+		}
+
 		
-		System.out.println("Score "+SingleDesigner.getOverallScore(getBestPerformingChild()));
+		final T bestPerformingChild = getBestPerformingChild();
+		if (bestPerformingChild==null){
+			return;
+		}
+		System.out.println("Score "+SingleDesigner.getOverallScore(bestPerformingChild));
 	}
 	/**
 	 * Overridden by design implementations.

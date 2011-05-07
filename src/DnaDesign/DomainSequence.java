@@ -79,7 +79,7 @@ public class DomainSequence {
 			domainList[k] = freeList.get(k);
 		}
 	}
-	public void setDomains(String subStrand, DomainStructureData dsd, AbstractComplex dsg) {
+	public void setDomains(String subStrand, DomainDefinitions dsd, AbstractComplex dsg) {
 		setFromComplex(dsg);
 		domainList = DomainDesigner_SharedUtils.utilReadSequence(subStrand,dsd);
 		numDomains = domainList.length;
@@ -208,7 +208,7 @@ public class DomainSequence {
 		}
 		return false;
 	}
-	public String toString(DomainStructureData dsd){
+	public String toString(DomainDefinitions dsd){
 		StringBuffer sb = new StringBuffer();
 		sb.append("(Partial) "+moleculeName+": ");
 		for(int i = 0; i < numDomains; i++){

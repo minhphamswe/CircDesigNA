@@ -5,8 +5,6 @@ import static DnaDesign.AbstractPolymer.DnaDefinition.C;
 import static DnaDesign.AbstractPolymer.DnaDefinition.G;
 import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Scanner;
 

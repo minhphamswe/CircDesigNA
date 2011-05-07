@@ -24,6 +24,7 @@ public class DomainDesignPMemberImpl extends PopulationDesignMember<DomainDesign
 		scoredElements = copy2dInt(pdm.scoredElements,scoredElements);
 		domain = copy2dInt(pdm.domain,domain);
 		domain_markings = copy2dInt(pdm.domain_markings,domain_markings);
+		//totalBases = pdm.totalBases;
 	}
 	private static int[][] copy2dInt(int[][] se, int[][] toRet) {
 		if (toRet==null || toRet.length < se.length){
@@ -43,6 +44,7 @@ public class DomainDesignPMemberImpl extends PopulationDesignMember<DomainDesign
 	public int[][] scoredElements; 
 	public int[][] domain; 
 	public int[][] domain_markings;
+	public int totalBases;
 	public DomainDesignPMemberImpl(List<ScorePenalty> penalties, int[][] scoredElements, int[][] domain, int[][] domain_markings){
 		this.penalties = penalties;
 		this.scoredElements = scoredElements;

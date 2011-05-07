@@ -52,7 +52,7 @@ public class DesignerOptions {
 	
 	public SeqDesignerOption.Boolean standardUseGA = new SeqDesignerOption.Boolean(){
 		public String getDescription() {
-			return "Allow regressive mutations (more standard genetic algorithm, doubles memory usage)";
+			return "Use crossover operation (chromosome-style sexual reproduction) in addition to mutation operator (Uses TinyGA parameters, ref \"A field guide to genetic programming\" by Riccardo Poli). Rule of thumb: Use when population size is greater than 5.";
 		}
 		private boolean sort_markings = getDefaultState();
 		public boolean getState() {
@@ -62,7 +62,7 @@ public class DesignerOptions {
 			sort_markings = !sort_markings;
 		}
 		public boolean getDefaultState() {
-			return false;
+			return true;
 		}
 		public void setState(boolean state) {
 			sort_markings = state;
@@ -71,7 +71,7 @@ public class DesignerOptions {
 	
 	public SeqDesignerOption.Double resourcePerMember = new SeqDesignerOption.Double(){
 		public String getDescription() {
-			return "Time to spend in local search loop on each population member before reporting the best candidate or reproducing the fittest member. Defines an \"iteration.\" When time limit is exceeded, any running score evaluations are allowed to finish.";
+			return "When crossover operation is disabled, tournament selection occurs at this specified interval. Any running score evaluations are allowed to complete before tournament selection is run. Negative value is a flag which causes mutation to loop on each population member until a better solution is found (agressive hill climbing).";
 		}
 		public double getDefaultState(){
 			return .1;

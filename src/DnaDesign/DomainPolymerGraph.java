@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 public class DomainPolymerGraph implements AbstractComplex{
 	private DomainPolymerGraph(){
 	}
-	public DomainPolymerGraph(DomainStructureData domainDefs){
+	public DomainPolymerGraph(DomainDefinitions domainDefs){
 		this.domainDefs = domainDefs;
 		data = new BasePolymerGraph();
 	}	
@@ -25,7 +25,7 @@ public class DomainPolymerGraph implements AbstractComplex{
 		toRet.data = new RotatedPolymerGraph(data,rotation);
 		return toRet;
 	}
-	private DomainStructureData domainDefs;
+	private DomainDefinitions domainDefs;
 	private AbstractPolymerGraph data;
 	public String moleculeName;
 	public int length(){
@@ -109,6 +109,10 @@ public class DomainPolymerGraph implements AbstractComplex{
 	public static void readStructure(String moleculeName, String dnaString, DomainPolymerGraph out2){
 		out2.moleculeName = moleculeName;
 		
+		//First disregard all whitespace.
+		//This does not really require regular expressions.
+		dnaString = dnaString.replaceAll("\\s","");
+		
 		BasePolymerGraph out = out2.data.getCyclicIndependentForm();
 		
 		//Tested and verified. Group 2 : Domain, with comp flag, Group 1 + Group 3: Structural flag
@@ -121,7 +125,7 @@ public class DomainPolymerGraph implements AbstractComplex{
 		LinkedList<Integer> stack = new LinkedList();
 		ArrayList<Integer> domains_tmp = new ArrayList();
 		ArrayList<Integer> domain_pairs_tmp = new ArrayList();
-
+		
 		while(m.find()){
 			String domainName = m.group(2);
 			//Decode which domain, extract the "star" character (reverse complement flag)
@@ -134,30 +138,34 @@ public class DomainPolymerGraph implements AbstractComplex{
 			if (numberDomain2 < 0){
 				throw new RuntimeException("Invalid domain: "+domainName);
 			}
-			if (domainName.endsWith("*")){
-				numberDomain2 |= DNA_COMPLEMENT_FLAG;
-			}
-
-			String match = m.group(1)+m.group(3);
-			if (match==null){
-				match = "";
-			}
-			String struct = match;
-
-			int thisIndex = domains_tmp.size();
-			domains_tmp.add(numberDomain2);
-			domain_pairs_tmp.add(-1); //fill with -1s, overwrite if adding pair.
-			if (struct.contains("(")){
-				stack.push(thisIndex);
-			} else if (struct.contains(")")){
-				if (stack.isEmpty()){
-					throw new RuntimeException("Empty stack "+m.group(0));
-				}
-				int openParens = stack.pop();
-				domain_pairs_tmp.set(openParens,thisIndex);
-				domain_pairs_tmp.set(thisIndex,openParens);
+			if (out2.domainDefs.domainLengths[numberDomain2] == 0){
+				//Ignore domains of length 0 when parsing the structures.
 			} else {
-				//Do nothing.
+				if (domainName.endsWith("*")){
+					numberDomain2 |= DNA_COMPLEMENT_FLAG;
+				}
+
+				String match = m.group(1)+m.group(3);
+				if (match==null){
+					match = "";
+				}
+				String struct = match;
+
+				int thisIndex = domains_tmp.size();
+				domains_tmp.add(numberDomain2);
+				domain_pairs_tmp.add(-1); //fill with -1s, overwrite if adding pair.
+				if (struct.contains("(")){
+					stack.push(thisIndex);
+				} else if (struct.contains(")")){
+					if (stack.isEmpty()){
+						throw new RuntimeException("Empty stack "+m.group(0));
+					}
+					int openParens = stack.pop();
+					domain_pairs_tmp.set(openParens,thisIndex);
+					domain_pairs_tmp.set(thisIndex,openParens);
+				} else {
+					//Do nothing.
+				}
 			}
 
 			final String delim = m.group(4);
@@ -175,9 +183,13 @@ public class DomainPolymerGraph implements AbstractComplex{
 					throw new RuntimeException("Empty strand; no domains");
 				}
 				if (delim.contains("}")){
-					//3- end.
-					domains_tmp.add(-1);
-					domain_pairs_tmp.add(-1); //fill with -1s, overwrite if adding pair.
+					if (domains_tmp.isEmpty() || domains_tmp.get(domains_tmp.size()-1)==-1){
+						//Empty strand.
+					} else {
+						//3- end.
+						domains_tmp.add(-1);
+						domain_pairs_tmp.add(-1); //fill with -1s, overwrite if adding pair.
+					}
 				}
 			}
 		}
@@ -257,7 +269,7 @@ public class DomainPolymerGraph implements AbstractComplex{
 		return moleculeName;
 	}
 
-	public DomainStructureData getDomainDefs() {
+	public DomainDefinitions getDomainDefs() {
 		return domainDefs;
 	}
 }

@@ -1,6 +1,7 @@
 package DnaDesign;
 
 import java.util.ArrayList;
+import java.util.TreeSet;
 
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.Config.CircDesigNASystemElement;
@@ -9,18 +10,24 @@ import DnaDesign.Config.CircDesigNASystemElement;
  * Represents a design target, in as many ways as possible.
  * 
  * Specifically, this class provides convenient calculations for the score penalty creator
- * to use.
+ * to use. 
+ * 
+ * Design targets are composed to two data structures: A tree based form where an in-order
+ * traversal is equivalent to traversing the molecule in a counterclockwise direction, and
+ * a (more simple) representation where each domain is given an ordinal on a circle.
+ * Both of these structures require that the input structure is not pseudoknotted.
  */
 public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
-	public AbstractDomainDesignTarget(DomainStructureData dsd, CircDesigNAConfig System){
+	public AbstractDomainDesignTarget(DomainDefinitions dsd, CircDesigNAConfig System){
 		super(System);
 		this.dsd = dsd;
-		
 	}
+	
 	public ArrayList<DomainSequence> wholeStrands = new ArrayList();
 	public ArrayList<DomainSequence> generalizedSingleStranded = new ArrayList();
 	public ArrayList<DomainSequence> singleDomains = new ArrayList();
 	public ArrayList<DomainSequence> pairsOfDomains = new ArrayList();
+	private TreeSet<String> targetMoleculeNames = new TreeSet();
 	
 	public class HairpinClosingTarget {
 		public DomainSequence[] stemOnly;
@@ -92,9 +99,14 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 		singleDomains.clear();
 	}
 	
-	private DomainStructureData dsd;
+	private DomainDefinitions dsd;
 	
 	public void addTargetStructure(String name, String inputStrand) {
+		if (targetMoleculeNames.contains(name)){
+			throw new RuntimeException(String.format("Listed molecule %s twice.",name));
+		}
+		targetMoleculeNames.add(name);
+		
 		DomainPolymerGraph dpg = new DomainPolymerGraph(dsd);
 		DomainPolymerGraph.readStructure(name, inputStrand, dpg);
 		

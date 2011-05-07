@@ -10,6 +10,15 @@ public class SequenceCode implements DesignerCode{
 	public void setConstraints(DesignSequenceConstraints dsc){
 		this.dsc = dsc;
 	}
+	public boolean mutateToOther(int[][] domain, int mut_domain, int j, int newbase){
+		int[] mut_new = domain[mut_domain];
+		int index = dsc.getMutationNumberForNewBase(mut_new, j, newbase);
+		if (index >= 0){
+			dsc.makeAvailableMutationNo(index, mut_new, j);
+			return true;
+		}
+		return false;
+	}
 	/**
 	 * Mutates a single base, maintaining constraint conditions. 
 	 */

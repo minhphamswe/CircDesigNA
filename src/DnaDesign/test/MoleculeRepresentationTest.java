@@ -7,7 +7,7 @@ import DnaDesign.DomainDesigner_SharedUtils;
 import DnaDesign.DomainPolymerGraph;
 import DnaDesign.DomainSequence;
 import DnaDesign.DomainStructureBNFTree;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.Config.CircDesigNAConfig;
 
 /**
@@ -30,8 +30,8 @@ public class MoleculeRepresentationTest {
 			domainDefs.append("\n");
 		}
 		String domainDefsBlock = domainDefs.toString();
-		DomainStructureData dsd = new DomainStructureData(config);
-		DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
+		DomainDefinitions dsd = new DomainDefinitions(config);
+		DomainDefinitions.readDomainDefs(domainDefsBlock, dsd);
 
 		System.out.println("Enter in a molecule");
 		String mol;
@@ -47,7 +47,7 @@ public class MoleculeRepresentationTest {
 		testSharedUtils(dsd,mol);
 	}
 
-	private static void testSharedUtils(DomainStructureData dsd, String mol) {
+	private static void testSharedUtils(DomainDefinitions dsd, String mol) {
 		DomainStructureBNFTree dsg1 = new DomainStructureBNFTree(dsd);
 		DomainStructureBNFTree.readStructure("A", mol, dsg1);
 		DomainPolymerGraph dsg2 = new DomainPolymerGraph(dsd);
@@ -74,6 +74,7 @@ public class MoleculeRepresentationTest {
 				}
 			}
 		}
+		/*
 		{
 			System.out.println("TEST"+k+++" : HAIRPIN INTERNALS");
 			ArrayList<DomainSequence> test1 = new ArrayList<DomainSequence>(){
@@ -95,7 +96,9 @@ public class MoleculeRepresentationTest {
 				}
 			}
 		}
+		*/
 		{
+			/*
 			System.out.println("TEST"+k+++" : HAIRPIN CLOSING");
 			ArrayList<DomainSequence[]> test1 = new ArrayList<DomainSequence[]>(){
 				public String toString(){
@@ -107,7 +110,7 @@ public class MoleculeRepresentationTest {
 					return "Test PolymerGraph";
 				}
 			};;
-			DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsg1, test1);
+			DomainDesigner_SharedUtils.utilHairpinInternalsFinder(dsg1, test1);
 			//DomainDesigner_SharedUtils.utilHairpinClosingFinder(dsg2, test2);
 			for(ArrayList<DomainSequence[]> g : new ArrayList[]{test1,test2}){
 				System.out.println("TEST:"+g);
@@ -118,6 +121,7 @@ public class MoleculeRepresentationTest {
 					System.out.println();
 				}
 			}
+			*/
 		}
 	}
 }

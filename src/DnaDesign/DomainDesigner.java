@@ -5,6 +5,8 @@ import static DnaDesign.DomainSequence.DNAMARKER_DONTMUTATE;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -14,13 +16,14 @@ import java.util.TreeMap;
 import java.util.Map.Entry;
 
 import DnaDesign.AbstractDesigner.BlockDesigner;
-import DnaDesign.AbstractDesigner.GADesigner;
+import DnaDesign.AbstractDesigner.GA2Designer;
 import DnaDesign.AbstractDesigner.InfiniteResourceTournament;
 import DnaDesign.AbstractDesigner.PopulationDesignMember;
 import DnaDesign.AbstractDesigner.StandardTournament;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.Config.CircDesigNASystemElement;
 import DnaDesign.DesignIntermediateReporter.DesignIntermediateScore;
+import DnaDesign.Exception.InvalidDNAMoleculeException;
 import DnaDesign.impl.CodonCode;
 import DnaDesign.impl.DomainDesignBlockDesignerImpl;
 import DnaDesign.impl.DomainDesignPMemberImpl;
@@ -48,18 +51,18 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	 */
 	public static DDSeqDesigner<DesignerOptions> getDefaultDesigner(String Molecules,String domainDefs,CircDesigNAConfig Std) {
 		ArrayList<String> inputStrands = new ArrayList<String>();
-		for(String q : Molecules.split("\n")){
-			String[] line = q.split("\\s+");
-			if (line.length == 0){
-				continue;
-			}
-			if (line.length != 2){
-				throw new RuntimeException("Correct Molecule format: <name> <molecule> @ "+line[0]);
-			}
-			inputStrands.add(q);
+		String q = "";
+		for(String newLine : Molecules.split("\n")){
+			//if (newLine.length()==0 || newLine.substring(0,1).matches("\\s+")){
+			//	q += newLine;
+			//} else {		
+				q = newLine.trim();
+				if (q.length()>0){
+					inputStrands.add(q);
+				}
+			//}
 		}
-		
-		return new DomainDesigner_Public(inputStrands,domainDefs,null,null,null,Std);
+		return new DomainDesigner_Public(inputStrands,domainDefs,Std);
 	}
 	/**
 	 * A coupled, exposed wrapper which allows the GUI to easily display design internals.
@@ -84,13 +87,11 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		private Map<Integer, String> lock;
 		private Map<Integer, String> initial;
 		private Map<Integer, DesignerCode> mutators;
+		private Map<Integer, String> positionConstraints;
 		private DesignIntermediateReporter dir;
-		public DomainDesigner_Public(List<String> inputStrands, String domainDefsBlock, Map<Integer, String> lock, Map<Integer, String> initial, Map<Integer, DesignerCode> mutators, CircDesigNAConfig Std){
+		public DomainDesigner_Public(List<String> inputStrands, String domainDefsBlock, CircDesigNAConfig Std){
 			this.inputMolecules = inputStrands;
 			this.domainDefsBlock = domainDefsBlock;
-			this.lock = lock;
-			this.initial = initial;
-			this.mutators = mutators;
 			dir = new DesignIntermediateReporter();
 			
 			r = new DomainDesignerImpl(new FoldingImpl(Std), Std);
@@ -106,8 +107,8 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				//Read domainDefs
 				int num_domain = 0;
 				TreeMap<Integer, Integer> domain_length_t = new TreeMap<Integer, Integer>();
-				final DomainStructureData dsd = new DomainStructureData(r.Std);
-				DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
+				final DomainDefinitions dsd = new DomainDefinitions(r.Std);
+				DomainDefinitions.readDomainDefs(domainDefsBlock, dsd);
 				num_domain = dsd.domainLengths.length;
 				
 				//Read molecules
@@ -115,8 +116,12 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				for(int kq = 0; kq < inputMolecules.size(); kq++){
 					String q = inputMolecules.get(kq);
 					//DomainDesigner_SharedUtils.utilJunctionSplitter(theJunctions, q);
-					String moleculeName = q.split("\\s+")[0];
-					String inputStrand = q.split("\\s+")[1];
+					String[] line = q.split("\\s+",2);
+					if (line.length<2){
+						throw new RuntimeException("Correct molecule format: <name> <molecule>");
+					}
+					String moleculeName = line[0];
+					String inputStrand = line[1];
 					designTarget.addTargetStructure(moleculeName,inputStrand);
 				}
 				for(int i = 0; i < dsd.domainLengths.length; i++){
@@ -141,6 +146,8 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				//main() requires a nonnull set of initial and mutators (because they are maps).
 				//That being said, they may very well both be empty maps.
 				
+				positionConstraints = new TreeMap<Integer, String>();
+				
 				for(int k = 0; k < domain_length.length; k++){
 					Integer got = domain_length_t.get(k);
 					if (got==null){
@@ -148,8 +155,9 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					}
 					domain_length[k] = got;
 					
-					//Constraints are "initial sequences".
-					initial.put(k,dsd.getConstraint(k));
+					//Constraints
+					positionConstraints.put(k,dsd.getConstraint(k));
+					initial.put(k,dsd.getInitialSequence(k));
 					if (dsd.maintainAminos(k)){
 						mutators.put(k, new CodonCode(r.Std));
 					}
@@ -159,7 +167,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				new Thread(){public void run(){
 					while(waitOnStart && ! r.abort){
 						try {
-							Thread.sleep(100);
+							Thread.sleep(10);
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
@@ -173,7 +181,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 						timesToRun--;
 						errorResult = null;
 						try {
-							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, mutators, designTarget, dir, dsd));
+							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, positionConstraints, mutators, designTarget, dir, dsd));
 						} catch (OutOfMemoryError e){
 							errorResult = "Could not start designer: " +e.getMessage()+"\nJava ran out of memory! Strategies to fix:\n\t1) Reduce the population size.\n\t2)Download this applet, and run it with the argument -Xmx700 from the command line.";//ensure nonnull
 						} catch (Throwable e){
@@ -184,6 +192,11 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					}
 					//System.out.println(results);
 					finished = true;
+
+					//Help the designer out in handling listeners:
+					if (r.runOnIteration!=null){
+						r.runOnIteration.actionPerformed(null);
+					}
 				}}.start();
 			}
 		};
@@ -206,27 +219,30 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			}
 
 			ArrayList<DomainSequence> alreadyPrintedSequences = new ArrayList();
-			DomainStructureData dsd = new DomainStructureData(r.Std);
+			DomainDefinitions dsd = new DomainDefinitions(r.Std);
 			//DomainDesigner_SharedUtils.utilJunctionSplitter(theJunctions, q);
-			DomainStructureData.readDomainDefs(domainDefsBlock, dsd);
+			DomainDefinitions.readDomainDefs(domainDefsBlock, dsd);
 			StringBuffer sb = new StringBuffer();
 			String lR = "\n";
-			sb.append("Current designer state (to resume from this point, paste as 'Domain Definition'):");
+			DesignScoreBreakdown breakdown = r.outputScore;
+			sb.append(String.format("Net 'Score': %.2f.\n>> Cross Interactions:\t%.2f.\n>> Breathing Helix Ends: \t%d.\n>> Self-Folding Interactions\t%.2f.\n>> Self Similarity Factor\t%.2f.",breakdown.netScore,breakdown.crossInteractionsOnly,breakdown.breathingHelixes,breakdown.selfFoldOnly,breakdown.selfSimilarity));
 			sb.append(lR);
-			sb.append("Net 'Score': "+r.best_score);
+			sb.append("Current designer state (to resume from this point, paste as 'Domain Definition'):");
 			sb.append(lR);
 			sb.append("----------------");
 			sb.append(lR);
 			for(int k = 0; k < r.outputDomains.length; k++){
 				sb.append(dsd.getDomainName(k));
 				sb.append("\t");
-				sb.append("[");
-				sb.append(r.outputDomains[k]);
-				sb.append("]");
-				String arg = dsd.getArguments(k);
+				sb.append(r.outputDomains[k].length());
+				String arg = dsd.getArguments(k); //Does not include -init()
 				if (arg.length()>0){
 					sb.append("\t"+dsd.getArguments(k));	
 				}
+				sb.append("\t");
+				sb.append("-init(");
+				sb.append(r.outputDomains[k]);
+				sb.append(")");
 				sb.append(lR);
 			}
 			sb.append("----------------");
@@ -320,18 +336,45 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			return dir;
 		}
 		public double getBestScore() {
-			return r.best_score;
+			if (r.outputScore==null){
+				return 0;
+			}
+			return r.outputScore.netScore;
 		}
 		public int getIterationCount() {
 			return r.num_mut_attempts;
+		}
+		public void runIteration() {
+			final boolean[] return_shared = new boolean[]{false};
+			r.runOnIteration = new ActionListener(){
+				public void actionPerformed(ActionEvent e) {
+					pause();
+					return_shared[0] = true;
+				}
+			};
+			resume();
+			while(!return_shared[0]){
+				try {
+					Thread.sleep(1);
+				} catch (InterruptedException e1) {
+					e1.printStackTrace();
+				}
+			}
+			r.runOnIteration = null;
+		}
+		public DesignScoreBreakdown getScoreBreakdown(){
+			return r.outputScore;
 		}
 	}
 	
 	public DesignerOptions options = DesignerOptions.getDefaultOptions();
 
 	//Output of designer. The best score, and the domains corresponding to it.
-	private double best_score;
+	//private double best_score;
+	
+	private DesignScoreBreakdown outputScore;
 	private int num_mut_attempts = 0;
+	private ActionListener runOnIteration = null;
 	private String[] outputDomains;
 	private boolean waitForResume = false;
 
@@ -351,12 +394,12 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	 * Use the evaluator to determine where the problem spots are, 
 	 * and mutate them. Recommended, otherwise you're merely randomly mutating.
 	 */
-	private boolean ENABLE_MARKINGS = true;
+	public static boolean ENABLE_MARKINGS = true;
 	
 	/**
 	 * Use to add probability of mutation to bases involved in many penalties. 
 	 */
-	private boolean SORT_MARKINGS = true;
+	public static boolean SORT_MARKINGS = true;
 	
 	/**
 	 * Take the evaluators word as absolute, and never mutate bases that
@@ -442,7 +485,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			return sum;
 		}
 		public abstract int getPriority();
-		public String toString(DomainStructureData dsd) {
+		public String toString(DomainDefinitions dsd) {
 			String myString = getClass().getSimpleName();
 			DomainSequence[] seqs = getSeqs();
 			if (seqs.length>0){
@@ -467,7 +510,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	 * @param hairpinInnards 
 	 * @param dsd 
 	 */
-	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, Map<Integer, DesignerCode> mutators, AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, DomainStructureData dsd) {
+	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, Map<Integer, String> positionConstraints, Map<Integer, DesignerCode> mutators, AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, DomainDefinitions dsd) {
 		while (waitForResume && !abort){
 			try {
 				Thread.sleep(100);
@@ -491,14 +534,56 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			domain[i] = cDomain; //initialize to 0s
 			domain_markings[i] = new int[domain_length[i]];
 		}
+		//Don't need this any more.
+		domain_length=null;
 
-		//Load the initial domains, with constraint characters.
+		//Enumerate penalty scores (see FoldingImplTestGUI for a visual of this process) via "listPenalties"
+		List<ScorePenalty> allScores = listPenalties(designTarget,DIR,domain,options,dsd);
+		if (allScores.isEmpty()){
+			throw new RuntimeException("No scores to optimize : Algorithm has nothing to do!");
+		}		
+		System.out.println("Discovered "+allScores.size()+" score elements. Listing them:");
+		for(ScorePenalty q : allScores){
+			System.out.println(q.toString(dsd));
+		}
+
+		
+		//Load the constraints
+		if (positionConstraints!=null){
+			for(Entry<Integer, String> init : positionConstraints.entrySet()){
+				int i = init.getKey();
+				for(int j = 0; j < domain[i].length; j++){
+					try {
+						domain[i][j] = Std.monomer.decodeConstraintChar(init.getValue().charAt(j));
+					} catch (Throwable e){
+						throw new RuntimeException(e.getMessage()+" (Domain "+dsd.getDomainName(i)+")");
+					}
+				}
+			}
+		}
+		
+		//Load the initial domains, and (possibly) check them against the constraints.
 		if (initial!=null){
 			for(Entry<Integer, String> init : initial.entrySet()){
 				int i = init.getKey();
-				for (int j = 0; j < domain_length[i]; j++) {
+				for (int j = 0; j < domain[i].length; j++) {
 					try {
-						domain[i][j] = Std.monomer.decodeConstraintChar(init.getValue().charAt(j));
+						final char charAt = init.getValue().charAt(j);
+						int base = Std.monomer.decodeConstraintChar(charAt);
+						//Check that base is purely a base value (N, or a..t..c..g..)
+						if (Std.monomer.noFlags(base)!=base){
+							throw new RuntimeException(charAt+" is not a valid initializing base.");
+						}
+						if (Std.monomer.noFlags(base)==Std.monomer.NOBASE){
+							continue;
+						}
+						
+						if (Std.monomer.allowBase(domain[i][j], base)){
+							//Don't allow initial bases unless they match!
+							domain[i][j] = domain[i][j] - Std.monomer.noFlags(domain[i][j]) + base;
+						} else {
+							throw new RuntimeException("Base "+charAt+" conflicts with constraint at position "+(j+1));
+						}
 					} catch (Throwable e){
 						throw new RuntimeException(e.getMessage()+" (Domain "+dsd.getDomainName(i)+")");
 					}
@@ -511,7 +596,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		for(int i = 0; i < num_domain; i++){
 			boolean mutable = false;
 			//Optimize for completely locked domains.
-			loop:for (int j = 0; j < domain_length[i]; j++) {
+			loop:for (int j = 0; j < domain[i].length; j++) {
 				if (domain[i][j] - Std.monomer.noFlags(domain[i][j]) != Std.monomer.LOCK_FLAG()){
 					mutable = true;
 					break loop;
@@ -526,7 +611,8 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		for(int i = 0; i < num_domain; i++){
 			if (mutators!=null){
 				mutate[i] = mutators.get(i);
-				if (mutate[i]==null){
+				//If one is specified, use that one. 
+				if (mutate[i]==null){//Otherwise..
 					SequenceCode newCode = Std.getDefaultSequenceCode();
 					DesignSequenceConstraints dsc = Std.getDefaultConstraints();
 					dsd.loadConstraints(i,dsc,false);
@@ -541,7 +627,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		//Initialize sequences
 		//Mutation strategies (which are aware of sequence space constraints) pick valid starting sequences.
 		for(int i = 0; i < num_domain; i++){
-			if (options.rule_ccend_option.getState()){
+			if (options.rule_ccend_option.getState() && domain[i].length>0){
 				if (domain[i][0]==0)domain[i][0] = C + Std.monomer.GCL_FLAG();
 				if (domain[i][domain[i].length-1]==0)domain[i][domain[i].length-1] = C + Std.monomer.GCL_FLAG();
 			}
@@ -571,16 +657,6 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		}
 		
 		//Assertion: all domains are valid according to their respective mutation strategies. 
-
-		//Enumerate penalty scores (see FoldingImplTestGUI for a visual of this process) via "listPenalties"
-		List<ScorePenalty> allScores = listPenalties(designTarget,DIR,domain,options,dsd);
-		if (allScores.isEmpty()){
-			throw new RuntimeException("No scores to optimize : Algorithm has nothing to do!");
-		}		
-		System.out.println("Discovered "+allScores.size()+" score elements. Listing them:");
-		for(ScorePenalty q : allScores){
-			System.out.println(q.toString(dsd));
-		}
 
 		//Select the penalties which depend on certain domains. (optimization).
 		int[][] scoredElements = new int[num_domain][];
@@ -614,19 +690,17 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			//Report score...
 			DIR.beginScoreReport();
 			{
-				double score = 0;
 				for(ScorePenalty s : initialSeed.penalties){
-					score += s.old_score;
 					if (s.dis!=null){
 						s.dis.addScore(s.old_score);
 					}
 				}
-				best_score = score;
 			}DIR.endScoreReport();
+			outputScore = DomainDesigner_SharedUtils.getScoreBreakdown(domain,designTarget,initialSeed.penalties);
 			
 			System.out.println("Randomized initial sequence (for population member 0):");
 			displayDomains(domain,true,dsd);
-			System.out.println("Initial score (for population member 0): "+best_score);	
+			System.out.println("Initial score (for population member 0): "+outputScore.netScore);	
 
 			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
 			DomainDesignPMemberImpl tempMember = initialSeed.designerCopyConstructor(-1); //needed for "reverting" mutations
@@ -634,7 +708,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 			BlockDesigner<DomainDesignPMemberImpl> dbesign = null;
 			
 			if (options.standardUseGA.getState()){
-				dbesign = new GADesigner(dbesignSingle, new DomainDesignerImpl.DParetoSort(), true);
+				dbesign = new GA2Designer(dbesignSingle, new DomainDesignerImpl.DParetoSort(), true);
 			} else {
 				if (options.resourcePerMember.getState() < 0){
 					dbesign = new InfiniteResourceTournament(dbesignSingle);
@@ -680,25 +754,28 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					}
 				}
 				double endingThreshold = options.end_score_threshold.getState();
-				if (best_score <= endingThreshold){
+				if (outputScore.netScore <= endingThreshold){
 					break;
 				}
 				dbesign.runBlockIteration(this,endingThreshold);
 				System.out.flush();
+				DomainDesignPMemberImpl q = dbesign.getBestPerformingChild();
+				if (q==null){
+					System.out.println("Iteration did not complete.");
+					break;
+				}
 				//Iteration complete.
 				resetDebugPenalty();
-				DomainDesignPMemberImpl q = dbesign.getBestPerformingChild();
 				//Report the status of the best member.
 				DIR.beginScoreReport();
-				double score = 0;
 				for(ScorePenalty s : q.penalties){
-					score += s.old_score;
 					if (s.dis!=null){
 						s.dis.addScore(s.old_score);
 					}
 				}
-				best_score = score;
 				DIR.endScoreReport();
+				outputScore = DomainDesigner_SharedUtils.getScoreBreakdown(domain,designTarget,q.penalties);
+					
 				displayDomains(q.domain,true,dsd);
 				//debugPenalty(s, q.domain, dsd);
 				//System.out.println(num_domains_mut);
@@ -707,6 +784,9 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 				if (num_mut_attempts > TOTAL_ATTEMPTS){
 					break;
 				}
+				if (runOnIteration!=null){
+					runOnIteration.actionPerformed(null);
+				}
 				if ((System.nanoTime()-lastDumpState)>2e9){
 					lastDumpState = System.nanoTime();
 					//if (DEBUG_PENALTIES){
@@ -714,15 +794,19 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 					//}
 				}
 			}
-		}	finally {
+		} finally {
 			System.out.println("Designed sequence output:");
 			displayDomains(domain,true,dsd);
-			System.out.println("Designer ended after "+num_mut_attempts+" iterations, with a score of "+best_score);
+			System.out.print("Designer ended after "+num_mut_attempts+" iterations");
+			if (outputScore!=null){
+				System.out.print("with a score of "+outputScore.netScore);
+			}
+			System.out.println();
 		}
 		return num_mut_attempts;
 	}
 	public abstract List<ScorePenalty> listPenalties(
-			AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, int[][] domain, DesignerOptions options2, DomainStructureData dsd) ;
+			AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, int[][] domain, DesignerOptions options2, DomainDefinitions dsd) ;
 
 	public static final void deepFill(int[][] domain_markings, int i) {
 		for(int[] row : domain_markings){
@@ -974,7 +1058,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 	private String[] debug_messages = new String[debugOutTopScores];
 
 
-	public void debugPenalty(ScorePenalty s, int[][] domain, DomainStructureData dsd) {
+	public void debugPenalty(ScorePenalty s, int[][] domain, DomainDefinitions dsd) {
 		double val = s.cur_score;
 		for(int k = 0; k < debug_keepMessages.length; k++){
 			if (k == debug_keepMessages.length-1 || val < debug_keepMessages[k+1]){
@@ -992,7 +1076,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		}
 	}
 
-	void displayDomains(int[][] domain, boolean toOutput, DomainStructureData dsd) {
+	void displayDomains(int[][] domain, boolean toOutput, DomainDefinitions dsd) {
 		String[] outputDomains = new String[domain.length];
 		for(int i = 0; i < domain.length; i++){
 			int[] row = domain[i];
@@ -1035,7 +1119,7 @@ public abstract class DomainDesigner extends CircDesigNASystemElement{
 		}
 		return out.toString();
 	}
-	private String displaySequence(DomainSequence sequence, int[][] domain, DomainStructureData dsd) {
+	private String displaySequence(DomainSequence sequence, int[][] domain, DomainDefinitions dsd) {
 		StringBuffer sb = new StringBuffer();
 		sb.append(sequence.toString(dsd));
 		

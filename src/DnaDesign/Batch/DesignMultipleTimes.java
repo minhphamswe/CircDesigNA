@@ -19,7 +19,7 @@ import DnaDesign.DesignerOptions;
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainDesigner_SharedUtils;
 import DnaDesign.DomainSequence;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.NAFolding;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.DomainDesigner.ScorePenalty;
@@ -62,8 +62,8 @@ public class DesignMultipleTimes {
 		CircDesigNAConfig config = new CircDesigNAConfig();
 
 		
-		DomainStructureData dsd = new DomainStructureData(config);
-		DomainStructureData.readDomainDefs(Domains, dsd);
+		DomainDefinitions dsd = new DomainDefinitions(config);
+		DomainDefinitions.readDomainDefs(Domains, dsd);
 		if (args.length==0){
 			new File(targetDir).mkdir();
 			System.out.println("Entering design mode");
@@ -135,12 +135,12 @@ public class DesignMultipleTimes {
 		}
 	}
 
-	private static void RunSelfEvaluation(File out2, String molecules, DomainStructureData dsd, DesignerOptions options) throws FileNotFoundException {
+	private static void RunSelfEvaluation(File out2, String molecules, DomainDefinitions dsd, DesignerOptions options) throws FileNotFoundException {
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		AbstractDomainDesignTarget target = new AbstractDomainDesignTarget(dsd, config);
 		{
 			for(String k : molecules.split("\n")){ //newlines have been sanitized
-				String[] u = k.split("\\s+");
+				String[] u = k.split("\\s+",2);
 				target.addTargetStructure(u[0], u[1]);
 			}
 		}
@@ -178,7 +178,7 @@ public class DesignMultipleTimes {
 
 	private static final int GS_MFEHyb = 0, GS_SS = GS_MFEHyb+1, GS_HP = GS_SS+1, GS_SF = GS_HP+1, GS_OTHER=GS_SF+1, GS_NUM=GS_OTHER+1;
 	
-	private static void GetSelfEvaluation(Scanner in, DomainStructureData dsd,
+	private static void GetSelfEvaluation(Scanner in, DomainDefinitions dsd,
 			List<ScorePenalty> listPenalties, int[][] domain,
 			int[][] nulldomainMark, String molecules) {
 		
@@ -218,7 +218,7 @@ public class DesignMultipleTimes {
 		
 	}
 
-	private static void outputRandomDesigns(DomainStructureData dsd) {
+	private static void outputRandomDesigns(DomainDefinitions dsd) {
 		for(int itr = 1; itr <= 100; itr++){
 			System.out.println("Iteration "+itr+" Score 0");
 			for(int i = 0; i < dsd.domainLengths.length; i++){
@@ -237,7 +237,7 @@ public class DesignMultipleTimes {
 	     "CACATCACCAATATA", "TCCTCCAATTAATTA", "TCAATCTTTTTCAAT", "TATCTTTCCAATCTA", "TCATTCTTCTCTTAT", "ACTACAATCTCAATA", "TCCTAACCAAAAATT", "TTTACCTTTTCAAAT", "CAACTACATTTTCTA", "TCATCTTATCTCTCT", "TCATTAAATCCATCT", "CATAATACCTTCCTA", "ACTACTTACATTTCA", "TCTTCAATCTACTTA", "TTTACCTCTCTAATC", "ATCTCTTTTCTTTTC", "CTCTTTCACAAAAAT", "AACAAAACAACAAAT", "ACAAAATCTCTTACA", "ACCATTTTTTCACTA", "CTTAATTCTCTCACT", "CTCTCCTCAAATATT", "ATCATCCACATATTT", "TTCCACACTAAAATT", "ACCATCATTTATCTT", "TCTCCTTATTCATTT", "TACCATACCAATTTT", "AAACCACCATAATTA", "TCCTAATCCTCTTAA", "TCCTACTCATAACTA", "CTCAACTTTCAAATT", "AACTTTACTATCCAT", "ATTCACCAAACTTTA", "TATACCATCTTTCAA", "TCCACTAATAAAACT", "CAATAATCCAACATT", "CTCTAATTTCTTCCT", "CACCTACATCAAATA", "AACAAACCATAACTA", "TCTACCTATTCACTA",  
 	};
 
-	private static void outputRationalDesign(DomainStructureData dsd) {
+	private static void outputRationalDesign(DomainDefinitions dsd) {
 		for(int i = 0; i < dsd.domainLengths.length; i++){
 			int len = dsd.domainLengths[i];
 			if (len > 15){
@@ -285,7 +285,7 @@ public class DesignMultipleTimes {
 		
 	}
 
-	public static void RunEvaluation(File out3, String molecules, DomainStructureData dsd, int maximumComplexSize, boolean goNupack) throws IOException {
+	public static void RunEvaluation(File out3, String molecules, DomainDefinitions dsd, int maximumComplexSize, boolean goNupack) throws IOException {
 		Scanner in = new Scanner(out3);
 		System.out.printf("%-20s%-20s","ITR","SCORE");
 		if (goNupack){
@@ -311,7 +311,7 @@ public class DesignMultipleTimes {
 	}
 	
 
-	private static double getDefectScore(Scanner in, DomainStructureData dsd, String molecules, int maximumComplexSize, ArrayList<TestMolecule> lastMoleculeParse) throws IOException {
+	private static double getDefectScore(Scanner in, DomainDefinitions dsd, String molecules, int maximumComplexSize, ArrayList<TestMolecule> lastMoleculeParse) throws IOException {
 		int[][] domains = new int[dsd.domainLengths.length][];
 		for(int i = 0; i < domains.length; i++){
 			domains[i] = new int[dsd.domainLengths[i]];
@@ -357,7 +357,7 @@ public class DesignMultipleTimes {
 		//Ok, nupack ran. Analyze!
 		return calculateDefectScoreFromNupackOutput(moleculeParse, dsd,"nupackTest/"+prefix);
 	}
-	private static ArrayList<TestMolecule> parseDnaDesignOutput(DomainStructureData dsd, Scanner in, String molecules, int[][] domains) {
+	private static ArrayList<TestMolecule> parseDnaDesignOutput(DomainDefinitions dsd, Scanner in, String molecules, int[][] domains) {
 			String[] molecule = new String[1];
 			StringBuffer seq = new StringBuffer();
 			while(in.hasNextLine()){
@@ -409,7 +409,7 @@ public class DesignMultipleTimes {
 	
 
 	private static double calculateDefectScoreFromNupackOutput(
-			ArrayList<TestMolecule> moleculeParse, DomainStructureData dsd,
+			ArrayList<TestMolecule> moleculeParse, DomainDefinitions dsd,
 			String filePrefix) throws FileNotFoundException {
 		LinkedList<TestComplex> complex = new LinkedList();
 		//Get concentrations
@@ -523,7 +523,7 @@ public class DesignMultipleTimes {
 		return TOTALSCORE;
 	}
 
-	private static void addMolecule(String[] molecule, DomainStructureData dsd, StringBuffer seq, int[][] domains) {
+	private static void addMolecule(String[] molecule, DomainDefinitions dsd, StringBuffer seq, int[][] domains) {
 		if (molecule[0]==null){
 			return;
 		}
@@ -541,7 +541,7 @@ public class DesignMultipleTimes {
 		molecule[0] = null;
 	}
 	private static class TestComplex{
-		public TestComplex(String domains, DomainStructureData dsd, String name){
+		public TestComplex(String domains, DomainDefinitions dsd, String name){
 			ds = new DomainSequence();
 			ds.setDomains(domains, dsd, null);
 			this.name = name;

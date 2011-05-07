@@ -12,7 +12,7 @@ import java.util.Scanner;
 import javax.swing.plaf.basic.BasicInternalFrameTitlePane.RestoreAction;
 
 import DnaDesign.DomainSequence;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.FoldingImpl;
 public class FoldingImplTest2 {
@@ -25,7 +25,7 @@ public class FoldingImplTest2 {
 		System.out.println("L1 S1 CA NU MF");
 		for(int i = 0; i < 4000; i++){
 			FoldingImpl fl = new FoldingImpl(config);
-			DomainStructureData dsd = new DomainStructureData(config);
+			DomainDefinitions dsd = new DomainDefinitions(config);
 			String seq = null;// "AAAAATTTTTTGGGGGGCCCCCCCC";
 			int seqLength;
 			if (seq==null){

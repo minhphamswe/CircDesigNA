@@ -20,8 +20,6 @@ import DnaDesign.Config.CircDesigNASystemElement;
  * sequence space.
  */
 public class DesignSequenceConstraints extends CircDesigNASystemElement{
-
-
 	//-1 means no upper bound
 	//Format: int[b0...bn-1, constraint]
 	//So, int[{1 in A,T position},-1] in minConstituents means no lower bound on A+T
@@ -173,15 +171,12 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 	/**
 	 * Tests whether a given flags are acceptable with a certain base.
 	 */
-	private boolean isAllowableBaseforFlags(int oldBase_flag, int testBase) {
-		//Make sure oldBase_flag is pure flag,
-		oldBase_flag -= Std.monomer.noFlags(oldBase_flag);
-		//Make sure testBase is pure base
-		testBase = Std.monomer.noFlags(testBase);
-		//If we are allowed to make this mutation, return true.
-		//Then, only G / C mutations valid.
+	private boolean isAllowableBaseforFlags(int constraintBase, int testBase) {
 		if (Std.isNAmode()){
-			return Std.monomer.allowBase(oldBase_flag,testBase);
+			//Make sure testBase is pure base
+			testBase = Std.monomer.noFlags(testBase);
+			//If we are allowed to make this mutation, return true.
+			return Std.monomer.allowBase(constraintBase,testBase);
 		}
 		return true;
 	}
@@ -432,6 +427,19 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 			count++;
 		}
 		return count;
+	}
+	public int getMutationNumberForNewBase(int[] mut_new, int j, int new_base){
+		new_base = Std.monomer.noFlags(new_base);
+		itr.reset(mut_new,j);
+		int count = 0;
+		while(itr.nextChoice()){
+			if (itr.getMutationBase()==new_base){
+				return count;
+			}
+			count++;
+		}
+		return -1;
+		
 	}
 	public void makeAvailableMutationNo(int choice, int[] mut_new, int j) {
 		itr.reset(mut_new,j);

@@ -9,7 +9,7 @@ import java.util.Arrays;
 
 import DnaDesign.AbstractDomainDesignTarget;
 import DnaDesign.DomainSequence;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.DomainDesignerImpl;
@@ -21,7 +21,7 @@ public class FoldingImplTest3 {
 		for(int i = 0; i < 1; i++){
 			FoldingImpl fl = new FoldingImpl(config);
 			DomainDesignerImpl impl = new DomainDesignerImpl(fl,config);
-			DomainStructureData dsd = new DomainStructureData(config);
+			DomainDefinitions dsd = new DomainDefinitions(config);
 			HairpinClosingTarget hairpin = new AbstractDomainDesignTarget(dsd,config).new HairpinClosingTarget(1,0,0|DomainSequence.DNA_COMPLEMENT_FLAG,2,true,null);
 			HairpinOpening hairpinOpening = impl.new HairpinOpening(hairpin, null);
 			DomainSequence seqS = new DomainSequence();

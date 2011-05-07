@@ -20,7 +20,7 @@ import java.util.List;
  * getNumBasesPaired: returns the number of paired bases in the last MFE calculated.
  * The above two methods are only allowed to be called after first calling Pairscore or foldSingleStranded.
  * 
- * AffectedSequenceInvalidScore: Some grab-bag for miscellaneous sequence constraints. Only the sequences in the provided list
+ * assaySynthesizability: Some grab-bag for miscellaneous sequence constraints. Only the sequences in the provided list
  * are analyzed. For example, penalties for unwanted sequences (GGGG and ATATAT) may be covered here.
  * This score is not required to be in any unit, it should be used as a nonrigorous design penalty. However, it should be
  * used, because many of the routines in this library use parameters derived from highly sequences with good G/C/A/T mixes. An
@@ -35,12 +35,11 @@ import java.util.List;
  */
 public interface NAFolding {
 	public double mfeHybridDeltaG(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] problemAreas);
-	public double affectedSequenceInvalidScore(int i, List<DomainSequence> seqs, int[][] domain, int[][] domain_markings);
 	public double mfeSSDeltaG(DomainSequence domainSequence, int[][] domain, int[][] domain_markings);
-	public int getLongestHelixLength();
-	public int getNumBasesPaired();
+	public double mfeNoDiagonalPairing(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings);
+	public double assaySynthesizability(int i, List<DomainSequence> seqs, int[][] domain, int[][] domain_markings);
+	public double helixDeltaG(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset);
+
 	public void pairPrHybrid(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain);
 	public void pairPrSS(double[][] pairsOut, DomainSequence seq1, int[][] domain);
-	public double helixDeltaG(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset);
-	public double mfeNoDiagonalPairing(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings);
 }

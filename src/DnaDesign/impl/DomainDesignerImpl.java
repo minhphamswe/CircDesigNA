@@ -11,7 +11,7 @@ import DnaDesign.DesignerOptions;
 import DnaDesign.DomainDesigner;
 import DnaDesign.DomainDesigner_SharedUtils;
 import DnaDesign.DomainSequence;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.NAFolding;
 import DnaDesign.AbstractDesigner.ParetoSort;
 import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
@@ -69,7 +69,8 @@ public class DomainDesignerImpl extends DomainDesigner{
 		this.flI = foldingImpl;
 	}
 
-	public class MFEHybridScore extends ScorePenalty { 
+	public class MFEHybridScore extends ScorePenalty {
+		//True for intermolecular interactions
 		private boolean entropicPenalty = false;
 		public MFEHybridScore(DomainSequence ds, DomainSequence ds2, DesignIntermediateReporter dir, boolean sameMolecule){
 			super(dir);
@@ -91,6 +92,9 @@ public class DomainDesignerImpl extends DomainDesigner{
 			//Compute the length of the longest helix found.
 			//normal = normal*Math.max(0,deltaG);
 			return Math.max(-deltaG,0);
+		}
+		public boolean isIntramolecular(){
+			return !entropicPenalty;
 		}
 		public DomainSequence[] getSeqs() {
 			return ds;
@@ -126,10 +130,11 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
+			//Prevent the score evaluator from marking bases in the "stem" region of this helix
 			if (markLeft==-1){
 				int start = 0;
 				int end = hairpin.stemAndOpening[0].length(domain);
-				if (hairpin.outside){
+				if (hairpin.outside){ //Differentiate depending on which direction the duplex opens towards
 					int middle = hairpin.stemAndOpening[0].length(domain)-hairpin.stemOnly[0].length(domain);
 					markLeft = 0;
 					markRight = middle;
@@ -170,8 +175,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 	}
 	
 	/**
-	 * TODO:
-	 * Calculate the Expected Minimum Free Energy for a random string of length N, and subtract that
+	 * Calculates the Expected Minimum Free Energy for a random string of length N, and subtract that
 	 * from this measure. Floor to zero to catch exceptional cases.
 	 */
 	public class SelfSimilarityScore extends ScorePenalty {
@@ -235,7 +239,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		public double evalScoreSub(int[][] domain, int[][] domain_markings) {
 			double sum = 0;
 			for(int i = 0; i < domain.length; i++){
-				sum += flI.affectedSequenceInvalidScore(i, seqs, domain, domain_markings);
+				sum += flI.assaySynthesizability(i, seqs, domain, domain_markings);
 			}
 			return sum;
 		}
@@ -400,7 +404,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 
 	public List<ScorePenalty> listPenalties(
 			AbstractDomainDesignTarget designTarget,
-			DesignIntermediateReporter DIR, int[][] domain2, DesignerOptions options, DomainStructureData dsd) {
+			DesignIntermediateReporter DIR, int[][] domain2, DesignerOptions options, DomainDefinitions dsd) {
 		
 		ArrayList<DomainSequence> rawStrands = designTarget.wholeStrands;
 		ArrayList<DomainSequence> makeSS = new ArrayList();
@@ -414,7 +418,14 @@ public class DomainDesignerImpl extends DomainDesigner{
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinClosings);
 		
 		List<ScorePenalty> allScores = new LinkedList<ScorePenalty>();
-		allScores.add(new VariousSequencePenalties(rawStrands,DIR));
+		//Only add this penalty if the system contains at least one base.
+		int totalBases = 0;
+		for(int[] row : domain2){
+			totalBases += row.length;
+		}
+		if (totalBases>0){
+			allScores.add(new VariousSequencePenalties(rawStrands,DIR));	
+		}
 		
 		ArrayList<MFEHybridScore> hybridScorings = new ArrayList<MFEHybridScore>();
 		for(int i = 0; i < makeSS.size(); i++){

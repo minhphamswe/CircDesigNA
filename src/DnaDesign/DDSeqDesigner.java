@@ -6,6 +6,7 @@ package DnaDesign;
  * about its state.
  * 
  * This API is used by the graphic user interface to display the real-time state of the designer.
+ * It also provides interactivity, such as abort, resume, pause, etc.
  */
 public interface DDSeqDesigner<T extends DesignerOptions> {
 	public interface SeqDesignerOption{
@@ -73,4 +74,13 @@ public interface DDSeqDesigner<T extends DesignerOptions> {
 	 * Stops in all cases; cannot be resumed; cleanup occurs immediately.
 	 */
 	public void abort();
+	/**
+	 * resumes / starts the runner, and pauses it after one iteration has completed.
+	 * The current iteration can be gotten with getIterationCount() 
+	 */
+	public void runIteration();
+	/**
+	 * Returns the current score breakdown.
+	 */
+	public DesignScoreBreakdown getScoreBreakdown();
 }

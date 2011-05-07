@@ -9,6 +9,10 @@ import DnaDesign.AbstractPolymer.RnaDefinition;
 import DnaDesign.impl.CodonCode;
 import DnaDesign.impl.SequenceCode;
 
+/**
+ * A configuration class, a reference to an instance of this class is passed
+ * around to all CircDesigNASystemElement -s
+ */
 public class CircDesigNAConfig {
 	public static final int DNA_MODE = 0, RNA_MODE = DNA_MODE+1;
 	private int current_mode = DNA_MODE;

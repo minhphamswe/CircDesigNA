@@ -8,7 +8,7 @@ import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 import java.util.Arrays;
 
 import DnaDesign.DomainSequence;
-import DnaDesign.DomainStructureData;
+import DnaDesign.DomainDefinitions;
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.DomainDesignerImpl;
 import DnaDesign.impl.FoldingImpl;
@@ -19,7 +19,7 @@ public class FoldingImplTest1 {
 		for(int i = 0; i < 1; i++){
 			FoldingImpl fl = new FoldingImpl(config);
 			DomainSequence seqS = new DomainSequence();
-			DomainStructureData dsd = new DomainStructureData(config);
+			DomainDefinitions dsd = new DomainDefinitions(config);
 			seqS.setDomains(0, null);
 			int[][] domain = new int[1][];
 			String seq = "GTGATAGACAC";

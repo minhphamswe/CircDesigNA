@@ -1,5 +1,7 @@
 package DnaDesign;
 
+import static DnaDesign.AbstractPolymer.DnaDefinition.C;
+import static DnaDesign.AbstractPolymer.DnaDefinition.G;
 import static DnaDesign.DomainSequence.DNA_COMPLEMENT_FLAG;
 import static DnaDesign.DomainSequence.DNA_SEQ_FLAGSINVERSE;
 
@@ -12,10 +14,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
+import DnaDesign.DomainDesigner.ScorePenalty;
 import DnaDesign.DomainStructureBNFTree.DomainStructure;
 import DnaDesign.DomainStructureBNFTree.HairpinStem;
 import DnaDesign.DomainStructureBNFTree.SingleStranded;
 import DnaDesign.DomainStructureBNFTree.ThreePFivePOpenJunc;
+import DnaDesign.impl.DomainDesignerImpl.HairpinOpening;
+import DnaDesign.impl.DomainDesignerImpl.MFEHybridScore;
+import DnaDesign.impl.DomainDesignerImpl.SelfFold;
+import DnaDesign.impl.DomainDesignerImpl.SelfSimilarityScore;
 
 /**
  * Utilities for 
@@ -39,7 +46,7 @@ public class DomainDesigner_SharedUtils {
 	}
 	*/
 
-	public static int[] utilReadSequence(String toJunctionize, DomainStructureData dsd) {
+	public static int[] utilReadSequence(String toJunctionize, DomainDefinitions dsd) {
 		toJunctionize = toJunctionize.replace("(","").replace(")","").replace(".","");
 		toJunctionize = toJunctionize.replaceAll("[\\[}]","|").replaceAll("\\s+","");
 		toJunctionize = toJunctionize.replaceAll("[|]+","|");
@@ -50,19 +57,27 @@ public class DomainDesigner_SharedUtils {
 			toJunctionize = toJunctionize.substring(1);
 		}
 		String[] commands = toJunctionize.split("[|]");
-		int[] bases = new int[commands.length];
+		ArrayList<Integer> bases = new ArrayList();
 		Pattern c = Pattern.compile("[^\\w|*]");
-		for(int i = 0; i < bases.length; i++){
+		for(int i = 0; i < commands.length; i++){
 			Matcher matcher = c.matcher(commands[i]);
 			commands[i] = matcher.replaceAll("");
+			int newBase = 0;
 			if (commands[i].charAt(commands[i].length()-1)=='*'){
-				bases[i] = dsd.nameMap.get(commands[i].substring(0,commands[i].length()-1));
-				bases[i] |= DNA_COMPLEMENT_FLAG;
+				newBase = dsd.lookupDomainName(commands[i].substring(0,commands[i].length()-1));
+				newBase |= DNA_COMPLEMENT_FLAG;
 			} else {
-				bases[i] = dsd.nameMap.get(commands[i]);
+				newBase = dsd.lookupDomainName(commands[i]);
+			}
+			if (newBase >= 0){
+				bases.add(newBase);
 			}
 		}
-		return bases;
+		int[] bases2 = new int[bases.size()];
+		for(int k = 0; k < bases.size(); k++){
+			bases2[k] = bases.get(k);
+		}
+		return bases2;
 	}
 
 
@@ -145,79 +160,6 @@ public class DomainDesigner_SharedUtils {
 		}
 	}
 
-	/**
-	 * (first 2 bases of hairpinLoops[0]) against (last 2 bases of hairpinLoops[1])
-	 * */
-	public static void utilHairpinClosingFinder(DomainStructureBNFTree dsd, ArrayList<DomainSequence[]> hairpins) {
-		DomainStructure[] dsH = new DomainStructure[3];
-		for(int i = 0; i < dsd.structures.length; i++){
-			//Cyclic rotate in current structure. In other words, sliding window of length 3.
-			//Current pointer is [1].
-			dsH[2] = dsd.structures[i];
-			for(int k = 0; k < 2; k++){
-				dsH[k] = dsH[k+1]; 
-			}
-			if (i+1 < dsd.structures.length){
-				dsH[2] = dsd.structures[i+1];
-			}
-			
-			utilHairpinClosingFinder_R(dsd,dsH,hairpins);
-			//From now on, put in last.
-		}
-		//Get the last in there.
-		if (dsd.structures.length>1){
-			utilHairpinClosingFinder_R(dsd,dsH,hairpins);
-		}
-	}
-	private static void utilHairpinClosingFinder_R(DomainStructureBNFTree dsd,
-			DomainStructure ds[], ArrayList<DomainSequence[]> hairpins) {
-		if (ds[1].subStructure.isEmpty()){
-			return;
-		}
-		if (ds[1] instanceof HairpinStem){
-			//null instanceof is always false
-			if (ds[0] instanceof SingleStranded && ds[2] instanceof SingleStranded){
-				//Surrounded by singles - add score.
-				//System.out.println("Found hairpin opening score");
-				addHairpinLoopOpening(ds[2],ds[0],hairpins,dsd);
-			}
-			boolean isBroken = false;
-			DomainStructure[] dsH = new DomainStructure[3];
-			for(int i = 0; i < ds[1].subStructure.size(); i++){
-				//Slding window of length 3, current index is [1].
-				DomainStructure g = dsH[2] = ds[1].subStructure.get(i);
-				for(int k = 0; k < 2; k++){
-					dsH[k] = dsH[k+1];
-				}
-				if (i+1 < ds[1].subStructure.size()){
-					dsH[2] = ds[1].subStructure.get(i+1);
-				}
-				if (g instanceof ThreePFivePOpenJunc){
-					isBroken = true;
-				}
-				if (g instanceof HairpinStem){
-					utilHairpinClosingFinder_R(dsd,dsH,hairpins);
-				}
-			}
-			if (!isBroken){
-				DomainStructure left = ds[1].subStructure.get(0);
-				DomainStructure right = ds[1].subStructure.get(ds[1].subStructure.size()-1);
-				if (left instanceof SingleStranded && right instanceof SingleStranded){
-					//System.out.println("Found hairpin loop score");
-					addHairpinLoopOpening(left,right,hairpins,dsd);
-				}
-			}
-		}
-	}
-
-	private static void addHairpinLoopOpening(DomainStructure left,
-			DomainStructure right, ArrayList<DomainSequence[]> hairpins, DomainStructureBNFTree dsd) {
-		DomainSequence leftS = new DomainSequence();
-		DomainSequence rightS = new DomainSequence();
-		leftS.setDomains(left,dsd);
-		rightS.setDomains(right,dsd);
-		hairpins.add(new DomainSequence[]{leftS,rightS});
-	}
 	
 	public static boolean checkComplementary(DomainSequence a, DomainSequence b){
 		for(int k = 0; k < a.numDomains; k++){
@@ -234,39 +176,6 @@ public class DomainDesigner_SharedUtils {
 		return false;
 	}
 
-	public static void utilHairpinInternalsFinder(DomainStructureBNFTree dsd, ArrayList<DomainSequence> hairpinInnards) {
-		for(DomainStructure ds : dsd.structures){
-			utilHairpinInternalsFinder_R(dsd,ds,hairpinInnards);
-		}
-	}
-	private static void utilHairpinInternalsFinder_R(DomainStructureBNFTree dsd, DomainStructure ds, ArrayList<DomainSequence> hairpinInnards) {
-		if (ds instanceof HairpinStem){
-			DomainStructure bottomStem = null;
-			ArrayList<Integer> left = new ArrayList();
-			ArrayList<Integer> right = new ArrayList();
-			DomainStructure substem = ds;
-			while(true){
-				if (substem==null || !(substem instanceof HairpinStem)){
-					bottomStem = substem;
-					break;
-				} else {
-					HairpinStem ss = ((HairpinStem)substem);
-					left.add(dsd.domains[ss.sequencePartsInvolved[0]]); //5'-3'
-					right.add(0,dsd.domains[ss.sequencePartsInvolved[1]]); //5'-3'
-					substem = ss.subStructure.get(0);
-				}
-			}
-			DomainSequence leftS = new DomainSequence();leftS.setDomains(left,dsd);
-			DomainSequence rightS = new DomainSequence();rightS.setDomains(right,dsd);
-			hairpinInnards.add(leftS);
-			hairpinInnards.add(rightS);
-			utilHairpinInternalsFinder_R(dsd,bottomStem,hairpinInnards);
-		} else {
-			for(DomainStructure ds2 : ds.subStructure){
-				utilHairpinInternalsFinder_R(dsd,ds2,hairpinInnards);
-			}
-		}
-	}
 
 	/**
 	 * Finds domain sequences that are in danger of forming secondary structure.
@@ -324,7 +233,7 @@ public class DomainDesigner_SharedUtils {
 	 */
 	public static String[] duplicateSystem(String domainDef, String molecul) {
 		String[] toRet = new String[2];
-		String LN = System.getProperty("line.separator");
+		String LN = "\n";//System.getProperty("line.separator");
 		//First the domainDefs
 		int whichV = 0;
 		StringBuffer out;
@@ -390,7 +299,7 @@ public class DomainDesigner_SharedUtils {
 				if (line.length()==0){
 					continue;
 				}
-				String[] linefake = line.split("\\s+");
+				String[] linefake = line.split("\\s+",2);
 				if (linefake[0].endsWith("v"+whichV) || whichV == 1){
 					//Translate this guy!
 					int subLen = ("v"+whichV).length();
@@ -519,8 +428,7 @@ public class DomainDesigner_SharedUtils {
 	}
 
 	/**
-	 * Returns domainsequences which are paired in some molecule. This is, in a way, complementary to the "find singleStranded" function
-	 * but it does not have the same complexity of "close" domains (only strictly adjacent on a single strand are considered)
+	 * Finds hairpin stems. Not extraordinarily useful.
 	 */
 	public static void utilHairpinInternalsFinder(DomainPolymerGraph dsg, ArrayList<DomainSequence> hairpinInnards) {
 		ArrayList<Integer> runningHairpin = new ArrayList();
@@ -553,24 +461,32 @@ public class DomainDesigner_SharedUtils {
 			if (pair >= 0 && pair < k){ //only care about hairpin closing-domains
 				int pairDomain = dsg.getDomain(pair);
 				if (pair > 0 && (k+1)<dsg.length()){
-					//Ok, can (pair-1) and (k+1) pair?
-					if (canPair(dsg,pair-1) && canPair(dsg,k+1)){
-						hairpinLoops.add(target.new HairpinClosingTarget(dsg.getDomain(pair-1),
-																	pairDomain,
-																	domain,
-																	dsg.getDomain(k+1),
-																	true,dsg));
+					//Are both neighbors valid domains?
+					if (dsg.getDomain(pair-1)>=0 && dsg.getDomain(k+1) >= 0){
+						//Ok, can (pair-1) or (k+1) pair?
+						if (canPair(dsg,pair-1) || canPair(dsg,k+1)
+								&& !areComplementary(dsg.getDomain(pair-1),dsg.getDomain(k+1))){
+							hairpinLoops.add(target.new HairpinClosingTarget(dsg.getDomain(pair-1),
+									pairDomain,
+									domain,
+									dsg.getDomain(k+1),
+									true,dsg));
+						}
 					}
 				}
 				if (k > 0 && (pair+1)<dsg.length()){
-					//How about the "inside": (pair+1) and (k-1).
-					if (canPair(dsg,pair+1) && canPair(dsg,k-1)){
-						hairpinLoops.add(target.new HairpinClosingTarget(
-								pairDomain,
-								dsg.getDomain(pair+1),
-								dsg.getDomain(k-1),
-								domain,
-								false,dsg));
+					//Are both neighbors valid domains?
+					if (dsg.getDomain(pair+1)>=0 && dsg.getDomain(k-1) >= 0){
+						//How about the "inside": (pair+1) or (k-1).
+						if (canPair(dsg,pair+1) || canPair(dsg,k-1)
+								&& !areComplementary(dsg.getDomain(pair+1),dsg.getDomain(k-1))){
+							hairpinLoops.add(target.new HairpinClosingTarget(
+									pairDomain,
+									dsg.getDomain(pair+1),
+									dsg.getDomain(k-1),
+									domain,
+									false,dsg));
+						}
 					}
 				}
 			}
@@ -655,5 +571,42 @@ public class DomainDesigner_SharedUtils {
 			toAdd.setDomains(domain1, dsg);
 			singleDomains.add(toAdd);
 		}
+	}
+	
+	public static DesignScoreBreakdown getScoreBreakdown(int[][] domain, AbstractDomainDesignTarget designTarget, List<ScorePenalty> penalties) {
+		DesignScoreBreakdown toRet = new DesignScoreBreakdown();
+
+		toRet.breathingHelixes = 0;
+		for(int i = 0; i < domain.length; i++){
+			if (domain[i].length==0){
+				continue;
+			}
+			for(int termbase : new int[]{domain[i][0], domain[i][domain[i].length-1]}){
+				switch(designTarget.Std.monomer.noFlags(termbase)){
+				case G: case C:
+					break;
+				default:
+					toRet.breathingHelixes++;
+				}
+			}
+		}
+		
+		toRet.crossInteractionsOnly = 0;
+		toRet.netScore = 0;
+		toRet.selfFoldOnly = 0;
+		toRet.selfSimilarity = 0;
+		for(ScorePenalty p : penalties){
+			if (p instanceof MFEHybridScore || p instanceof HairpinOpening){
+				toRet.crossInteractionsOnly += p.old_score;
+			} else
+			if (p instanceof SelfFold){
+				toRet.selfFoldOnly += p.old_score;
+			} else
+			if (p instanceof SelfSimilarityScore){
+				toRet.selfSimilarity += p.old_score;
+			}
+			toRet.netScore += p.old_score;
+		}
+		return toRet;
 	}
 }
