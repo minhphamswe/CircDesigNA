@@ -1,23 +1,17 @@
 package DnaDesign.test;
 
-import static DnaDesign.AbstractPolymer.DnaDefinition.A;
-import static DnaDesign.AbstractPolymer.DnaDefinition.C;
-import static DnaDesign.AbstractPolymer.DnaDefinition.G;
-import static DnaDesign.AbstractPolymer.DnaDefinition.T;
-
 import java.util.Arrays;
 
-import DnaDesign.DomainSequence;
-import DnaDesign.DomainDefinitions;
+import circdesigna.energy.CircDesigNAMCSFolder;
+
 import DnaDesign.Config.CircDesigNAConfig;
-import DnaDesign.impl.DomainDesignerImpl;
-import DnaDesign.impl.FoldingImpl;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainSequence;
 public class FoldingImplTest1 {
 	public static void main(String[] args){
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		config.setMode(CircDesigNAConfig.RNA_MODE);
 		for(int i = 0; i < 1; i++){
-			FoldingImpl fl = new FoldingImpl(config);
 			DomainSequence seqS = new DomainSequence();
 			DomainDefinitions dsd = new DomainDefinitions(config);
 			seqS.setDomains(0, null);
@@ -41,7 +35,8 @@ public class FoldingImplTest1 {
 				}
 			}
 			for(int k = 0; k < domainMark.length; k++)Arrays.fill(domainMark[k],0);
-			final double viaMatrix = fl.foldSingleStranded_viaMatrix(seqS, domain, domainMark);
+			CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
+			final double viaMatrix = fl.mfe(seqS, domain, domainMark);
 			System.out.println(Arrays.deepToString(domainMark));
 			System.out.println(viaMatrix);
 			for(int k = 0; k < domainMark.length; k++)Arrays.fill(domainMark[k],0);

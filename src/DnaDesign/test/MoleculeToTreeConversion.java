@@ -4,10 +4,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Scanner;
 
-import DnaDesign.AbstractComplex;
-import DnaDesign.DomainPolymerGraph;
-import DnaDesign.DomainStructureBNFTree;
-import DnaDesign.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.AbstractComplex;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainPolymerGraph;
+import edu.utexas.cssb.circdesigna.DomainStructureBNFTree;
+
 import DnaDesign.Config.CircDesigNAConfig;
 
 public class MoleculeToTreeConversion {
@@ -60,20 +61,20 @@ public class MoleculeToTreeConversion {
 			switch(structureForm){
 			case BNF:
 				dsg = new DomainStructureBNFTree(dsd);
-				DomainStructureBNFTree.readStructure("A",mol,(DomainStructureBNFTree) dsg);
+				DomainStructureBNFTree.readStructure("A "+mol,(DomainStructureBNFTree) dsg);
 				list.add(dsg);
 				break;
 			case GRAPH:
 				dsg = new DomainPolymerGraph(dsd);
-				DomainPolymerGraph.readStructure("A",mol,(DomainPolymerGraph)dsg);
+				DomainPolymerGraph.readStructure("A "+mol,(DomainPolymerGraph)dsg);
 				list.add(dsg);
 				break;
 			case BOTH:
 				dsg = new DomainStructureBNFTree(dsd);
-				DomainStructureBNFTree.readStructure("A",mol,(DomainStructureBNFTree) dsg);
+				DomainStructureBNFTree.readStructure("A "+mol,(DomainStructureBNFTree) dsg);
 				list.add(dsg);
 				dsg = new DomainPolymerGraph(dsd);
-				DomainPolymerGraph.readStructure("A",mol,(DomainPolymerGraph)dsg);
+				DomainPolymerGraph.readStructure("A "+mol,(DomainPolymerGraph)dsg);
 				list.add(dsg);
 			}
 		}

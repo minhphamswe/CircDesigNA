@@ -12,25 +12,27 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.TreeMap;
 
-import DnaDesign.AbstractDomainDesignTarget;
-import DnaDesign.DDSeqDesigner;
-import DnaDesign.DesignIntermediateReporter;
-import DnaDesign.DesignerOptions;
-import DnaDesign.DomainDesigner;
-import DnaDesign.DomainDesigner_SharedUtils;
-import DnaDesign.DomainSequence;
-import DnaDesign.DomainDefinitions;
-import DnaDesign.NAFolding;
+import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.NAFolding;
+
+import edu.utexas.cssb.circdesigna.AbstractDomainDesignTarget;
+import edu.utexas.cssb.circdesigna.SequenceDesigner;
+import edu.utexas.cssb.circdesigna.DesignIntermediateReporter;
+import edu.utexas.cssb.circdesigna.CircDesigNAOptions;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainDesigner_SharedUtils;
+import edu.utexas.cssb.circdesigna.DomainSequence;
+import edu.utexas.cssb.circdesigna.DomainDesigner.ScorePenalty;
+
 import DnaDesign.Config.CircDesigNAConfig;
-import DnaDesign.DomainDesigner.ScorePenalty;
 import DnaDesign.impl.DomainDesignerImpl;
-import DnaDesign.impl.FoldingImpl;
 import DnaDesign.impl.DomainDesignerImpl.HairpinOpening;
 import DnaDesign.impl.DomainDesignerImpl.MFEHybridScore;
 import DnaDesign.impl.DomainDesignerImpl.SelfFold;
 import DnaDesign.impl.DomainDesignerImpl.SelfSimilarityScore;
 import DnaDesign.impl.DomainDesignerImpl.VariousSequencePenalties;
-import DnaDesign.test.RunNupackTool;
+import DnaDesign.plugins.RunNupackTool;
 
 public class DesignMultipleTimes {
 	/**
@@ -68,8 +70,9 @@ public class DesignMultipleTimes {
 			new File(targetDir).mkdir();
 			System.out.println("Entering design mode");
 			for(int i = 1; i <= numTimesToRun; i++){
-				DDSeqDesigner<DesignerOptions> defaultDesigner = DomainDesigner.getDefaultDesigner(Molecules, Domains, config);
-				DesignerOptions options = defaultDesigner.getOptions();
+				SequenceDesigner<CircDesigNAOptions> defaultDesigner = DomainDesigner.getDefaultDesigner(Molecules, Domains, config);
+				CircDesigNAOptions options = defaultDesigner.getOptions();
+				options.rule_ccend_option.setState(false);
 				options.population_size.setState(popSize);
 				options.selfSimilarityPenalty.setState(selfSimilarOpt);
 				options.resourcePerMember.setState(tournamentInterval);
@@ -115,7 +118,7 @@ public class DesignMultipleTimes {
 					}
 				}
 			} else if (args[0].equals("-evaluate_self")){
-				DesignerOptions options = DesignerOptions.getDefaultOptions();
+				CircDesigNAOptions options = CircDesigNAOptions.getDefaultOptions();
 				options.selfSimilarityPenalty.setState(selfSimilarOpt);
 				
 				for(int i = 1; i <= numTimesToRun; i++){
@@ -135,16 +138,15 @@ public class DesignMultipleTimes {
 		}
 	}
 
-	private static void RunSelfEvaluation(File out2, String molecules, DomainDefinitions dsd, DesignerOptions options) throws FileNotFoundException {
+	private static void RunSelfEvaluation(File out2, String molecules, DomainDefinitions dsd, CircDesigNAOptions options) throws FileNotFoundException {
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		AbstractDomainDesignTarget target = new AbstractDomainDesignTarget(dsd, config);
 		{
 			for(String k : molecules.split("\n")){ //newlines have been sanitized
-				String[] u = k.split("\\s+",2);
-				target.addTargetStructure(u[0], u[1]);
+				target.addTargetStructure(k);
 			}
 		}
-		NAFolding fli = new FoldingImpl(config);
+		NAFolding fli = new CircDesigNAMCSFolder(config);
 		DomainDesignerImpl ddi = new DomainDesignerImpl(fli,config);
 		DesignIntermediateReporter DIR = new DesignIntermediateReporter();
 		
@@ -256,7 +258,7 @@ public class DesignMultipleTimes {
 	}
 	
 	private static void designUsingCircDesigNA(
-			DDSeqDesigner<DesignerOptions> defaultDesigner, double numSecondsEach) {
+			SequenceDesigner<CircDesigNAOptions> defaultDesigner, double numSecondsEach) {
 		long diff = 0;
 		defaultDesigner.resume();
 		long now = System.nanoTime();
@@ -380,7 +382,7 @@ public class DesignMultipleTimes {
 			ArrayList<DomainSequence> alreadyPrintedSequences = new ArrayList();
 			ArrayList<TestMolecule> moleculeParse = new ArrayList();
 			for(String q : molecules.split("\n")){
-				String[] a = q.split("\\s+");
+				String[] a = q.split("\\s+",2);
 				int ct = 0;
 				splitLoop: for(String subStrand : a[1].split("}")){
 					DomainSequence ds = new DomainSequence();

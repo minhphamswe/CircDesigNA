@@ -7,19 +7,21 @@ import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 
 import java.util.Arrays;
 
-import DnaDesign.AbstractDomainDesignTarget;
-import DnaDesign.DomainSequence;
-import DnaDesign.DomainDefinitions;
-import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
+import circdesigna.energy.CircDesigNAMCSFolder;
+
+import edu.utexas.cssb.circdesigna.AbstractDomainDesignTarget;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainSequence;
+import edu.utexas.cssb.circdesigna.AbstractDomainDesignTarget.HairpinClosingTarget;
+
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.DomainDesignerImpl;
-import DnaDesign.impl.FoldingImpl;
 import DnaDesign.impl.DomainDesignerImpl.HairpinOpening;
 public class FoldingImplTest3 {
 	public static void main(String[] args){
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		for(int i = 0; i < 1; i++){
-			FoldingImpl fl = new FoldingImpl(config);
+			CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
 			DomainDesignerImpl impl = new DomainDesignerImpl(fl,config);
 			DomainDefinitions dsd = new DomainDefinitions(config);
 			HairpinClosingTarget hairpin = new AbstractDomainDesignTarget(dsd,config).new HairpinClosingTarget(1,0,0|DomainSequence.DNA_COMPLEMENT_FLAG,2,true,null);

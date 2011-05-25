@@ -1,15 +1,16 @@
 package DnaDesign.impl;
 
-import static DnaDesign.DomainDesigner.int_urn;
-import static DnaDesign.DomainSequence.DNAMARKER_DONTMUTATE;
+import static edu.utexas.cssb.circdesigna.DomainDesigner.int_urn;
+import static edu.utexas.cssb.circdesigna.DomainSequence.DNAMARKER_DONTMUTATE;
 
 import java.util.Arrays;
 
-import DnaDesign.DesignerCode;
-import DnaDesign.DomainDesigner;
-import DnaDesign.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DesignerCode;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainDesigner.ScorePenalty;
+
 import DnaDesign.AbstractDesigner.SingleMemberDesigner;
-import DnaDesign.DomainDesigner.ScorePenalty;
 
 /**
  * Implementation of BlockDesigner

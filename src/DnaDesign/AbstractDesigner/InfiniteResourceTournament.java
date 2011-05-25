@@ -3,7 +3,8 @@ package DnaDesign.AbstractDesigner;
 import java.util.Iterator;
 import java.util.TreeSet;
 
-import DnaDesign.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
+
 
 /**
  * Implementation of an infinite resource tournament designer, where each member is allowed
@@ -15,7 +16,6 @@ import DnaDesign.DomainDesigner;
  * "block iteration". This focuses more resources on those that are having the most difficulty improving.
  * 
  * @author Benjamin
- *
  */
 public class InfiniteResourceTournament <T extends PopulationDesignMember<T>>  extends TournamentDesigner <T> {
 	public InfiniteResourceTournament(SingleMemberDesigner<T> SingleDesigner) {

@@ -2,7 +2,8 @@ package DnaDesign.AbstractDesigner;
 
 import java.util.TreeMap;
 
-import DnaDesign.DomainDesigner.ScorePenalty;
+import edu.utexas.cssb.circdesigna.DomainDesigner.ScorePenalty;
+
 import DnaDesign.impl.DomainDesignPMemberImpl;
 
 public abstract class TournamentDesigner <T extends PopulationDesignMember<T>>  extends BlockDesigner <T> {

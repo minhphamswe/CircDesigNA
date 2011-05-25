@@ -8,7 +8,6 @@ public abstract class ParetoSort <T extends PopulationDesignMember<T>>{
 	
 	/**
 	 * Forms at most fnum pareto fronts. Adds penalty * (fi-1) to each item, where fi is its pareto ranking, fi <= fnum.
-	 * 
 	 */
 	public void adjustFitness(FitnessPopulationDesignMember<T>[] in, int s, int e, double penalty, int fnum){
 		if (dominatedMat==null || dominatedMat.length < in.length){

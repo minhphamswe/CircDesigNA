@@ -1,7 +1,7 @@
 package DnaDesign.impl;
 
-import DnaDesign.DesignSequenceConstraints;
-import DnaDesign.DesignerCode;
+import edu.utexas.cssb.circdesigna.DesignSequenceConstraints;
+import edu.utexas.cssb.circdesigna.DesignerCode;
 
 public class SequenceCode implements DesignerCode{
 	private DesignSequenceConstraints dsc;
@@ -14,7 +14,7 @@ public class SequenceCode implements DesignerCode{
 		int[] mut_new = domain[mut_domain];
 		int index = dsc.getMutationNumberForNewBase(mut_new, j, newbase);
 		if (index >= 0){
-			dsc.makeAvailableMutationNo(index, mut_new, j);
+			dsc.makeAvailableMutation(index, mut_new, j);
 			return true;
 		}
 		return false;
@@ -33,7 +33,7 @@ public class SequenceCode implements DesignerCode{
 			return false;
 		}
 		int choice = (int) (Math.random()*(choices));
-		dsc.makeAvailableMutationNo(choice,mut_new,j);
+		dsc.makeAvailableMutation(choice,mut_new,j);
 		return true;
 		
 		/*

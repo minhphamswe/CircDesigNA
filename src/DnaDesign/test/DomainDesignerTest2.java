@@ -7,11 +7,12 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Scanner;
 
-import DnaDesign.DDSeqDesigner;
-import DnaDesign.DesignScoreBreakdown;
-import DnaDesign.DesignerOptions;
-import DnaDesign.DomainDesigner;
-import DnaDesign.DomainDesigner_SharedUtils;
+import edu.utexas.cssb.circdesigna.SequenceDesigner;
+import edu.utexas.cssb.circdesigna.DesignScoreBreakdown;
+import edu.utexas.cssb.circdesigna.CircDesigNAOptions;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainDesigner_SharedUtils;
+
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.DomainDesignerImpl;
 
@@ -43,8 +44,8 @@ public class DomainDesignerTest2 {
 		//runTest(inFile+"Transducer.txt",outFile+"Transducer.txt", false);
 		System.out.println("WARNING!");
 		runTest(inFile+"8000kb.txt",outFile+"8000kb.txt", false);
-		DomainDesigner.ENABLE_MARKINGS = false;
-		runTest(inFile+"8000kb.txt",outFile+"8000kb-NoMarkings.txt", false);
+		//DomainDesigner.ENABLE_MARKINGS = false;
+		//runTest(inFile+"8000kb.txt",outFile+"8000kb-NoMarkings.txt", false);
 		//runTest(inFile+"Transducer.txt",outFile+"Transducer-NoMarkings.txt", false);
 		//runTest(inFile+"TwoWayJoin.txt",outFile+"TwoWayJoin.txt");
 	}
@@ -157,8 +158,8 @@ public class DomainDesignerTest2 {
 		//Run the system.
 		for(int kp = startRunNumber; kp < p; kp++){
 			CircDesigNAConfig Std = new CircDesigNAConfig();
-			DDSeqDesigner<DesignerOptions> dd = DomainDesigner.getDefaultDesigner(moleculeDefs, domainDefs, Std);
-			DesignerOptions options = dd.getOptions();
+			SequenceDesigner<CircDesigNAOptions> dd = DomainDesigner.getDefaultDesigner(moleculeDefs, domainDefs, Std);
+			CircDesigNAOptions options = dd.getOptions();
 			
 			do {
 				dd.runIteration();

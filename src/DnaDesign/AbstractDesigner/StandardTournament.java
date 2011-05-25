@@ -1,6 +1,6 @@
 package DnaDesign.AbstractDesigner;
 
-import DnaDesign.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
 
 /**
  * Implementation of an standard tournament designer, where each member is allowed

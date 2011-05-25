@@ -1,9 +1,10 @@
 package DnaDesign.AbstractDesigner;
 
-import java.util.Comparator;
 
+/**
+ * Self documenting class name!
+ */
 public class FitnessPopulationDesignMember <T extends PopulationDesignMember<T>> implements Comparable <FitnessPopulationDesignMember<T>>{
-
 	public T myKey;
 	public double myScore;
 	public int compareTo(FitnessPopulationDesignMember<T> o) {

@@ -3,11 +3,12 @@ package DnaDesign.test;
 import java.util.ArrayList;
 import java.util.Scanner;
 
-import DnaDesign.DomainDesigner_SharedUtils;
-import DnaDesign.DomainPolymerGraph;
-import DnaDesign.DomainSequence;
-import DnaDesign.DomainStructureBNFTree;
-import DnaDesign.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainDesigner_SharedUtils;
+import edu.utexas.cssb.circdesigna.DomainPolymerGraph;
+import edu.utexas.cssb.circdesigna.DomainSequence;
+import edu.utexas.cssb.circdesigna.DomainStructureBNFTree;
+
 import DnaDesign.Config.CircDesigNAConfig;
 
 /**
@@ -49,9 +50,9 @@ public class MoleculeRepresentationTest {
 
 	private static void testSharedUtils(DomainDefinitions dsd, String mol) {
 		DomainStructureBNFTree dsg1 = new DomainStructureBNFTree(dsd);
-		DomainStructureBNFTree.readStructure("A", mol, dsg1);
+		DomainStructureBNFTree.readStructure("A "+mol, dsg1);
 		DomainPolymerGraph dsg2 = new DomainPolymerGraph(dsd);
-		DomainPolymerGraph.readStructure("A", mol, dsg2);
+		DomainPolymerGraph.readStructure("A "+ mol, dsg2);
 		int k = 1;
 		{
 			System.out.println("TEST"+k+++" : SINGLE STRANDED");

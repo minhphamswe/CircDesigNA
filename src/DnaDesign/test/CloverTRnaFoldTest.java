@@ -1,11 +1,11 @@
 package DnaDesign.test;
 
-import DnaDesign.DomainDesigner;
-import DnaDesign.DomainSequence;
-import DnaDesign.DomainDefinitions;
-import DnaDesign.NAFolding;
+import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.NAFolding;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainSequence;
 import DnaDesign.Config.CircDesigNAConfig;
-import DnaDesign.impl.FoldingImpl;
 
 public class CloverTRnaFoldTest {
 	//The following sequence should fold into a clover.
@@ -14,7 +14,7 @@ public class CloverTRnaFoldTest {
 	//1-4x
 	public static void main(String[] args){
 		CircDesigNAConfig config = new CircDesigNAConfig();
-		NAFolding na = new FoldingImpl(config);
+		NAFolding na = new CircDesigNAMCSFolder(config);
 		String seq = "AAATGGCCAAACAGGCCGGCGCCGAACGCCCGGGAGCAGCCCGATTT";
 		int[][] domain = new int[1][seq.length()];
 		int[][] domainMark= new int[1][seq.length()];
@@ -24,6 +24,6 @@ public class CloverTRnaFoldTest {
 		DomainDefinitions dsd = new DomainDefinitions(config);
 		DomainSequence ds = new DomainSequence();
 		ds.setDomains(0, null);
-		System.out.println(na.mfeSSDeltaG(ds, domain, domainMark));
+		System.out.println(na.mfe(ds, domain, domainMark));
 	}
 }

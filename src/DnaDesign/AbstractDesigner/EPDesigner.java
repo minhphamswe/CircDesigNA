@@ -2,8 +2,13 @@ package DnaDesign.AbstractDesigner;
 
 import java.util.TreeMap;
 
-import DnaDesign.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
 
+/**
+ * A (senseless?) simple design algorithm which merely mutates each population member, if the improvements are deleterious, revert them.
+ *   
+ * @author Benjamin
+ */
 public class EPDesigner <T extends PopulationDesignMember<T>>  extends BlockDesigner <T> {
 	public EPDesigner(SingleMemberDesigner<T> SingleDesigner) {
 		super(SingleDesigner);

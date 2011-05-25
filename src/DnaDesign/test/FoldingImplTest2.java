@@ -11,10 +11,13 @@ import java.util.Scanner;
 
 import javax.swing.plaf.basic.BasicInternalFrameTitlePane.RestoreAction;
 
-import DnaDesign.DomainSequence;
-import DnaDesign.DomainDefinitions;
+import circdesigna.energy.CircDesigNAMCSFolder;
+
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainSequence;
+
 import DnaDesign.Config.CircDesigNAConfig;
-import DnaDesign.impl.FoldingImpl;
+import DnaDesign.plugins.RunNupackTool;
 public class FoldingImplTest2 {
 	/**
 	 * Tests base pairing observables calculations
@@ -24,7 +27,6 @@ public class FoldingImplTest2 {
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		System.out.println("L1 S1 CA NU MF");
 		for(int i = 0; i < 4000; i++){
-			FoldingImpl fl = new FoldingImpl(config);
 			DomainDefinitions dsd = new DomainDefinitions(config);
 			String seq = null;// "AAAAATTTTTTGGGGGGCCCCCCCC";
 			int seqLength;
@@ -70,7 +72,8 @@ public class FoldingImplTest2 {
 			DomainSequence ds2 = new DomainSequence();
 			ds2.setDomains(1, null);
 			System.out.printf("%d ",seqLength);
-			double resultSelf = fl.foldSingleStranded_viaMatrix(ds1, domain, domainMark);
+			CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
+			double resultSelf = fl.mfe(ds1, domain, domainMark);
 			double resultNupack;
 			{
 				String prefix = "nupack0";

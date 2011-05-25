@@ -3,7 +3,8 @@ package DnaDesign.AbstractDesigner;
 import java.lang.reflect.Array;
 import java.util.Arrays;
 
-import DnaDesign.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
+
 
 
 /**

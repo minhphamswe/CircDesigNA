@@ -2,7 +2,8 @@ package DnaDesign.impl;
 
 import java.util.Scanner;
 
-import DnaDesign.DesignerCode;
+import edu.utexas.cssb.circdesigna.DesignerCode;
+
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.Config.CircDesigNASystemElement;
 

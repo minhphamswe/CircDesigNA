@@ -1,14 +1,12 @@
 package DnaDesign.AbstractDesigner;
 
-import DnaDesign.DomainDesigner;
-import DnaDesign.DomainDesigner.ScorePenalty;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainDesigner.ScorePenalty;
 import DnaDesign.impl.DomainDesignPMemberImpl;
 
 /**
- * Possible other names: Equal Opportunity Designer, or Patient Designer
- * 
- * Optimizes scores to be LOW. The fittest individual has the smallest score.
- *  An implementation of a genetic algorithm inspired designer.
+ * Framework for sequence designers that operate through iterative improvement of a population
+ * of candidate solutions. Population may have size 1. 
  * 
  * @author Benjamin
  */
@@ -16,13 +14,15 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	public BlockDesigner(SingleMemberDesigner<T> SingleDesigner){
 		this.SingleDesigner = SingleDesigner;
 	}
-	//set to true to add a dirty test that the scorefunctions are indeed isolated by mutation domains
-	//This checks both the "affectedBy" methods and also the "clone" methods of ScorePenalties.
+	//set to true to add an expensive test that the scorefunctions are indeed isolated by mutation domains
+	//Technical note: Coverage of both the "affectedBy" methods and also the "clone" methods of ScorePenalties.
 	public static final boolean ASSERT_SCOREFUNC_ISOLATION = false;
 	
 	public SingleMemberDesigner<T> SingleDesigner;
-	public T[] population_mutable;
-	public int populationSize = 0;
+	
+	//Subclasses may do funny reference switcing with population members and temporary members. Ok. 
+	protected T[] population_mutable;
+	protected int populationSize = 0;
 	private T fittest;
 	private int iterations = 0;
 	/**
@@ -43,7 +43,7 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 		}
 	}
 	/**
-	 * Wraps 
+	 * Wraps runBlockIteration_  
 	 */
 	public void runBlockIteration(DomainDesigner runner, double endThreshold){
 		iterations++;
@@ -73,7 +73,6 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	}
 	/**
 	 * Overridden by design implementations.
-	 * Runs whatever an "iteration" means.
 	 */
 	public abstract void runBlockIteration_(DomainDesigner runner, double endThreshold);
 	/**

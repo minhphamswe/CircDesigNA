@@ -1,14 +1,14 @@
 package DnaDesign.test;
 
-import DnaDesign.DomainSequence;
-import DnaDesign.NAFolding;
+import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.NAFolding;
+import edu.utexas.cssb.circdesigna.DomainSequence;
 import DnaDesign.Config.CircDesigNAConfig;
-import DnaDesign.impl.FoldingImpl;
 
 public class SelfSimilarityScore {
 	public static void main(String[] args){
 		CircDesigNAConfig cfg = new CircDesigNAConfig();
-		NAFolding fli = new FoldingImpl(cfg);
+		NAFolding fli = new CircDesigNAMCSFolder(cfg);
 		while(true){
 			int len = (int) (Math.random()*8000+10);
 			int[][] domain = new int[1][len];
@@ -22,7 +22,7 @@ public class SelfSimilarityScore {
 			DomainSequence ds2 = new DomainSequence();
 			ds1.setDomains(0,null);
 			ds2.setDomains(0 | DomainSequence.DNA_COMPLEMENT_FLAG,null);
-			System.out.println(len+" "+fli.mfeNoDiagonalPairing(ds1, ds2, domain, nullMark));
+			System.out.println(len+" "+fli.mfeNoDiag(ds1, ds2, domain, nullMark));
 		}
 	}
 }

@@ -4,7 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Scanner;
 
-import DnaDesign.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+
 import DnaDesign.Config.CircDesigNAConfig;
 import static DnaDesign.Batch.DesignMultipleTimes.*;
 

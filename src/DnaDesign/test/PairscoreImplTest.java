@@ -7,17 +7,17 @@ import static DnaDesign.AbstractPolymer.DnaDefinition.T;
 
 import java.util.Arrays;
 
-import DnaDesign.DomainDesigner;
-import DnaDesign.DomainSequence;
-import DnaDesign.DomainDefinitions;
-import DnaDesign.AbstractPolymer.DnaDefinition;
 import DnaDesign.Config.CircDesigNAConfig;
-import DnaDesign.impl.FoldingImpl;
+import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.UnafoldFolder;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainSequence;
 public class PairscoreImplTest {
 	public static void main(String[] args){
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		for(int i = 0; i < 1000; i++){
-			FoldingImpl fl = new FoldingImpl(config);
+			CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
+			UnafoldFolder fl_unafold = new UnafoldFolder(config);
 			DomainSequence seqS = new DomainSequence();
 			DomainSequence seq2S = new DomainSequence();
 			DomainDefinitions dsd = new DomainDefinitions(config);
@@ -58,8 +58,8 @@ public class PairscoreImplTest {
 			}
 			for(int k = 0; k < domainMark.length; k++)Arrays.fill(domainMark[k],0);
 			for(int k = 0; k < domainMark2.length; k++)Arrays.fill(domainMark2[k],0);
-			final double viaMatrix = fl.mfeHybridDeltaG_viaMatrix(seqS, seq2S, domain, domainMark);
-			final double viaUnafold = fl.mfeHybridDeltaG_viaUnafold(seqS, seq2S, domain, domainMark2);
+			final double viaMatrix = fl.mfe(seqS, seq2S, domain, domainMark);
+			final double viaUnafold = fl_unafold.mfe(seqS, seq2S, domain, domainMark2);
 			//System.out.println(Arrays.deepToString(domainMark));
 			if ((viaUnafold-viaMatrix)>2){
 				System.out.println(Arrays.deepToString(domainMark));

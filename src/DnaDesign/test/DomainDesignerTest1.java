@@ -3,7 +3,8 @@ package DnaDesign.test;
 import java.util.ArrayList;
 import java.util.TreeMap;
 
-import DnaDesign.DomainSequence;
+import edu.utexas.cssb.circdesigna.DomainSequence;
+
 import DnaDesign.Config.CircDesigNAConfig;
 import DnaDesign.impl.CodonCode;
 

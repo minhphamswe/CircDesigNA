@@ -1,10 +1,11 @@
 package DnaDesign.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import DnaDesign.AbstractDesigner.PopulationDesignMember;
-import DnaDesign.DomainDesigner.ScorePenalty;
+import edu.utexas.cssb.circdesigna.DomainDesigner.ScorePenalty;
 
 /**
  * Concrete population member.

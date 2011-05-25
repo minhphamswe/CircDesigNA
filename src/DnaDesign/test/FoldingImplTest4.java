@@ -5,10 +5,10 @@ import java.io.FileNotFoundException;
 import java.util.Arrays;
 import java.util.Scanner;
 
-import DnaDesign.DomainSequence;
-import DnaDesign.DomainDefinitions;
 import DnaDesign.Config.CircDesigNAConfig;
-import DnaDesign.impl.FoldingImpl;
+import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.UnafoldFolder;
+import edu.utexas.cssb.circdesigna.DomainSequence;
 
 public class FoldingImplTest4 {
 	public static void main(String[] args) throws FileNotFoundException{
@@ -20,8 +20,8 @@ public class FoldingImplTest4 {
 		//Scanner in = new Scanner(new File("C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\Circ_DesigNAPaper\\AssemblaRepo\\circdesignapaper_w_figures\\scoresComparison_SS.txt"));
 		Scanner in = new Scanner(new File(System.getProperty("inFile")));
 		in.nextLine();
-		FoldingImpl fl = new FoldingImpl(config);
-		DomainDefinitions dsd = new DomainDefinitions(config);
+		CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
+		UnafoldFolder fl_unafold = new UnafoldFolder(config);
 		int[][] domain = new int[2][];
 		int[][] domain_markings = new int[2][];
 
@@ -40,11 +40,11 @@ public class FoldingImplTest4 {
 					domain[j][k] = config.monomer.decodeConstraintChar(line[j+1].charAt(k));
 				}
 			}
-			double resultLocal = fl.foldSingleStranded_viaMatrix(ds1, domain, domain_markings);
+			double resultLocal = fl.mfe(ds1, domain, domain_markings);
 			System.out.println(Arrays.toString(domain_markings[0]));
 			Arrays.fill(domain_markings[0],0);
 			//double result = fl.mfeHybridDeltaG_viaUnafold(ds1, ds1, domain, domain_markings);
-			double result = fl.foldSingleStranded_viaUnafold(ds1, domain, domain_markings);
+			double result = fl_unafold.mfe(ds1, domain, domain_markings);
 			System.out.println(Arrays.toString(domain_markings[0]));
 			System.out.println(line2+" "+resultLocal+" "+(result));
 		}

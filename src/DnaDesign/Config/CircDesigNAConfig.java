@@ -2,7 +2,7 @@ package DnaDesign.Config;
 
 import static DnaDesign.AbstractPolymer.DnaDefinition.P;
 import static DnaDesign.AbstractPolymer.DnaDefinition.Z;
-import DnaDesign.DesignSequenceConstraints;
+import edu.utexas.cssb.circdesigna.DesignSequenceConstraints;
 import DnaDesign.AbstractPolymer.DnaDefinition;
 import DnaDesign.AbstractPolymer.MonomerDefinition;
 import DnaDesign.AbstractPolymer.RnaDefinition;

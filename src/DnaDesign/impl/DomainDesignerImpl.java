@@ -1,27 +1,50 @@
 package DnaDesign.impl;
 
+import static DnaDesign.AbstractPolymer.DnaDefinition.A;
+import static DnaDesign.AbstractPolymer.DnaDefinition.C;
+import static DnaDesign.AbstractPolymer.DnaDefinition.G;
+import static DnaDesign.AbstractPolymer.DnaDefinition.T;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
-import DnaDesign.AbstractDomainDesignTarget;
-import DnaDesign.DesignIntermediateReporter;
-import DnaDesign.DesignerOptions;
-import DnaDesign.DomainDesigner;
-import DnaDesign.DomainDesigner_SharedUtils;
-import DnaDesign.DomainSequence;
-import DnaDesign.DomainDefinitions;
-import DnaDesign.NAFolding;
 import DnaDesign.AbstractDesigner.ParetoSort;
-import DnaDesign.AbstractDomainDesignTarget.HairpinClosingTarget;
 import DnaDesign.Config.CircDesigNAConfig;
+import circdesigna.energy.NAFolding;
+import edu.utexas.cssb.circdesigna.AbstractDomainDesignTarget;
+import edu.utexas.cssb.circdesigna.CircDesigNAOptions;
+import edu.utexas.cssb.circdesigna.DesignIntermediateReporter;
+import edu.utexas.cssb.circdesigna.DomainDefinitions;
+import edu.utexas.cssb.circdesigna.DomainDesigner;
+import edu.utexas.cssb.circdesigna.DomainDesigner_SharedUtils;
+import edu.utexas.cssb.circdesigna.DomainSequence;
+import edu.utexas.cssb.circdesigna.AbstractDomainDesignTarget.HairpinClosingTarget;
 
 /**
  * Implementation of DomainDesigner
  */
 public class DomainDesignerImpl extends DomainDesigner{
+	private NAFolding flI;
+	/**
+	 * @param std 
+	 * @param foldingImpl<br>
+	 * The folding score functions to utilize in evaluating solution candidates.
+	 * @param designSSonly<br>
+	 * 4 kinds of score functions are currently implemented: Validity, SingleStrandedAssurance, Crosstalk, Dimerization.
+	 * If designSSonly is true, only SingleStrandedAssurance will be used; As a result, crosstalk and dimerization may occur
+	 * in solution candidates.
+	 */
+	public DomainDesignerImpl(NAFolding foldingImpl, CircDesigNAConfig std) {
+		super(std);
+		this.flI = foldingImpl;
+	}
 
+	
+	/**
+	 * Implements the "isDominatedBy" method, required for doing pareto sorting of design population members.
+	 */
 	public static class DParetoSort extends ParetoSort<DomainDesignPMemberImpl> {
 		double[] scores= new double[4];
 		public boolean isDominatedBy(DomainDesignPMemberImpl t, DomainDesignPMemberImpl t2) {
@@ -53,21 +76,6 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return true;
 		}
 	}
-	
-	private NAFolding flI;
-	/**
-	 * @param std 
-	 * @param foldingImpl<br>
-	 * The folding score functions to utilize in evaluating solution candidates.
-	 * @param designSSonly<br>
-	 * 4 kinds of score functions are currently implemented: Validity, SingleStrandedAssurance, Crosstalk, Dimerization.
-	 * If designSSonly is true, only SingleStrandedAssurance will be used; As a result, crosstalk and dimerization may occur
-	 * in solution candidates.
-	 */
-	public DomainDesignerImpl(NAFolding foldingImpl, CircDesigNAConfig std) {
-		super(std);
-		this.flI = foldingImpl;
-	}
 
 	public class MFEHybridScore extends ScorePenalty {
 		//True for intermolecular interactions
@@ -82,10 +90,9 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return 2;
 		}
 		private DomainSequence[] ds;
-		//This seems too low.
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			double BIMOLECULAR = options.bimolecularPenalty.getState();
-			double deltaG = (flI.mfeHybridDeltaG(ds[0],ds[1],domain,domain_markings))+(entropicPenalty?BIMOLECULAR:0);
+			double deltaG = (flI.mfe(ds[0],ds[1],domain,domain_markings))+(entropicPenalty?BIMOLECULAR:0);
 			//int longestHelixLength = flI.getLongestHelixLength();
 			//int numBasesPaired = flI.getNumBasesPaired();
 			//double normal = longestHelixLength*numBasesPaired;
@@ -147,8 +154,8 @@ public class DomainDesignerImpl extends DomainDesigner{
 					jOffset = hairpin.stemAndOpening[0].length(domain)-hairpin.stemAndOpening[1].length(domain);
 				}
 			}
-			double StemAndOpeningScore =flI.helixDeltaG(hairpin.stemAndOpening[0],hairpin.stemAndOpening[1],domain,domain_markings,markLeft,markRight,jOffset); 
-			double OnlyStem =flI.helixDeltaG(hairpin.stemOnly[0],hairpin.stemOnly[1],domain,domain_markings,0,0,0); 
+			double StemAndOpeningScore =flI.mfeStraight(hairpin.stemAndOpening[0],hairpin.stemAndOpening[1],domain,domain_markings,markLeft,markRight,jOffset); 
+			double OnlyStem =flI.mfeStraight(hairpin.stemOnly[0],hairpin.stemOnly[1],domain,domain_markings,0,0,0); 
 			double deltaDeltaG = StemAndOpeningScore - OnlyStem;
 			/*
 			if (deltaDeltaG > 0){
@@ -197,7 +204,9 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double deltaG = flI.mfeNoDiagonalPairing(ds[0], ds[1], domain, domain_markings);
+			double deltaG = flI.mfeNoDiag(ds[0], ds[1], domain, domain_markings);
+			
+			//Parameters 
 			deltaG -= Math.min(0,-.569*ds[0].length(domain) + 5.4055); //DNA parameters
 			return Math.max(0,-deltaG);
 		}
@@ -213,8 +222,11 @@ public class DomainDesignerImpl extends DomainDesigner{
 	}
 	
 	/**
-	 * If we wish to use the validity checking as a penalty instead of an absolute condition,
-	 * use this.
+	 *  A grab-bag for miscellaneous sequence constraints. Only the sequences in the provided list
+	 * are analyzed. For example, penalties for unwanted sequences (GGGG and ATATAT) may be covered here.
+	 * This score is not required to be in any unit, it should be used as a nonrigorous design penalty. However, it should be
+	 * used, because many of the routines in this library use parameters derived from highly sequences with good G/C/A/T mixes. An
+	 * inability to evaluate whether a design is good is a sign that another solution should be sought after.
 	 */
 	public class VariousSequencePenalties extends ScorePenalty {
 		private List<DomainSequence> seqs;
@@ -236,10 +248,54 @@ public class DomainDesignerImpl extends DomainDesigner{
 			return true;
 		}
 
+		/**
+		 * This routine checks for potentially problematic (hard to synthesize) DNA sequences.
+		 * 
+		 * Amounts to poly-N checking, and uses the same routines as David Zhang's Domain Designer
+		 * Penalizes:
+		 *    +1 for each GGGG or CCCC
+		 *    +1 for each run of As and Ts of length 6
+		 *    +1 for each run of Gs and Cs of length 6
+		 * 
+		 * @param domain_markings 
+		 */
+		private double getSynthesizabilityScore(DomainSequence seq, int[][] domain, int[][] domain_markings) {
+			int n = seq.length(domain_markings);
+			double sumResult = 0;
+			int[] baseCounts4 = new int[Std.monomer.getNumMonomers()];
+			int[] baseCounts6 = new int[Std.monomer.getNumMonomers()];
+			for(int i = 0; i < n; i++){
+				if (i >= 4){
+					int prior = base(seq,i-4,domain);
+					baseCounts4[prior]--;
+				}
+				if (i >= 6){
+					int prior = base(seq,i-6,domain);
+					baseCounts6[prior]--;
+				}
+				int now = base(seq,i,domain);
+				baseCounts4[now]++;
+				baseCounts6[now]++;
+				//System.out.println(now+" "+Arrays.toString(baseCounts4)+" "+Arrays.toString(baseCounts6));
+				
+				if (baseCounts4[G]==4 || baseCounts4[C]==4){
+					sumResult++;
+					seq.mark(i, -4, domain, domain_markings);
+				}
+				
+				if (baseCounts6[A]+baseCounts6[T]==6 || baseCounts6[G]+baseCounts6[C]==6){
+					sumResult++;
+					seq.mark(i, -6, domain, domain_markings);
+				}
+			}
+			return sumResult;
+		}
+
+
 		public double evalScoreSub(int[][] domain, int[][] domain_markings) {
 			double sum = 0;
-			for(int i = 0; i < domain.length; i++){
-				sum += flI.assaySynthesizability(i, seqs, domain, domain_markings);
+			for(DomainSequence seq : seqs){
+				sum += getSynthesizabilityScore(seq, domain,domain_markings);
 			}
 			return sum;
 		}
@@ -271,7 +327,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double deltaG = (flI.mfeSSDeltaG(ds[0],domain,domain_markings));
+			double deltaG = (flI.mfe(ds[0],domain,domain_markings));
 			return Math.max(0,-deltaG);
 			//int longestHelixLength = flI.getLongestHelixLength();
 			//int numBasesPaired = flI.getNumBasesPaired();
@@ -316,7 +372,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		public double evalScoreSub(int[][] domain, int[][] domain_markings) {
 			int length1 = ds[0].length(domain);
 			probBuffer = expandCapacity(probBuffer,length1,length1);
-			flI.pairPrSS(probBuffer, ds[0], domain);
+			flI.pairPr(probBuffer, ds[0], domain);
 			
 			double expectedMisPairedBases = 0;
 			for(int i = 0; i < length1; i++){
@@ -363,7 +419,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 			int length2 = ds[1].length(domain);
 			int N = length1+length2;
 			probBuffer = expandCapacity(probBuffer,N,N+1);
-			flI.pairPrHybrid(probBuffer, ds[0], ds[1], domain);
+			flI.pairPr(probBuffer, ds[0], ds[1], domain);
 			
 			double expectedMisPairedBases = 0;
 			for(int i = 0; i < N; i++){
@@ -404,19 +460,19 @@ public class DomainDesignerImpl extends DomainDesigner{
 
 	public List<ScorePenalty> listPenalties(
 			AbstractDomainDesignTarget designTarget,
-			DesignIntermediateReporter DIR, int[][] domain2, DesignerOptions options, DomainDefinitions dsd) {
-		
+			DesignIntermediateReporter DIR, int[][] domain2, CircDesigNAOptions options, DomainDefinitions dsd) {
+
 		ArrayList<DomainSequence> rawStrands = designTarget.wholeStrands;
 		ArrayList<DomainSequence> makeSS = new ArrayList();
 		makeSS.addAll(designTarget.generalizedSingleStranded);
 		makeSS.addAll(designTarget.singleDomains);
 		ArrayList<HairpinClosingTarget> hairpinClosings = designTarget.hairpinClosings;
-		
+
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(rawStrands);
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(makeSS);
 
 		DomainDesigner_SharedUtils.utilRemoveDuplicateSequences(hairpinClosings);
-		
+
 		List<ScorePenalty> allScores = new LinkedList<ScorePenalty>();
 		//Only add this penalty if the system contains at least one base.
 		int totalBases = 0;
@@ -426,7 +482,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 		if (totalBases>0){
 			allScores.add(new VariousSequencePenalties(rawStrands,DIR));	
 		}
-		
+
 		ArrayList<MFEHybridScore> hybridScorings = new ArrayList<MFEHybridScore>();
 		for(int i = 0; i < makeSS.size(); i++){
 			DomainSequence ds = makeSS.get(i);
@@ -436,7 +492,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 				allScores.add(new LocalDefectSSScore(ds, DIR, designTarget));	
 				//Dimerization
 				allScores.add(new PairDefectScore(ds, ds, DIR, false, designTarget));
-				*/
+				 */
 			} else {
 				allScores.add(new SelfFold(ds, DIR));
 				hybridScorings.add(new MFEHybridScore(ds, ds, DIR, ds.numDomains==1));
@@ -453,7 +509,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 				}
 			}
 		}
-		
+
 		for(int i = 0; i < hybridScorings.size(); i++){
 			MFEHybridScore target = hybridScorings.get(i);
 			for(int j = i+1; j < hybridScorings.size(); j++){
@@ -463,13 +519,13 @@ public class DomainDesignerImpl extends DomainDesigner{
 				}
 			}
 		}
-		
+
 		allScores.addAll(hybridScorings);
-		
+
 		for(HairpinClosingTarget hairpin : hairpinClosings){
 			allScores.add(new HairpinOpening(hairpin, DIR));
 		}
-		
+
 		if (options.selfSimilarityPenalty.getState() >= 0){
 			//Only do each domain once.
 			List<DomainSequence> domainsOnceApiece = new ArrayList();
@@ -481,7 +537,7 @@ public class DomainDesignerImpl extends DomainDesigner{
 				}
 			}
 		}
-		
+
 		return allScores;
 	}
 }

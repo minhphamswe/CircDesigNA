@@ -107,6 +107,14 @@ public abstract class MonomerDefinition {
 		ret += LOCK_FLAG();
 		return ret;
 	}
+	public int decodeInitializationChar(char u) {
+		switch(Character.toUpperCase(u)){
+		case 'N':
+		case '-':
+			return NOBASE;
+		}
+		return decodeBaseChar(u);
+	}
 	/**
 	 * Assumes both 
 	 */
