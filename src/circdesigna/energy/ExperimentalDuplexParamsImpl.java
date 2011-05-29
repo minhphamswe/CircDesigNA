@@ -1,13 +1,31 @@
+/*
+  Part of the CircDesigNA Project - http://cssb.utexas.edu/circdesigna
+  
+  Copyright (c) 2010-11 Ben Braun
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation, version 2.1.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General
+  Public License along with this library; if not, write to the
+  Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+  Boston, MA  02111-1307  USA
+*/
 package circdesigna.energy;
 
-import static DnaDesign.AbstractPolymer.DnaDefinition.A;
-import static DnaDesign.AbstractPolymer.DnaDefinition.C;
-import static DnaDesign.AbstractPolymer.DnaDefinition.G;
-import static DnaDesign.AbstractPolymer.DnaDefinition.T;
+import static circdesigna.abstractpolymer.DnaDefinition.A;
+import static circdesigna.abstractpolymer.DnaDefinition.C;
+import static circdesigna.abstractpolymer.DnaDefinition.G;
+import static circdesigna.abstractpolymer.DnaDefinition.T;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,9 +33,11 @@ import java.util.Scanner;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import circdesigna.ZipExtractor;
+import circdesigna.config.CircDesigNAConfig;
+import circdesigna.config.CircDesigNASystemElement;
 
-import DnaDesign.Config.CircDesigNAConfig;
-import DnaDesign.Config.CircDesigNASystemElement;
+
 
 /**
  * The actual Experimental Parameters Database.
@@ -25,33 +45,15 @@ import DnaDesign.Config.CircDesigNASystemElement;
 public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement implements NAExperimentDatabase{
 	public ExperimentalDuplexParamsImpl(CircDesigNAConfig config){
 		super(config);
+		System.out.print("Unpacking Thermo Parameters ... ");
 		
-		ZipInputStream paramZip = null;
-		try {
-			System.out.print("Unpacking Thermo Parameters ... ");
-			paramZip = new ZipInputStream(ExperimentalDuplexParamsImpl.class.getResourceAsStream("/parameters.zip"));
-			System.out.println("Done (1)");
-		} catch (Throwable e){
-			//Try loading it as a file.
-			try {
-				paramZip = new ZipInputStream(new FileInputStream("parameters.zip"));
-				System.out.println("Done (2)");
-				//System.out.println("Loaded parameters file from disk.");
-			} catch (Throwable f){
-				throw new RuntimeException("Could not load the parameters.zip file. Please include this file in the working directory!");
-			}
-		}
+		ZipInputStream paramZip = ZipExtractor.getFile("parameters.zip");
 		ZipEntry nextEntry;
 		String dG = null, dH = null;
 		try {
 			while((nextEntry= paramZip.getNextEntry())!=null){
 				if (nextEntry.getName().startsWith(config.getParameterName())){
-					ByteArrayOutputStream baos = new ByteArrayOutputStream();
-					byte[] buf = new byte[1024];
-					int read = -1;
-					while((read=paramZip.read(buf))>0){
-						baos.write(buf, 0, read);
-					}
+					ByteArrayOutputStream baos = ZipExtractor.readFully(paramZip);
 					if (nextEntry.getName().endsWith(".dG")){
 						dG = baos.toString();	
 					}

@@ -1,0 +1,46 @@
+%package "circdesigna.parser";
+%class "CDNA2Parser";
+
+%init {:	
+		report = new Parser.Events(){
+			public void scannerError(Scanner.Exception e)
+			{
+				throw new RuntimeException(e.getMessage());
+			}
+			public void syntaxError(Symbol e)
+			{
+				throw new RuntimeException("Unexpected \""+e.value+"\"");
+			}
+		};
+	:};
+
+%embed {:
+	public ArrayList parenStack = new ArrayList();
+	public ArrayList braceStack = new ArrayList();
+	protected void recoverFromError(Symbol token, TokenStream in) throws java.io.IOException, Parser.Exception
+	{
+		throw new RuntimeException("Syntax error.");
+	}
+	:};
+
+%terminals DOMAINNAME, LPAREN, RPAREN, MULT, LSQBRACE, RCBRACE, DOT;
+
+%typeof DOMAINNAME = "String";
+%typeof declaration = "ArrayList";
+%typeof molecule = "ArrayList";
+
+%goal declaration;
+
+molecule	
+	= molecule.b? DOMAINNAME.n  {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Domain neu = new CDNA2Token.Domain(n); p.add(neu); return new Symbol(p); :}
+    | molecule.a LPAREN {: ((CDNA2Token.Domain)a.get(a.size()-1)).setOpen(parenStack); return new Symbol(a); :}
+	| molecule.a RPAREN {: ((CDNA2Token.Domain)a.get(a.size()-1)).setClosed(parenStack); return new Symbol(a); :}
+	| molecule.a MULT {: ((CDNA2Token.Domain)a.get(a.size()-1)).setComplement(); return new Symbol(a); :}
+	| molecule.a DOT {: ((CDNA2Token.Domain)a.get(a.size()-1)).setSingleStranded(); return new Symbol(a); :}
+	| molecule.b? LSQBRACE {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.add(new CDNA2Token.FivePrimeEnd(braceStack)); return new Symbol(p); :}
+	| molecule.a RCBRACE {: a.add(new CDNA2Token.ThreePrimeEnd(braceStack)); return new Symbol(a); :} 
+	;
+
+declaration
+    = DOMAINNAME.n molecule.q {: ArrayList p = new ArrayList(); p.add(n); p.addAll(q); return new Symbol(p); :}
+    ;
