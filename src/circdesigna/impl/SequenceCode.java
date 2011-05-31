@@ -29,6 +29,9 @@ public class SequenceCode implements DesignerCode{
 	public void setConstraints(DesignSequenceConstraints dsc){
 		this.dsc = dsc;
 	}
+	public void reset() {
+		dsc.eraseBaseCounts();
+	}
 	public boolean mutateToOther(int[][] domain, int mut_domain, int j, int newbase){
 		int[] mut_new = domain[mut_domain];
 		int index = dsc.getMutationNumberForNewBase(mut_new, j, newbase);

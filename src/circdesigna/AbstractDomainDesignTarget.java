@@ -52,7 +52,7 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 	public class HairpinClosingTarget {
 		public DomainSequence[] stemOnly;
 		/**
-		 * Use these sequences for printing out this guy.
+		 * Print these sequences when debugging
 		 */
 		public DomainSequence[] stemAndOpening;
 		/**

@@ -123,7 +123,6 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 				int mutated = dd.mutateUntilValid(mut_domain, q.domain, q.domain_markings, mutators[mut_domain], min_mutations, max_mutations);
 				if (mutated==0 && q.domain[mut_domain].length > 4){
 					//Do nothing.
-					//System.err.println("WHOA~!");
 				}
 				total_mutated += mutated;
 			}
@@ -456,6 +455,9 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 		copy2d_ai = i;
 		copy2d_ay = y;
 		int sucessful = 0;
+		for(int mut_domain = 0; mut_domain < bits.length; mut_domain++){
+			mutators[mut_domain].reset();
+		}
 		for(i = 0; i < num; i++){
 			//Record that we're writing to a domain:
 			if (recorder.num_domains_mut==0 || recorder.mut_domains[recorder.num_domains_mut-1]!=copy2d_bi){

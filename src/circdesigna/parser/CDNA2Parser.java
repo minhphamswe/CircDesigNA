@@ -21,8 +21,8 @@ public class CDNA2Parser extends Parser {
 	}
 
 	static final ParsingTables PARSING_TABLES = new ParsingTables(
-		"U9nrZi4EWp0CGnymM0lzQ7uQjh4num873YMI5Jcs5GD9ioOUj7GywGaqH6e6CAlDibPP2xv" +
-		"NTZapiayyDsC1dlRA9Rtkl8LiuiZyzTDNYpuvhLNllLVCtzqckE4TSljX0o2594q=");
+		"U9nrZb4EWp0CGr$BoahBeRaqC3OspqZzGf38YHmxIe1H0ZeU97e6daIoPWfOYKq9dcUhnHw" +
+		"eayi1MZ$3aKxyqdUnLtttfwy#UclJIulvhjLASGR$W17yJRn5$GD1NI8$");
 
 	public ArrayList parenStack = new ArrayList();
 	public ArrayList braceStack = new ArrayList();
@@ -36,9 +36,10 @@ public class CDNA2Parser extends Parser {
 	public CDNA2Parser() {
 		super(PARSING_TABLES);
 		actions = new Action[] {
-			Action.NONE,  	// [0] opt$molecule = 
-			Action.RETURN,	// [1] opt$molecule = molecule
-			new Action() {	// [2] molecule = opt$molecule.b DOMAINNAME.n
+			Action.RETURN,	// [0] $goal = molecule
+			Action.NONE,  	// [1] opt$molecule = 
+			Action.RETURN,	// [2] opt$molecule = molecule
+			new Action() {	// [3] molecule = opt$molecule.b DOMAINNAME.n
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_b = _symbols[offset + 1];
 					final ArrayList b = (ArrayList) _symbol_b.value;
@@ -47,55 +48,46 @@ public class CDNA2Parser extends Parser {
 					 ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Domain neu = new CDNA2Token.Domain(n); p.add(neu); return new Symbol(p);
 				}
 			},
-			new Action() {	// [3] molecule = molecule.a LPAREN
+			new Action() {	// [4] molecule = molecule.a LPAREN
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 ((CDNA2Token.Domain)a.get(a.size()-1)).setOpen(parenStack); return new Symbol(a);
 				}
 			},
-			new Action() {	// [4] molecule = molecule.a RPAREN
+			new Action() {	// [5] molecule = molecule.a RPAREN
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 ((CDNA2Token.Domain)a.get(a.size()-1)).setClosed(parenStack); return new Symbol(a);
 				}
 			},
-			new Action() {	// [5] molecule = molecule.a MULT
+			new Action() {	// [6] molecule = molecule.a MULT
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 ((CDNA2Token.Domain)a.get(a.size()-1)).setComplement(); return new Symbol(a);
 				}
 			},
-			new Action() {	// [6] molecule = molecule.a DOT
+			new Action() {	// [7] molecule = molecule.a DOT
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 ((CDNA2Token.Domain)a.get(a.size()-1)).setSingleStranded(); return new Symbol(a);
 				}
 			},
-			new Action() {	// [7] molecule = opt$molecule.b LSQBRACE
+			new Action() {	// [8] molecule = opt$molecule.b LSQBRACE
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_b = _symbols[offset + 1];
 					final ArrayList b = (ArrayList) _symbol_b.value;
 					 ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.add(new CDNA2Token.FivePrimeEnd(braceStack)); return new Symbol(p);
 				}
 			},
-			new Action() {	// [8] molecule = molecule.a RCBRACE
+			new Action() {	// [9] molecule = molecule.a RCBRACE
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 a.add(new CDNA2Token.ThreePrimeEnd(braceStack)); return new Symbol(a);
-				}
-			},
-			new Action() {	// [9] declaration = DOMAINNAME.n molecule.q
-				public Symbol reduce(Symbol[] _symbols, int offset) {
-					final Symbol _symbol_n = _symbols[offset + 1];
-					final String n = (String) _symbol_n.value;
-					final Symbol _symbol_q = _symbols[offset + 2];
-					final ArrayList q = (ArrayList) _symbol_q.value;
-					 ArrayList p = new ArrayList(); p.add(n); p.addAll(q); return new Symbol(p);
 				}
 			}
 		};

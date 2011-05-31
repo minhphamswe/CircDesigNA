@@ -20,8 +20,8 @@
 package circdesigna;
 
 import static circdesigna.DomainSequence.DNAMARKER_DONTMUTATE;
-import static circdesigna.DomainSequence.DNA_COMPLEMENT_FLAG;
-import static circdesigna.DomainSequence.DNA_SEQ_FLAGSINVERSE;
+import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAG;
+import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAGINV;
 import static circdesigna.abstractpolymer.DnaDefinition.C;
 
 import java.awt.event.ActionEvent;
@@ -43,12 +43,12 @@ import circdesigna.abstractDesigner.StandardTournament;
 import circdesigna.abstractDesigner.TinyGADesigner;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.config.CircDesigNASystemElement;
-import circdesigna.energy.CircDesigNAMCSFolder;
-import circdesigna.impl.CodonCode;
-import circdesigna.impl.SequenceDesignBlockDesignerImpl;
-import circdesigna.impl.CircDesigNAPMemberImpl;
 import circdesigna.impl.CircDesigNAImpl;
+import circdesigna.impl.CircDesigNAPMemberImpl;
+import circdesigna.impl.CodonCode;
 import circdesigna.impl.SequenceCode;
+import circdesigna.impl.SequenceDesignBlockDesignerImpl;
+import circdesigna.impl.SequencePenaltiesImpl;
 
 
 
@@ -68,18 +68,13 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		super(std);
 	}
 	/**
-	 * Utility method for creating a designer with the default parameters and input from the GUI layer.
+	 * Utility method for creating a designer with the default scoring algorithms on the specified design scheme
+	 * 
+	 * Some designer options are also taken from the CircDesigNAConfig object. 
 	 */
 	public static SequenceDesigner<CircDesigNAOptions> getDefaultDesigner(String Molecules,String domainDefs,CircDesigNAConfig Std) {
-		ArrayList<String> inputStrands = new ArrayList<String>();
-		String q = "";
-		for(String newLine : Molecules.split("\n")){
-			q = newLine;
-			if (q.trim().length()>0){
-				inputStrands.add(q);
-			}
-		}
-		return new DomainDesigner_Public(inputStrands,domainDefs,Std);
+		CircDesigNA r = new CircDesigNAImpl(new circdesigna.energy.CircDesigNAMCSFolder(Std), new SequencePenaltiesImpl(Std), Std);
+		return new SequenceDesignAdapter(r, Molecules, domainDefs);
 	}
 	
 	/**
@@ -94,7 +89,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	 * Finally, this class serves to separate the public api which controls the behavior of the designer (run,
 	 * pause abort) from the internal api of how to do so (mutate, run block iteration).
 	 */
-	public static class DomainDesigner_Public implements SequenceDesigner<CircDesigNAOptions>{
+	public static class SequenceDesignAdapter implements SequenceDesigner<CircDesigNAOptions>{
 		private boolean waitOnStart = true;
 		private boolean finished = false;
 		
@@ -106,12 +101,21 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		private Map<Integer, DesignerCode> mutators;
 		private Map<Integer, String> positionConstraints;
 		private DesignIntermediateReporter dir;
-		public DomainDesigner_Public(List<String> inputStrands, String domainDefsBlock, CircDesigNAConfig Std){
+		public SequenceDesignAdapter(CircDesigNA r, String molecules, String domainDefsBlock){
+			ArrayList<String> inputStrands = new ArrayList<String>();
+			String q = "";
+			for(String newLine : molecules.split("\n")){
+				q = newLine;
+				if (q.trim().length()>0){
+					inputStrands.add(q);
+				}
+			}
+
 			this.inputMolecules = inputStrands;
 			this.domainDefsBlock = domainDefsBlock;
 			dir = new DesignIntermediateReporter();
 			
-			r = new CircDesigNAImpl(new CircDesigNAMCSFolder(Std), Std);
+			this.r = r;
 			runOnStart.run();
 			//new Thread(runOnStart).start();
 		}
@@ -254,7 +258,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			DesignScoreBreakdown breakdown = res.getBreakdown();
 			String[] outputDomains = res.getOutputDomains();
 			
-			sb.append(String.format("Net 'Score'\t%.2f.\n>> Cross Interactions\t%.2f.\n>> Breathing Helix Ends\t%d.\n>> Self-Folding Interactions\t%.2f.\n>> Self Similarity Factor\t%.2f.\n>> Homopolymer Count\t%.2f.\n",breakdown.netScore,breakdown.crossInteractionsOnly,breakdown.breathingHelixes,breakdown.selfFoldOnly,breakdown.selfSimilarity,breakdown.homopolymer));
+			sb.append(String.format("Net 'Score'\t%.2f.\n>> Cross Interactions\t%.2f.\n>> Breathing Helix Ends\t%d.\n>> Self-Folding Interactions\t%.2f.\n>> Self Similarity Factor\t%.2f.\n>> Homopolymer Factor\t%.2f.\n",breakdown.netScore,breakdown.crossInteractionsOnly,breakdown.breathingHelixes,breakdown.selfFoldOnly,breakdown.selfSimilarity,breakdown.homopolymer));
 			sb.append(lR);
 			sb.append("Current designer state (to resume from this point, paste as 'Domain Definition'):");
 			sb.append(lR);
@@ -282,6 +286,9 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 				String a[] = q.split("\\s+",2);    
 				boolean alreadyPrintedInMolecule = false;
 				splitLoop: for(String subStrand : a[1].split("}")){
+					if (subStrand.trim().length()==0){
+						continue;
+					}
 					DomainSequence ds = new DomainSequence();
 					ds.setDomains(subStrand,dsd,null);
 					for(DomainSequence g : alreadyPrintedSequences){
@@ -310,8 +317,8 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			if (withSeperator)
 				sb.append("[");
 			for(int k = 0; k < ds.numDomains; k++){
-				String domain = domains[ds.domainList[k] & DNA_SEQ_FLAGSINVERSE];
-				if ((ds.domainList[k] & DNA_COMPLEMENT_FLAG)!=0){
+				String domain = domains[ds.domainList[k] & NA_COMPLEMENT_FLAGINV];
+				if ((ds.domainList[k] & NA_COMPLEMENT_FLAG)!=0){
 					domain = revComp(domain);
 				}
 				sb.append(domain);
@@ -386,6 +393,9 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			};
 			resume();
 			while(!return_shared[0]){
+				if (isFinished()){
+					break;
+				}
 				try {
 					Thread.sleep(1);
 				} catch (InterruptedException e1) {
@@ -802,17 +812,22 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 				PopulationDesignMember<CircDesigNAPMemberImpl>[] a = dbesign.getPopulation();
 				for(int i = 1; i < a.length; i++){
 					CircDesigNAPMemberImpl r = (CircDesigNAPMemberImpl)a[i];
+					
 					for(int k = 0; k < r.domain.length; k++){
-						pickInitialSequence(r.domain,k,mutate[k]);
+						mutate[k].reset();
+						for(int j = 0; j < r.domain[k].length; j++){
+							mutate[k].mutateToOther(r.domain,k,j);
+						}
 					}
 					//Initial score.
+					
 					double current_score_pmember = 0;
 					deepFill(r.domain_markings,DNAMARKER_DONTMUTATE);
 					//DIR.beginScoreReport();{
 					for(ScorePenalty q : r.penalties){
 						current_score_pmember += q.getScore(r.domain, r.domain_markings);
 					}
-					//System.out.println("Initial score: "+current_score_in);
+					System.out.println("Initial score (for population member "+i+"): "+current_score_pmember);
 					//}DIR.endScoreReport();			
 				}
 			}
@@ -887,6 +902,8 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	 * @param designerCode 
 	 */
 	private void pickInitialSequence(int[][] domain, int mut_domain, DesignerCode mutator) {
+		mutator.reset();
+		
 		boolean[] preserveInitial = new boolean[domain[mut_domain].length];
 		boolean allowModifyInitialSpecifiedSequence = false;
 		initialLoop: for(int k = 0; !abort; k++){
@@ -1056,6 +1073,9 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 
 		int successful = 0;
 		//int timesInLoop = 0;
+		ArrayList<Integer> positions = new ArrayList();
+		
+		mutator.reset();
 		mutloop: for (int k = 0; k < num_mut; k++) {
 			// Attempt a mutation
 			int j;
@@ -1103,8 +1123,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 				//+3.
 				k+=2;
 				successful += 3;
-			}      
-			
+			}
 		}
 		return successful;
 	}

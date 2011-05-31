@@ -19,23 +19,19 @@
 */
 package circdesigna.impl;
 
-import static circdesigna.abstractpolymer.DnaDefinition.A;
-import static circdesigna.abstractpolymer.DnaDefinition.C;
-import static circdesigna.abstractpolymer.DnaDefinition.G;
-import static circdesigna.abstractpolymer.DnaDefinition.T;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
 import circdesigna.AbstractDomainDesignTarget;
+import circdesigna.CircDesigNA;
 import circdesigna.CircDesigNAOptions;
+import circdesigna.CircDesigNA_SharedUtils;
 import circdesigna.DesignIntermediateReporter;
 import circdesigna.DomainDefinitions;
-import circdesigna.CircDesigNA;
-import circdesigna.CircDesigNA_SharedUtils;
 import circdesigna.DomainSequence;
+import circdesigna.SequencePenalties;
 import circdesigna.AbstractDomainDesignTarget.HairpinClosingTarget;
 import circdesigna.abstractDesigner.ParetoSort;
 import circdesigna.config.CircDesigNAConfig;
@@ -46,6 +42,8 @@ import circdesigna.energy.NAFolding;
  */
 public class CircDesigNAImpl extends CircDesigNA{
 	private NAFolding flI;
+	private SequencePenalties sp;
+	
 	/**
 	 * @param std 
 	 * @param foldingImpl<br>
@@ -55,11 +53,97 @@ public class CircDesigNAImpl extends CircDesigNA{
 	 * If designSSonly is true, only SingleStrandedAssurance will be used; As a result, crosstalk and dimerization may occur
 	 * in solution candidates.
 	 */
-	public CircDesigNAImpl(NAFolding foldingImpl, CircDesigNAConfig std) {
+	public CircDesigNAImpl(NAFolding foldingImpl, SequencePenalties sp, CircDesigNAConfig std) {
 		super(std);
 		this.flI = foldingImpl;
+		this.sp = sp;
 	}
+	
+	/**
+	 * Returns a list of score penalties to use in evaluating population members.
+	 */
+	public List<ScorePenalty> listPenalties(
+			AbstractDomainDesignTarget designTarget,
+			DesignIntermediateReporter DIR, int[][] domain2, CircDesigNAOptions options, DomainDefinitions dsd) {
 
+		ArrayList<DomainSequence> rawStrands = designTarget.wholeStrands;
+		ArrayList<DomainSequence> makeSS = new ArrayList();
+		makeSS.addAll(designTarget.generalizedSingleStranded);
+		makeSS.addAll(designTarget.singleDomains);
+		ArrayList<HairpinClosingTarget> hairpinClosings = designTarget.hairpinClosings;
+
+		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(rawStrands);
+		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(makeSS);
+
+		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(hairpinClosings);
+
+		List<ScorePenalty> allScores = new LinkedList<ScorePenalty>();
+		//Only add this penalty if the system contains at least one base.
+		int totalBases = 0;
+		for(int[] row : domain2){
+			totalBases += row.length;
+		}
+		if (totalBases>0){
+			allScores.add(new VariousSequencePenalties(rawStrands,DIR));	
+		}
+
+		ArrayList<MFEHybridScore> hybridScorings = new ArrayList<MFEHybridScore>();
+		for(int i = 0; i < makeSS.size(); i++){
+			DomainSequence ds = makeSS.get(i);
+			//Secondary Structure Formation
+			if (CircDesigNA_SharedUtils.checkComplementary(ds, ds)){
+				/*
+				allScores.add(new LocalDefectSSScore(ds, DIR, designTarget));	
+				//Dimerization
+				allScores.add(new PairDefectScore(ds, ds, DIR, false, designTarget));
+				 */
+			} else {
+				allScores.add(new SelfFold(ds, DIR));
+				hybridScorings.add(new MFEHybridScore(ds, ds, DIR, ds.numDomains==1));
+			}
+
+			//Hybridization
+			for(int k = i+1; k < makeSS.size(); k++){ //Do only upper triangle
+				DomainSequence ds2 = makeSS.get(k);
+				boolean sameMol = ds.getMoleculeName().equals(ds2.getMoleculeName());
+				if (CircDesigNA_SharedUtils.checkComplementary(ds, ds2)){
+					//allScores.add(new PairDefectScore(ds, ds2, DIR, sameMol, designTarget));
+				} else {
+					hybridScorings.add(new MFEHybridScore(ds, ds2, DIR, sameMol || (ds.numDomains==1 && ds2.numDomains==1)));
+				}
+			}
+		}
+
+		for(int i = 0; i < hybridScorings.size(); i++){
+			MFEHybridScore target = hybridScorings.get(i);
+			for(int j = i+1; j < hybridScorings.size(); j++){
+				MFEHybridScore match = hybridScorings.get(j);
+				if (match.ds[0].isSubsequenceOf(target.ds[0]) && match.ds[1].isSubsequenceOf(target.ds[1])){
+					hybridScorings.remove(j--);
+				}
+			}
+		}
+
+		allScores.addAll(hybridScorings);
+
+		for(HairpinClosingTarget hairpin : hairpinClosings){
+			allScores.add(new HairpinOpening(hairpin, DIR));
+		}
+
+		if (options.selfSimilarityPenalty.getState() >= 0){
+			//Only do each domain once.
+			List<DomainSequence> domainsOnceApiece = new ArrayList();
+			domainsOnceApiece.addAll(designTarget.singleDomains);
+			CircDesigNA_SharedUtils.utilRemoveDuplicateOrComplementaryDomains(domainsOnceApiece);
+			for(DomainSequence domain : domainsOnceApiece){
+				if (domain2[domain.domainList[0] & DomainSequence.NA_COMPLEMENT_FLAGINV].length >= options.selfSimilarityPenalty.getState()){
+					allScores.add(new SelfSimilarityScore(domain, DIR));
+				}
+			}
+		}
+
+		return allScores;
+	}
 	
 	/**
 	 * Implements the "isDominatedBy" method, required for doing pareto sorting of design population members.
@@ -224,9 +308,6 @@ public class CircDesigNAImpl extends CircDesigNA{
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			double deltaG = flI.mfeNoDiag(ds[0], ds[1], domain, domain_markings);
-			
-			//Parameters 
-			deltaG -= Math.min(0,-.569*ds[0].length(domain) + 5.4055); //DNA parameters
 			return Math.max(0,-deltaG);
 		}
 		public boolean affectedBy(int domain) {
@@ -267,56 +348,13 @@ public class CircDesigNAImpl extends CircDesigNA{
 			return true;
 		}
 
-		/**
-		 * This routine checks for potentially problematic (hard to synthesize) DNA sequences.
-		 * 
-		 * Amounts to poly-N checking, and uses the same routines as David Zhang's Domain Designer
-		 * Penalizes:
-		 *    +1 for each GGGG or CCCC
-		 *    +1 for each run of As and Ts of length 6
-		 *    +1 for each run of Gs and Cs of length 6
-		 * 
-		 * @param domain_markings 
-		 */
-		private double getSynthesizabilityScore(DomainSequence seq, int[][] domain, int[][] domain_markings) {
-			int n = seq.length(domain_markings);
-			double sumResult = 0;
-			int[] baseCounts4 = new int[Std.monomer.getNumMonomers()];
-			int[] baseCounts6 = new int[Std.monomer.getNumMonomers()];
-			for(int i = 0; i < n; i++){
-				if (i >= 4){
-					int prior = base(seq,i-4,domain);
-					baseCounts4[prior]--;
-				}
-				if (i >= 6){
-					int prior = base(seq,i-6,domain);
-					baseCounts6[prior]--;
-				}
-				int now = base(seq,i,domain);
-				baseCounts4[now]++;
-				baseCounts6[now]++;
-				//System.out.println(now+" "+Arrays.toString(baseCounts4)+" "+Arrays.toString(baseCounts6));
-				
-				if (baseCounts4[G]==4 || baseCounts4[C]==4){
-					sumResult++;
-					seq.mark(i, -4, domain, domain_markings);
-				}
-				
-				if (baseCounts6[A]+baseCounts6[T]==6 || baseCounts6[G]+baseCounts6[C]==6){
-					sumResult++;
-					seq.mark(i, -6, domain, domain_markings);
-				}
-			}
-			return sumResult;
-		}
-
 
 		public double evalScoreSub(int[][] domain, int[][] domain_markings) {
 			double sum = 0;
 			for(DomainSequence seq : seqs){
-				sum += getSynthesizabilityScore(seq, domain,domain_markings);
+				sum += sp.getSynthesizabilityScore(seq, domain,domain_markings);
 			}
-			return sum;
+			return sum * 10;
 		}
 
 		public int getNumDomainsInvolved() {
@@ -475,88 +513,5 @@ public class CircDesigNAImpl extends CircDesigNA{
 		public DomainSequence[] getSeqs() {
 			return ds;
 		}
-	}
-
-	public List<ScorePenalty> listPenalties(
-			AbstractDomainDesignTarget designTarget,
-			DesignIntermediateReporter DIR, int[][] domain2, CircDesigNAOptions options, DomainDefinitions dsd) {
-
-		ArrayList<DomainSequence> rawStrands = designTarget.wholeStrands;
-		ArrayList<DomainSequence> makeSS = new ArrayList();
-		makeSS.addAll(designTarget.generalizedSingleStranded);
-		makeSS.addAll(designTarget.singleDomains);
-		ArrayList<HairpinClosingTarget> hairpinClosings = designTarget.hairpinClosings;
-
-		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(rawStrands);
-		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(makeSS);
-
-		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(hairpinClosings);
-
-		List<ScorePenalty> allScores = new LinkedList<ScorePenalty>();
-		//Only add this penalty if the system contains at least one base.
-		int totalBases = 0;
-		for(int[] row : domain2){
-			totalBases += row.length;
-		}
-		if (totalBases>0){
-			allScores.add(new VariousSequencePenalties(rawStrands,DIR));	
-		}
-
-		ArrayList<MFEHybridScore> hybridScorings = new ArrayList<MFEHybridScore>();
-		for(int i = 0; i < makeSS.size(); i++){
-			DomainSequence ds = makeSS.get(i);
-			//Secondary Structure Formation
-			if (CircDesigNA_SharedUtils.checkComplementary(ds, ds)){
-				/*
-				allScores.add(new LocalDefectSSScore(ds, DIR, designTarget));	
-				//Dimerization
-				allScores.add(new PairDefectScore(ds, ds, DIR, false, designTarget));
-				 */
-			} else {
-				allScores.add(new SelfFold(ds, DIR));
-				hybridScorings.add(new MFEHybridScore(ds, ds, DIR, ds.numDomains==1));
-			}
-
-			//Hybridization
-			for(int k = i+1; k < makeSS.size(); k++){ //Do only upper triangle
-				DomainSequence ds2 = makeSS.get(k);
-				boolean sameMol = ds.getMoleculeName().equals(ds2.getMoleculeName());
-				if (CircDesigNA_SharedUtils.checkComplementary(ds, ds2)){
-					//allScores.add(new PairDefectScore(ds, ds2, DIR, sameMol, designTarget));
-				} else {
-					hybridScorings.add(new MFEHybridScore(ds, ds2, DIR, sameMol || (ds.numDomains==1 && ds2.numDomains==1)));
-				}
-			}
-		}
-
-		for(int i = 0; i < hybridScorings.size(); i++){
-			MFEHybridScore target = hybridScorings.get(i);
-			for(int j = i+1; j < hybridScorings.size(); j++){
-				MFEHybridScore match = hybridScorings.get(j);
-				if (match.ds[0].isSubsequenceOf(target.ds[0]) && match.ds[1].isSubsequenceOf(target.ds[1])){
-					hybridScorings.remove(j--);
-				}
-			}
-		}
-
-		allScores.addAll(hybridScorings);
-
-		for(HairpinClosingTarget hairpin : hairpinClosings){
-			allScores.add(new HairpinOpening(hairpin, DIR));
-		}
-
-		if (options.selfSimilarityPenalty.getState() >= 0){
-			//Only do each domain once.
-			List<DomainSequence> domainsOnceApiece = new ArrayList();
-			domainsOnceApiece.addAll(designTarget.singleDomains);
-			CircDesigNA_SharedUtils.utilRemoveDuplicateOrComplementaryDomains(domainsOnceApiece);
-			for(DomainSequence domain : domainsOnceApiece){
-				if (domain2[domain.domainList[0] & DomainSequence.DNA_SEQ_FLAGSINVERSE].length >= options.selfSimilarityPenalty.getState()){
-					allScores.add(new SelfSimilarityScore(domain, DIR));
-				}
-			}
-		}
-
-		return allScores;
 	}
 }

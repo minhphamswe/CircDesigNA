@@ -25,19 +25,22 @@ package circdesigna.abstractpolymer;
  */
 public class DnaDefinition extends MonomerDefinition{
 	//Explicit definition of DNA: Mapping from a subset of Z to all of DNA
-	public static final int A = 1, T = 2, G = 3, C = 4, P = 5, Z = 6;
+	public static final int A = 1, T = 2, G = 3, C = 4, P = 5, Z = 6, MAX_DNA_BASE = Z+1;
 	private final int[] baseOrdering = new int[]{A,T,G,C,P,Z}; 
-	//A number guaranteed to be bigger than the largest base.
-	private final int DNAFLAG_ADD = Z+1;
-	//Blech. to get rid of.
-	private final double GCstr = -2;
-	private final double ATstr = -1;
-	private final double DHstr = GCstr;
-	private final double PZstr = GCstr;
-	private final double GTstr = -0.1;
-	//Binding score function.
-	//TODO Delete this thing. 
-	public final double bindScore(int a, int b){
+	
+	//Used by bindScore
+	private final int GCstr = -20;
+	private final int ATstr = -10;
+	private final int DHstr = GCstr;
+	private final int PZstr = GCstr;
+	private final int GTstr = -1;
+	/**
+	 * Really rough scoring function, returns some representative negative value if two bases
+	 * are complementary (wobble gets less, etc.)
+	 * 
+	 * A 0 value should be seen as "don't even consider pairing these".
+	 */
+	public final int bindScore(int a, int b){
 		a = noFlags(a);
 		b = noFlags(b);
 		if ((a==A && b==T) || (a==T && b==A)){
@@ -159,7 +162,7 @@ public class DnaDefinition extends MonomerDefinition{
 		return i-1;
 	}
 	public int getNumMonomers() {
-		return DNAFLAG_ADD;
+		return MAX_DNA_BASE;
 	}
 	public int[] getMonomers() {
 		return baseOrdering;

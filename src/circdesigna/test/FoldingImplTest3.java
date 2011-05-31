@@ -26,6 +26,7 @@ import static circdesigna.abstractpolymer.DnaDefinition.T;
 
 import java.util.Arrays;
 
+
 import circdesigna.AbstractDomainDesignTarget;
 import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
@@ -33,6 +34,7 @@ import circdesigna.AbstractDomainDesignTarget.HairpinClosingTarget;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.energy.CircDesigNAMCSFolder;
 import circdesigna.impl.CircDesigNAImpl;
+import circdesigna.impl.SequencePenaltiesImpl;
 import circdesigna.impl.CircDesigNAImpl.HairpinOpening;
 
 
@@ -40,10 +42,9 @@ public class FoldingImplTest3 {
 	public static void main(String[] args){
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		for(int i = 0; i < 1; i++){
-			CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
-			CircDesigNAImpl impl = new CircDesigNAImpl(fl,config);
+			CircDesigNAImpl impl = new CircDesigNAImpl(new CircDesigNAMCSFolder(config),new SequencePenaltiesImpl(config), config);
 			DomainDefinitions dsd = new DomainDefinitions(config);
-			HairpinClosingTarget hairpin = new AbstractDomainDesignTarget(dsd,config).new HairpinClosingTarget(1,0,0|DomainSequence.DNA_COMPLEMENT_FLAG,2,true,null);
+			HairpinClosingTarget hairpin = new AbstractDomainDesignTarget(dsd,config).new HairpinClosingTarget(1,0,0|DomainSequence.NA_COMPLEMENT_FLAG,2,true,null);
 			HairpinOpening hairpinOpening = impl.new HairpinOpening(hairpin, null);
 			DomainSequence seqS = new DomainSequence();
 			seqS.setDomains(0, null);

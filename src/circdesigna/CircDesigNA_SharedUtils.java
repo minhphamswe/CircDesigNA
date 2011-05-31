@@ -19,8 +19,8 @@
 */
 package circdesigna;
 
-import static circdesigna.DomainSequence.DNA_COMPLEMENT_FLAG;
-import static circdesigna.DomainSequence.DNA_SEQ_FLAGSINVERSE;
+import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAG;
+import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAGINV;
 import static circdesigna.abstractpolymer.DnaDefinition.C;
 import static circdesigna.abstractpolymer.DnaDefinition.G;
 
@@ -71,32 +71,38 @@ public class CircDesigNA_SharedUtils {
 	*/
 
 	public static int[] utilReadSequence(String rawDomains, DomainDefinitions dsd) {
-		rawDomains = "TMP "+rawDomains;
+		rawDomains = "TMP "+rawDomains.replace(")"," ").replace("("," ").trim();
 
-		ParseResult t = CDNA2PublicParser.parse(rawDomains);
+		try {
+			ParseResult t = CDNA2PublicParser.parse(rawDomains);
 
-		ArrayList<Integer> bases = new ArrayList();
-		for(Object token : t.parse){
-			if (token instanceof CDNA2Token.Domain){
-				String name = ((CDNA2Token.Domain)token).name;
-				int newBase = 0;
-				if (name.endsWith("*")){
-					newBase = dsd.lookupDomainName(name.substring(0,name.length()-1));
-					newBase |= DNA_COMPLEMENT_FLAG;
-				} else {
-					newBase = dsd.lookupDomainName(name);
-				}
-				if (newBase >= 0){
-					bases.add(newBase);
+			ArrayList<Integer> bases = new ArrayList();
+			for(Object token : t.parse){
+				if (token instanceof CDNA2Token.Domain){
+					String name = ((CDNA2Token.Domain)token).name;
+					int newBase = 0;
+					if (name.endsWith("*")){
+						newBase = dsd.lookupDomainName(name.substring(0,name.length()-1));
+						newBase |= NA_COMPLEMENT_FLAG;
+					} else {
+						newBase = dsd.lookupDomainName(name);
+					}
+					if (newBase >= 0){
+						bases.add(newBase);
+					}
 				}
 			}
+			int[] bases2 = new int[bases.size()];
+			for(int k = 0; k < bases.size(); k++){
+				bases2[k] = bases.get(k);
+			}
+			return bases2;
+		} catch (Throwable e){
+			System.out.println(rawDomains);
+			e.printStackTrace();
+			return new int[0];
 		}
 		
-		int[] bases2 = new int[bases.size()];
-		for(int k = 0; k < bases.size(); k++){
-			bases2[k] = bases.get(k);
-		}
-		return bases2;
 	}
 
 
@@ -122,7 +128,7 @@ public class CircDesigNA_SharedUtils {
 		big: while(itr.hasNext()){
 			DomainSequence seq = itr.next();
 			for(DomainSequence q : seqs){
-				if (q!=seq && ((q.domainList[0] & DNA_SEQ_FLAGSINVERSE)==(seq.domainList[0] & DNA_SEQ_FLAGSINVERSE))){
+				if (q!=seq && ((q.domainList[0] & NA_COMPLEMENT_FLAGINV)==(seq.domainList[0] & NA_COMPLEMENT_FLAGINV))){
 					q.appendMoleculeNames(seq);	
 					itr.remove();
 					continue big;
@@ -185,8 +191,8 @@ public class CircDesigNA_SharedUtils {
 			for(int y = 0; y < b.numDomains; y++){
 				int abase = a.domainList[k];
 				int bbase = b.domainList[y];
-				if ((abase&DNA_COMPLEMENT_FLAG)!=(bbase&DNA_COMPLEMENT_FLAG)){
-					if ((abase&DNA_SEQ_FLAGSINVERSE)==(bbase&DNA_SEQ_FLAGSINVERSE)){
+				if ((abase&NA_COMPLEMENT_FLAG)!=(bbase&NA_COMPLEMENT_FLAG)){
+					if ((abase&NA_COMPLEMENT_FLAGINV)==(bbase&NA_COMPLEMENT_FLAGINV)){
 						return true;
 					}
 				}
@@ -526,7 +532,7 @@ public class CircDesigNA_SharedUtils {
 		int domain1 = ds1.domainAt(i, domains);
 		int domain2 = ds2.domainAt(j, domains);
 		if (areComplementary(domain1,domain2)){
-			int domain = domain1 & DNA_SEQ_FLAGSINVERSE;
+			int domain = domain1 & NA_COMPLEMENT_FLAGINV;
 			
 			int offset1 = ds1.offsetInto(i, domains, false); //Don't uncomplement - give offset 
 			int offset2 = ds2.offsetInto(j, domains, false);
@@ -538,7 +544,7 @@ public class CircDesigNA_SharedUtils {
 	}
 	
 	private static boolean areComplementary(int domain1, int domain2) {
-		return (domain1 ^ DNA_COMPLEMENT_FLAG)==domain2;
+		return (domain1 ^ NA_COMPLEMENT_FLAG)==domain2;
 	}
 
 	public static void utilPairsOfDomainsFinder(DomainPolymerGraph dsg, ArrayList<DomainSequence> pairsOfDomains) {
@@ -566,14 +572,14 @@ public class CircDesigNA_SharedUtils {
 				int lDomain = dsg.getDomain(domainLeft);
 				if (lDomain<0) break; //End of strand
 				overlapSequence.addFirst(lDomain);
-				leftOverlap -= dsg.getDomainDefs().domainLengths[lDomain & DNA_SEQ_FLAGSINVERSE];
+				leftOverlap -= dsg.getDomainDefs().domainLengths[lDomain & NA_COMPLEMENT_FLAGINV];
 			}
 			overlapSequence.add(domain1);
 			for(int domainRight = k+1; domainRight<dsg.length() && rightOverlap>0; domainRight++){
 				int rDomain = dsg.getDomain(domainRight);
 				if (rDomain<0) break; //End of strand
 				overlapSequence.add(rDomain);
-				rightOverlap -= dsg.getDomainDefs().domainLengths[rDomain & DNA_SEQ_FLAGSINVERSE];
+				rightOverlap -= dsg.getDomainDefs().domainLengths[rDomain & NA_COMPLEMENT_FLAGINV];
 			}
 			DomainSequence toAdd = new DomainSequence();
 			toAdd.setDomains(overlapSequence, dsg);

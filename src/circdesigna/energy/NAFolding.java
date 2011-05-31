@@ -27,6 +27,14 @@ import circdesigna.DomainSequence;
  * mfe: Locate the minimum free energy structure formed by the interaction of 2 strands ("hybridization energy"), and
  * return its delta G. Or, in the one argument version, returns the MFE structure formed by a single strand.
  * 
+ * mfeNoDiag: Locate the minimum free energy structure formed by the interaction of 2 equal length strands,
+ * of only structures that are composed entirely of misaligned (i.e., not base-for-base) hybridization.
+ * A baseline, dependent linearly on the length of the strands, is subtracted from the result.
+ * 
+ * In other words, a large negative value from this call means that the two strands can hybridize in a 
+ * stable way without hybridizing base-for-base with one another. This is a hazard in systems, as it means
+ * that domains can transiently mispair. 
+ * 
  * mfeStraight : the free energy of a straight helix of two aligned sequences. Not necessarily the MFE score!
  * The behavior of this method is complicated by the use of markings. This method can use bases for scoring which it is NOT allowed to "mark".
  * Use markLeft, markRight to denote the regions where the domain_markings array will be affected (indexed by the first sequence)
@@ -38,8 +46,15 @@ import circdesigna.DomainSequence;
  * The one argument version does the same, but for pair probabilities of single stranded structures (a strand folding on itself)
  */
 public interface NAFolding {
-	public double mfe(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] problemAreas);
+	public double mfe(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings);
 	public double mfe(DomainSequence domainSequence, int[][] domain, int[][] domain_markings);
+	/**
+	 * Unlike the other MFE prediction functions, this returns a value which is offset by an appropriate
+	 * baseline for 50% G/C strand of the same length and type (DNA / RNA). 
+	 * 
+	 * That is, a negative value here means that there exists an more-than-expected misaligned pairing
+	 * between the two equal length  
+	 */
 	public double mfeNoDiag(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings);
 	public double mfeStraight(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset);
 	

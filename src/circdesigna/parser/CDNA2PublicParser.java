@@ -43,8 +43,12 @@ public class CDNA2PublicParser {
 		CDNA2Parser cp = new CDNA2Parser();
 		ParseResult res = new ParseResult();
 		try {
-			ArrayList parse = (ArrayList) cp.parse(new CDNA2Scanner(new StringReader(info)));
-			res.moleculeName = (String) parse.remove(0);
+			String[] info2 = info.split("\\s+",2);
+			if (info2.length!=2){
+				throw new RuntimeException("Correct molecule format: <name> <molecule>");
+			}
+			ArrayList parse = (ArrayList) cp.parse(new CDNA2Scanner(new StringReader(info2[1])));
+			res.moleculeName = (String) info2[0];
 			for(Object o : parse){
 				if (o instanceof CDNA2Token.Domain){
 					((CDNA2Token.Domain)o).validate();

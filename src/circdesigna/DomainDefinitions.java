@@ -18,8 +18,8 @@
   Boston, MA  02111-1307  USA
 */
 package circdesigna;
-import static circdesigna.DomainSequence.DNA_COMPLEMENT_FLAG;
-import static circdesigna.DomainSequence.DNA_SEQ_FLAGSINVERSE;
+import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAG;
+import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAGINV;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,13 +48,13 @@ public class DomainDefinitions extends CircDesigNASystemElement{
 	private Map<String, Integer> nameMap = new TreeMap();
 	//keys are domains converted to numbers.
 	public String getDomainName(int domain){
-		String postpend = ((domain & DNA_COMPLEMENT_FLAG)!=0?"*":"");
+		String postpend = ((domain & NA_COMPLEMENT_FLAG)!=0?"*":"");
 		for(Entry<String, Integer> q : nameMap.entrySet()){
-			if (q.getValue()==(domain & DNA_SEQ_FLAGSINVERSE)){
+			if (q.getValue()==(domain & NA_COMPLEMENT_FLAGINV)){
 				return q.getKey()+postpend;
 			}
 		}
-		return ""+(domain & DNA_SEQ_FLAGSINVERSE)+postpend;
+		return ""+(domain & NA_COMPLEMENT_FLAGINV)+postpend;
 	}
 	/**
 	 * Throws an exception if the domainName is not registered, and returns a negative value
@@ -82,7 +82,7 @@ public class DomainDefinitions extends CircDesigNASystemElement{
 	 * You must handle complementation yourself in handling the constraints!
 	 */
 	public String getConstraint(int domain){
-		domain &= DNA_SEQ_FLAGSINVERSE;
+		domain &= NA_COMPLEMENT_FLAGINV;
 		if (domainConstraints.containsKey(domain)){
 			return domainConstraints.get(domain);
 		}
@@ -93,7 +93,7 @@ public class DomainDefinitions extends CircDesigNASystemElement{
 		return wT.toString();
 	}
 	public String getInitialSequence(int domain) {
-		domain &= DNA_SEQ_FLAGSINVERSE;
+		domain &= NA_COMPLEMENT_FLAGINV;
 		if (domainInitialSeqs.containsKey(domain)){
 			return domainInitialSeqs.get(domain);
 		}

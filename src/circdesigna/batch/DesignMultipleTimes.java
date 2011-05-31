@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.TreeMap;
 
+
 import circdesigna.AbstractDomainDesignTarget;
 import circdesigna.CircDesigNAOptions;
 import circdesigna.DesignIntermediateReporter;
@@ -44,6 +45,7 @@ import circdesigna.config.CircDesigNAConfig;
 import circdesigna.energy.CircDesigNAMCSFolder;
 import circdesigna.energy.NAFolding;
 import circdesigna.impl.CircDesigNAImpl;
+import circdesigna.impl.SequencePenaltiesImpl;
 import circdesigna.impl.CircDesigNAImpl.HairpinOpening;
 import circdesigna.impl.CircDesigNAImpl.MFEHybridScore;
 import circdesigna.impl.CircDesigNAImpl.SelfFold;
@@ -165,8 +167,8 @@ public class DesignMultipleTimes {
 				target.addTargetStructure(k);
 			}
 		}
-		NAFolding fli = new CircDesigNAMCSFolder(config);
-		CircDesigNAImpl ddi = new CircDesigNAImpl(fli,config);
+		
+		CircDesigNAImpl ddi = new CircDesigNAImpl(new CircDesigNAMCSFolder(config),new SequencePenaltiesImpl(config),config);
 		DesignIntermediateReporter DIR = new DesignIntermediateReporter();
 		
 		//generate domain from dsd.

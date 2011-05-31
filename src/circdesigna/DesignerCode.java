@@ -52,4 +52,8 @@ public interface DesignerCode {
 	 * the sequence constraints.
 	 */
 	public boolean mutateToOther(int[][] domain, int whichDomain, int i, int newbase);
+	/**
+	 * Invalidates any cache information this code has. Call before calling mutateToOther   
+	 */
+	public void reset();
 }

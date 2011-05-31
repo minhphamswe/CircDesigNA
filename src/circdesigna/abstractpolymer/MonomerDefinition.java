@@ -165,5 +165,5 @@ public abstract class MonomerDefinition {
 	
 	public abstract int getNormalBaseFromZero(int nonnormalBase);
 	
-	public abstract double bindScore(int base, int base2);
+	public abstract int bindScore(int base, int base2);
 }

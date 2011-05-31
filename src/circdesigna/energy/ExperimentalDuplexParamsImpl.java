@@ -70,30 +70,54 @@ public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement imple
 	private int getNormalBase(int nonnormalBase){
 		return Std.monomer.getNormalBaseFromZero(nonnormalBase);
 	}
-	private double[][][][] getNNdeltaG;
+	private static final int D2DECI(double value){
+		return (int)(value * 100);
+	}
+	private int[][][][] getNNdeltaG_deci;
 	public double getNNdeltaG(int W, int X, int Y, int Z) {
 		W = getNormalBase(W);
 		X = getNormalBase(X);
 		Y = getNormalBase(Y);
 		Z = getNormalBase(Z);
-		return getNNdeltaG[W][X][Y][Z];
+		return getNNdeltaG_deci[W][X][Y][Z]/100.0;
+	}
+	public int getNNdeltaG_deci(int W, int X, int Y, int Z) {
+		W = getNormalBase(W);
+		X = getNormalBase(X);
+		Y = getNormalBase(Y);
+		Z = getNormalBase(Z);
+		return getNNdeltaG_deci[W][X][Y][Z];
 	}
 	//X,Y,D,primeEnd(0,1)
-	private double[][][][] getDangle;
+	private int[][][][] getDangle_deci;
 	public double getDanglePenalty(int X, int Y, int D, boolean PrimeEnd3) {
 		X = getNormalBase(X);
 		Y = getNormalBase(Y);
 		D = getNormalBase(D);
-		return getDangle[X][Y][D][PrimeEnd3?1:0];
+		return getDangle_deci[X][Y][D][PrimeEnd3?1:0]/100.0;
 	}
-	private double[][][][] getNNdeltaGterm;
+	public int getDanglePenalty_deci(int X, int Y, int D, boolean PrimeEnd3) {
+		X = getNormalBase(X);
+		Y = getNormalBase(Y);
+		D = getNormalBase(D);
+		return getDangle_deci[X][Y][D][PrimeEnd3?1:0];
+	}
+	private int[][][][] getNNdeltaGterm_deci;
 	public double getNNdeltaGterm(int W, int X, int Y, int Z) {
 		W = getNormalBase(W);
 		X = getNormalBase(X);
 		Y = getNormalBase(Y);
 		Z = getNormalBase(Z);
-		return getNNdeltaGterm[W][X][Y][Z];
+		return getNNdeltaGterm_deci[W][X][Y][Z]/100.0;
 	}
+	public int getNNdeltaGterm_deci(int W, int X, int Y, int Z) {
+		W = getNormalBase(W);
+		X = getNormalBase(X);
+		Y = getNormalBase(Y);
+		Z = getNormalBase(Z);
+		return getNNdeltaGterm_deci[W][X][Y][Z];
+	}
+	
 	
 	public static void main(String[] args) throws Throwable{
 		CircDesigNAConfig config = new CircDesigNAConfig();
@@ -122,26 +146,26 @@ public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement imple
 			ArrayList<TerminalMismatchPairScore> tns,
 			ArrayList<DangleScore> dangles) {
 		//Ok! parse the arraylists to actual tables.
-		getNNdeltaG = new double[4][4][4][4];
-		getNNdeltaGterm = new double[4][4][4][4];
-		getDangle = new double[4][4][4][2];
+		getNNdeltaG_deci = new int[4][4][4][4];
+		getNNdeltaGterm_deci = new int[4][4][4][4];
+		getDangle_deci = new int[4][4][4][2];
 		for(NearestNeighborScore nnsi : nns){
-			getNNdeltaG[nnsi.W]
+			getNNdeltaG_deci[nnsi.W]
 			            [nnsi.X]
 			             [nnsi.Y]
-			              [nnsi.Z] = nnsi.score;
+			              [nnsi.Z] = D2DECI(nnsi.score);
 		}
 		for(TerminalMismatchPairScore tnsi : tns){
-			getNNdeltaGterm[tnsi.W]
+			getNNdeltaGterm_deci[tnsi.W]
 			                [tnsi.X]
 			                 [tnsi.Y]
-			                  [tnsi.Z] = tnsi.score;
+			                  [tnsi.Z] = D2DECI(tnsi.score);
 		}
 		for(DangleScore dang : dangles){
-			getDangle[dang.W]
+			getDangle_deci[dang.W]
 			          [dang.X]
 			           [dang.Z]
-			            [dang.is3PrimeEnd?1:0] = dang.score;
+			            [dang.is3PrimeEnd?1:0] = D2DECI(dang.score);
 		}
 		
 		//Print them out:
@@ -265,5 +289,4 @@ public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement imple
 			}
 		}
 	}
-
 }

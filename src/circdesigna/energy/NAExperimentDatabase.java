@@ -36,15 +36,18 @@ public interface NAExperimentDatabase {
 	 * d((W,X),(Y,Z))!=d((X,W),(Z,Y)).
 	 */
 	public double getNNdeltaG(int W, int X, int Y, int Z);
+	public int getNNdeltaG_deci(int W, int X, int Y, int Z);
 	/**
 	 * Returns the delta G for a (W,X) pair neighboring a (Y,Z) pair. 
 	 * Specifically, Y,Z must be a MISMATCH and X,W must be a PAIR.
 	 */
 	public double getNNdeltaGterm(int W, int X, int Y, int Z);
+	public int getNNdeltaGterm_deci(int W, int X, int Y, int Z);
 	/**
 	 * Returns the dangle penalty for base D, on 3primeEnd, where X,Y are the terminal pair of the helix.
 	 */
 	public double getDanglePenalty(int X, int Y, int D, boolean PrimeEnd);
+	public int getDanglePenalty_deci(int X, int Y, int D, boolean PrimeEnd);
 	
 	/**
 	 * Returns the delta G bonus for the association of numStrands strands at T kelvin.

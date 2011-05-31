@@ -159,33 +159,38 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 	 * Not multithreaded.
 	 */
 	public boolean isValid(int[] domain){
-		if (getBaseCounts(domain)){
-			for(int k = 0; k < Std.monomer.getNumMonomers(); k++){
-				if (isOutOfValidRange(k)){
-					return false;
-				}
+		getBaseCounts(domain);
+		for(int k = 0; k < Std.monomer.getNumMonomers(); k++){
+			if (isOutOfValidRange(k)){
+				return false;
 			}
 		}
 		return true;
 	}
+	private boolean hasBaseCounts = false;
 	/**
 	 * Modifies getBaseCounts_shared.
 	 */
 	private boolean getBaseCounts(int[] domain) {
-		return getBaseCounts(domain,-1);
-	}
-	private int[] getBaseCounts_shared;
-	private boolean getBaseCounts(int[] domain, int ignoreIndex) {
+		if (hasBaseCounts){
+			return true;
+		}
+		
+		hasBaseCounts = true;
 		//Ensure correct length of share vector
 		if (getBaseCounts_shared==null || getBaseCounts_shared.length != Std.monomer.getNumMonomers()){
 			getBaseCounts_shared = new int[Std.monomer.getNumMonomers()];
 		}
 		Arrays.fill(getBaseCounts_shared,0);
 		for(int k = 0; k < domain.length; k++){
-			if (k==ignoreIndex) continue;
 			getBaseCounts_shared[Std.monomer.noFlags(domain[k])]++;
 		}
 		return true;
+	}
+	
+	private int[] getBaseCounts_shared;
+	public void eraseBaseCounts() {
+		hasBaseCounts = false;
 	}
 	/**
 	 * Tests whether given flags allow a certain base.
@@ -360,10 +365,11 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 			int testBase = b_inBaseOrders;
 			//Count the number of occurrences of testBase, which is not the same as oldBase, so we can assume
 			//that the index j is irrelevent, and see if the incremented case is out of range
-			int old_test_ct = getBaseCounts_shared[testBase]; 
+			getBaseCounts_shared[oldBase_pure]--;
 			getBaseCounts_shared[testBase]++;
 			boolean isOverValidMax = isOverValidMax(testBase);
-			getBaseCounts_shared[testBase] = old_test_ct;
+			getBaseCounts_shared[testBase]--;
+			getBaseCounts_shared[oldBase_pure]++;
 			if (isOverValidMax){
 				return false;
 			}
@@ -382,8 +388,7 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 			i_inBaseOrders = -1;
 			isDirectMutation = true;
 			b_inBaseOrders = -1;
-			//Get base counts.
-			getBaseCounts(mut_new,j);
+			getBaseCounts(mut_new);
 			
 			//This call provides the ability to move "into" valid sequence space from outside.
 			//If isUnderQuotaInBase is equal to "UnderQuotaButImpossibleToChange", then
@@ -439,6 +444,7 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 	
 	public int countAvailableMutations(int[] mut_new, int j) {
 		itr.reset(mut_new,j);
+		
 		int count = 0;
 		while(itr.nextChoice()){
 			count++;
@@ -466,7 +472,9 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 		if (itr.isDirectMutationChoice()){
 			int newBase = itr.getMutationBase();
 			//new Base < getNumMonomers
+			getBaseCounts_shared[Std.monomer.noFlags(mut_new[j])]--;
 			mut_new[j] = mut_new[j] - Std.monomer.noFlags(mut_new[j]) + newBase;
+			getBaseCounts_shared[newBase]++;
 		} else {
 			int swapIndex = itr.getSwapIndex();
 			int tmp = mut_new[j];

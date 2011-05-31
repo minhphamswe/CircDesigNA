@@ -366,4 +366,7 @@ public class CodonCode extends CircDesigNASystemElement implements DesignerCode{
 	public boolean mutateToOther(int[][] domain, int whichDomain, int i, int newbase) {
 		throw new RuntimeException("Do not use the crossover operator when doing protein design.");
 	}
+	public void reset() {
+	
+	}
 }

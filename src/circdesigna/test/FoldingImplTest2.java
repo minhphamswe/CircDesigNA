@@ -30,6 +30,7 @@ import java.util.Scanner;
 
 import javax.swing.plaf.basic.BasicInternalFrameTitlePane.RestoreAction;
 
+
 import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;

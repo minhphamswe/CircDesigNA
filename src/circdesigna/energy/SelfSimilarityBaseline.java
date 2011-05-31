@@ -17,18 +17,22 @@
   Free Software Foundation, Inc., 59 Temple Place, Suite 330,
   Boston, MA  02111-1307  USA
 */
-package circdesigna.test;
+package circdesigna.energy;
 
 import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.CircDesigNAMCSFolder;
-import circdesigna.energy.NAFolding;
 
-public class SelfSimilarityScore {
+/**
+ * Run this after modifying the interaction scoring function; run a linear regression on results
+ * to find a baseline for self-similarity scoring
+ * @author Benjamin
+ */
+public class SelfSimilarityBaseline {
 	public static void main(String[] args){
 		CircDesigNAConfig cfg = new CircDesigNAConfig();
-		NAFolding fli = new CircDesigNAMCSFolder(cfg);
-		while(true){
+		cfg.setMode(CircDesigNAConfig.RNA_MODE);
+		CircDesigNAMCSFolder fli = new CircDesigNAMCSFolder(cfg);
+		for(int u = 0; u < 1000; u++){
 			int len = (int) (Math.random()*8000+10);
 			int[][] domain = new int[1][len];
 			int[][] nullMark = new int[1][len];
@@ -40,8 +44,8 @@ public class SelfSimilarityScore {
 			DomainSequence ds1 = new DomainSequence();
 			DomainSequence ds2 = new DomainSequence();
 			ds1.setDomains(0,null);
-			ds2.setDomains(0 | DomainSequence.DNA_COMPLEMENT_FLAG,null);
-			System.out.println(len+" "+fli.mfeNoDiag(ds1, ds2, domain, nullMark));
+			ds2.setDomains(0 | DomainSequence.NA_COMPLEMENT_FLAG,null);
+			System.out.println(len+" "+fli.mfeNoDiag_NoBaseline(ds1, ds2, domain, nullMark));
 		}
 	}
 }

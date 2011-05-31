@@ -19,7 +19,7 @@
 */
 package circdesigna;
 
-import static circdesigna.DomainSequence.DNA_COMPLEMENT_FLAG;
+import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAG;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -160,7 +160,7 @@ public class DomainPolymerGraph implements AbstractComplex{
 					//Ignore domains of length 0 when parsing the structures.
 				} else {
 					if (domainName.endsWith("*")){
-						numberDomain2 |= DNA_COMPLEMENT_FLAG;
+						numberDomain2 |= NA_COMPLEMENT_FLAG;
 					}
 
 					int thisIndex = domains_tmp.size();

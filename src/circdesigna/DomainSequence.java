@@ -32,8 +32,8 @@ import circdesigna.abstractpolymer.MonomerDefinition;
  * An abstraction of a DNA strand, interpreted as a list of domains.
  */
 public class DomainSequence {
-	public static final int DNA_COMPLEMENT_FLAG = 0x8000;
-	public static final int DNA_SEQ_FLAGSINVERSE = ~(DNA_COMPLEMENT_FLAG);
+	public static final int NA_COMPLEMENT_FLAG = 0x8000;
+	public static final int NA_COMPLEMENT_FLAGINV = ~(NA_COMPLEMENT_FLAG);
 	public static final int DNAMARKER_DONTMUTATE = -1;
 
 	/**
@@ -123,7 +123,7 @@ public class DomainSequence {
 		int length = 0, seq;
 		for(int i = 0; i < numDomains; i++){
 			//Extract which domain
-			seq = domainList[i] & DNA_SEQ_FLAGSINVERSE;
+			seq = domainList[i] & NA_COMPLEMENT_FLAGINV;
 			length += domain[seq].length;
 		}
 		return length;
@@ -148,10 +148,10 @@ public class DomainSequence {
 		int q = i, r = 0;
 		int[] d;
 		for(r = 0; r < numDomains; r++){
-			int dNum = domainList[r] & DNA_SEQ_FLAGSINVERSE;
+			int dNum = domainList[r] & NA_COMPLEMENT_FLAGINV;
 			d = domain[dNum];
 			if (q < d.length){
-				if ((domainList[r]&DNA_COMPLEMENT_FLAG)!=0){
+				if ((domainList[r]&NA_COMPLEMENT_FLAG)!=0){
 					int old = domain_markings[dNum][d.length-1-q];
 					domain_markings[dNum][d.length-1-q] = old==DNAMARKER_DONTMUTATE?markerValue:old+markerValue;
 					return;
@@ -169,9 +169,9 @@ public class DomainSequence {
 		int q = i, r = 0;
 		int[] d;
 		for(r = 0; r < numDomains; r++){
-			d = domain[domainList[r] & DNA_SEQ_FLAGSINVERSE];
+			d = domain[domainList[r] & NA_COMPLEMENT_FLAGINV];
 			if (q < d.length){
-				if ((domainList[r] & DNA_COMPLEMENT_FLAG)!=0){
+				if ((domainList[r] & NA_COMPLEMENT_FLAG)!=0){
 					return monomer.complement(d[d.length-1-q]);
 				} else{
 					return monomer.noFlags(d[q]);
@@ -186,7 +186,7 @@ public class DomainSequence {
 		int q = i, r = 0;
 		int[] d;
 		for(r = 0; r < numDomains; r++){
-			d = domain[domainList[r] & DNA_SEQ_FLAGSINVERSE];
+			d = domain[domainList[r] & NA_COMPLEMENT_FLAGINV];
 			if (q < d.length){
 				return domainList[r];
 			}
@@ -205,10 +205,10 @@ public class DomainSequence {
 		int q = i, r = 0;
 		int[] d;
 		for(r = 0; r < numDomains; r++){
-			d = domain[domainList[r] & DNA_SEQ_FLAGSINVERSE];
+			d = domain[domainList[r] & NA_COMPLEMENT_FLAGINV];
 			if (q < d.length){
 				if (offsetIntoUncomplemented){
-					if ((domainList[r] & DNA_COMPLEMENT_FLAG) != 0){
+					if ((domainList[r] & NA_COMPLEMENT_FLAG) != 0){
 						return d.length-1-q;
 					} else {
 						return q;
@@ -225,9 +225,9 @@ public class DomainSequence {
 	 * Returns true if this sequence contains domain i, or its complement.
 	 */
 	public boolean contains(int i) {
-		i &= DNA_SEQ_FLAGSINVERSE;
+		i &= NA_COMPLEMENT_FLAGINV;
 		for(int k = 0; k < numDomains; k++){
-			if ((domainList[k] & DNA_SEQ_FLAGSINVERSE) == i){
+			if ((domainList[k] & NA_COMPLEMENT_FLAGINV) == i){
 				return true;
 			}
 		}
@@ -237,8 +237,8 @@ public class DomainSequence {
 		StringBuffer sb = new StringBuffer();
 		sb.append("(Partial) "+moleculeName+": ");
 		for(int i = 0; i < numDomains; i++){
-			sb.append(dsd.getDomainName(domainList[i] & DNA_SEQ_FLAGSINVERSE));
-			if ((domainList[i]&DNA_COMPLEMENT_FLAG)!=0){
+			sb.append(dsd.getDomainName(domainList[i] & NA_COMPLEMENT_FLAGINV));
+			if ((domainList[i]&NA_COMPLEMENT_FLAG)!=0){
 				sb.append("*");
 			}
 			if (i+1<numDomains){
@@ -254,7 +254,7 @@ public class DomainSequence {
 		out.numDomains = numDomains;
 		for(int i = 0; i < numDomains; i++){
 			out.domainList[numDomains-1-i] = domainList[i];
-			out.domainList[numDomains-1-i] ^= DNA_COMPLEMENT_FLAG;
+			out.domainList[numDomains-1-i] ^= NA_COMPLEMENT_FLAG;
 		}
 		out.moleculeName = moleculeName;
 	}

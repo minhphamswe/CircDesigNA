@@ -1,22 +1,3 @@
-/*
-  Part of the CircDesigNA Project - http://cssb.utexas.edu/circdesigna
-  
-  Copyright (c) 2010-11 Ben Braun
-  
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation, version 2.1.
-
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General
-  Public License along with this library; if not, write to the
-  Free Software Foundation, Inc., 59 Temple Place, Suite 330,
-  Boston, MA  02111-1307  USA
-*/
 package circdesigna.energy;
 
 import java.awt.Point;
@@ -26,482 +7,341 @@ import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.config.CircDesigNASystemElement;
 
-
-/**
- * Implements MFE prediction and folding score functions, using the MCS algorithm as an approximation.
- */
-public class CircDesigNAMCSFolder extends CircDesigNASystemElement implements NAFolding{
-
-	/**
-	 * This is an O(N^2) approximation which essentially takes the maximum weighted subsequence
-	 * of one strand that is complementary to the other, where weight is assigned using the maximum
-	 * neighbor model (with terminal nearest neighbors accounted for)
-	 */
-	/**
-	 * Constructors, define parameters and / or a configuration.
-	 */
+public class CircDesigNAMCSFolder extends CircDesigNASystemElement implements OneMatrixNAFolder {
+	public CircDesigNAMCSFolder(CircDesigNAConfig System) {
+		super(System);
+		eParams = new ExperimentalDuplexParamsImpl(System);
+	}
 	private NAExperimentDatabase eParams;
-	public CircDesigNAMCSFolder(CircDesigNAConfig sys){
-		super(sys);
-		eParams = new ExperimentalDuplexParamsImpl(sys);
-	}
-	public CircDesigNAMCSFolder(NAExperimentDatabase params, CircDesigNAConfig sys){
-		super(sys);
-		eParams = params;
-	}
-	
-
-//////////////////////// "MCS" algorithm
-//////////////////////// Essentially applies Longest Common Subsequence recursion 
-//////////////////////// to two DNA strands, running one of the strands backwards (antisense)
-	/**
-	 * These turn any folding request into an application of a simplistic O(N^2) maximum-weighted-subsequence
-	 * finding problem. foldNA_viaMatrix implements the actual algorithm. 
-	 */
-	public double mfeNoDiag(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings){
-		FoldNA_viaMatrix_Options mfeNoDiagonalPairsOpt = new FoldNA_viaMatrix_Options();
-		mfeNoDiagonalPairsOpt.foldFullMatrix = true;
-		mfeNoDiagonalPairsOpt.suppressDiagonalScores = true;
-		//Run the generic folding algorithm under these conditions
-		return foldNA_viaMatrix(domainSequence, domainSequence2, domain, domain_markings, mfeNoDiagonalPairsOpt);
-	}
 	
 	public double mfe(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings) {
-		FoldNA_viaMatrix_Options mfe_viaMatrix_opt = new FoldNA_viaMatrix_Options();
-		mfe_viaMatrix_opt.foldFullMatrix = true;
-		//Run the generic folding algorithm under these conditions
-		return foldNA_viaMatrix(seq1, seq2, domain, domain_markings, mfe_viaMatrix_opt);
+		BiFoldAlgorithmConfig config = new BiFoldAlgorithmConfig();
+		config.domain = domain;
+		config.domain_markings = domain_markings;
+		return biFoldAlgorithm(seq1, seq2, domain, domain_markings, config);
 	}
-	public double mfe(DomainSequence seq, int[][] domain, int[][] domain_markings) {
-		FoldNA_viaMatrix_Options mfe_viaMatrix_opt = new FoldNA_viaMatrix_Options();
-		mfe_viaMatrix_opt.foldFullMatrix = false;
-		//Run the generic folding algorithm under these conditions
-		return foldNA_viaMatrix(seq, seq, domain, domain_markings, mfe_viaMatrix_opt);
+	public double mfe(DomainSequence domainSequence, int[][] domain, int[][] domain_markings) {
+		BiFoldAlgorithmConfig config = new BiFoldAlgorithmConfig();
+		config.foldSingleStranded = true;
+		config.domain = domain;
+		config.domain_markings = domain_markings;
+		return biFoldAlgorithm(domainSequence, domainSequence, domain, domain_markings, config);
 	}
-	
-	/**
-	 * Interaction score shared memory buffers
-	 */
-	private float[][] sMatrix_shared;
-	/**
-	 * Each leaf (a pair of ints a,b) is either:
-	 * a>0: a is  the length of a helix
-	 * a<0: -a is the length of the left loop, -b is the length of the right loop.
-	 */
-	private int[][][] sdMatrix_shared;
-	public void ensureSharedMatrices(int len1, int len2){
-		if (!(sMatrix_shared!=null && len1 <= sMatrix_shared.length && len2 <= sMatrix_shared[0].length)){
-			sMatrix_shared = new float[len1][len2];
-			sdMatrix_shared = new int[2][len2][2];
-		}
-	}
-	/**
-	 * fills the entire folding matrix with 0s. 
-	 */
-	private void foldSingleStranded_flushMatrixes(DomainSequence seq, DomainSequence seq2, int len1,int len2, int[][] domain){
-		// NxN complementarities. 
-		for (int i = 0; i < len1; i++) {
-			for (int j = 0; j < len2; j++) {
-				//int base1 = seq.base(i,domain);
-				//int base2 = seq2.base(j,domain);
-				flushFoldMatrices(i,j);
-			}
-		}
-	}
-	private void flushFoldMatrices(int i, int j){
-		sMatrix_shared[i][j] = 0;
-		sdMatrix(sdMatrix_shared,i,j)[0] = 0;
-		sdMatrix(sdMatrix_shared,i,j)[1] = 0;
-	}
-
-	
-	/**
-	 * Shortcut, simply computes the free energy score of interaction assuming that seq and seq2
-	 * form a base-for-base helix. Note that the two input domain sequences must have the same length. 
-	 */
-	public double mfeStraight(DomainSequence seq, DomainSequence seq2, int[][] domain, int[][] domain_markings, int markStart, int markEnd, int jOffset) {
-		int len1 = seq.length(domain);
-		int len2 = seq2.length(domain);
-		ensureSharedMatrices(len1,len2);
-		float[][] Smatrix = sMatrix_shared; // score matrix
-		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
+	public double mfeNoDiag(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings) {
+		double score = mfeNoDiag_NoBaseline(domainSequence, domainSequence2, domain, domain_markings);
 		
-		double best = 0;
-		int bestI = -1, bestJ = -1;
-		int helix = 0;
-		for(int i = len1-1, j = -jOffset; i >= 0 && j < len2;i--, j++){
-			if (j < 0){
-				continue;
-			}
-			float gamma3 = (float) foldSingleStranded_calcGamma3(len1,len2,seq,seq2,domain,i,j,Smatrix,SDmatrix,true);
-			Smatrix[i][j]=gamma3;
-			if (Smatrix[i][j] < best){
-				helix++;
-				bestI = i;
-				bestJ = j;
-				best = Smatrix[i][j];
-				if (Std.monomer.bindScore(base(seq,i,domain), base(seq2,j,domain)) < 0){
-					if (i >= markStart && i < markEnd){
-						seq.mark(i, domain, domain_markings);
-						seq2.mark(j, domain, domain_markings);
-					}
-				}
-			} else {
-				helix = 0;
-			}
+		int len1 = domainSequence.length(domain);
+		//SEE data / CircDesigNAMCS for the source R file that runs this regression! Must be updated
+		//whenever interaction - related behavior changes.
+		if (Std.isDNAMode()){
+			//DNA parameters, cut off at 0       
+			return Math.min(score - (15.8896 + (-0.6739)*len1),0);
+		} else {
+			//RNA parameters, cut off at 0         
+			return Math.min(score - (22.366 + (-1.134)*len1),0);
 		}
-		return best;
 	}
-	public static class FoldNA_viaMatrix_Options {
-		//True for hybridizations (versus self folding)
-		public boolean foldFullMatrix;
-		//Used for the "Self Similarity" Check.
-		public boolean suppressDiagonalScores;
+	public double mfeNoDiag_NoBaseline(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings) {
+		BiFoldAlgorithmConfig config = new BiFoldAlgorithmConfig();
+		config.ignoreDiagonal = true;
+		config.domain = domain;
+		config.domain_markings = domain_markings;
+		double score = biFoldAlgorithm(domainSequence, domainSequence2, domain, domain_markings, config);
+		
+		return score;
 	}
+	//Minimum hairpin size of 3, so distance from diagonal is 4
+	private static final int minHairpinSize = 1+3;
 	/**
-	 * Implements an O(N^2) maximum weighted subsequence finding algorithm. The algorithm is familiar
-	 * to one who has looked at the algorithm commonly used to solve the Longest Common Subsequence problem.
-	 * It is inspired by the folding algorithm used in David Zhang's Domain Designer.
-	 * 
-	 * This algorithm applies a simple kernel to each cell to update its value, and then returns the largest value of 
-	 * any cell in the entire matrix. The kernel is equivalent to considering the minimum free energy of three cases:
-	 * dg3: Base i is paired with j, and 
-	 * dg1: Base i is not paired with j, break the helix from (i+1,j) or just continue that bulge
-	 * dg2: Base i is not paired with j, break the helix from (i,j-1) or just continue that bulge
-	 * 
-	 * Thus, the algorithm will find the minimum free energy structure when loop contributions are not taken into account.
-	 * To prevent impossibly small loops, self-folding evaluation begins 4 spaces right of the diagonal (so the smallest
-	 * hairpin considered has size 3). This algorithm does not consider structures which contain "bifurcations", that is, 
-	 * multiloops are not supported. 
-	 * 
-	 * In defense of this algorithm, if any long helix exists in seq with seq2, it will be located. Thus, for the purposes
-	 * of removing interactions from seq and seq2, this is good enough. Additionally, it appears that remedying the flaws described above
-	 * requires upping the performance of this algorithm to O(N^3), which makes designing large (>6000 base) DNA origami scaffolds impractical.
+	 * Negative values in traceback means a (-k + 1) bifurcation
 	 */
-	public double foldNA_viaMatrix(DomainSequence seq, DomainSequence seq2, int[][] domain, int[][] domain_markings, FoldNA_viaMatrix_Options options) {
-		int len1 = seq.length(domain);
-		int len2 = seq2.length(domain);
-		if (options.suppressDiagonalScores){
+	private static final int STRAIGHT = 1, LEFT_BULGE = STRAIGHT + 1, RIGHT_BULGE = LEFT_BULGE + 1, STRAIGHT_ONEBASE = RIGHT_BULGE + 1;
+	private double biFoldAlgorithm(DomainSequence ds1, DomainSequence ds2, int[][] domain, int[][] domain_markings, BiFoldAlgorithmConfig options) {
+		int len1 = ds1.length(options.domain);
+		int len2 = ds2.length(options.domain);
+		if (options.ignoreDiagonal || options.foldSingleStranded){
 			if (len1!=len2){
-				throw new RuntimeException("Diagonal scores can only suppressed when folding strands of equal length");
+				throw new RuntimeException("Options "+options+" are only valid when folding strands of equal length");
 			}
 		}
-		ensureSharedMatrices(len1,len2);
-		/*
-		for(int i = 0; i < len1; i++){
-			for(int j = 0; j < len2; j++){
-				flushFoldMatrices(i,j);
-			}
-		}
-		*/
-		//foldSingleStranded_makeCMatrix(seq,seq2,len1,len2,domain);
-		float[][] Smatrix = sMatrix_shared; // score matrix
-		int[][][] SDmatrix = sdMatrix_shared; // running total of helix size, 0 if current base didn't contribute.
+		ensureMatrixes(len1, len2);
+
+		int best = 0, bestI = -1, bestJ = -1;
 		
-		//Minimum hairpin size of 3, so distance from diagonal is 4
-		int minHairpinSize = 1+3;
-		
-		double score = 0, gamma1, gamma2, gamma3, pick;
-		int bestI = -1, bestJ = -1;
-		//Only used in the single stranded version
-		//Calculate looping bounds.
-		for(int i = len1-1; i >= 0; i--){
-			int j;
-			if (options.foldFullMatrix){
-				j = 0;
-			} else {
-				//assertion for selffolding
-				if (len1!=len2){throw new RuntimeException();};
-				//warning! relies on value of minhairpinsize
-				j = i+minHairpinSize;
-				for(int o = i; o < j && o < len2; o++){
-					flushFoldMatrices(i,o);
-				}
-			}
+		for(int i = len1-1; i>=0; i--){
+			int j = options.getFirstJOnRow(i, len2);
+			
 			for(; j < len2; j++){
-				//Left loop (m), + no bonus
-				gamma1 = foldSingleStranded_calcGamma1(i,j,len1,Smatrix,SDmatrix);
-				//Right loop (n), + no bonus
-				gamma2 = foldSingleStranded_calcGamma2(i,j,Smatrix,SDmatrix);
-				//Helix, + dummy score if new helix, - dummy score if 2nd base, + nn score is length >= 2.
-				//If beginning new helix, have to add the score of the last loop.
-				boolean computeHelixScore = true;
-				if (options.suppressDiagonalScores){
-					if (i==len2-1-j){
-						computeHelixScore = false;
+				int score = 0;
+				int tb = 0;
+				
+				int pairedScore = pairedScore(len1, len2, ds1, ds2, i, j, options);
+				if (pairedScore < 0){
+					if (TB_shared[i+1][j-1]==STRAIGHT || TB_shared[i+1][j-1]==STRAIGHT_ONEBASE){
+						tb = STRAIGHT;
+						score = W_shared[i+1][j-1] + pairedScore;
+					} else {
+						tb = STRAIGHT_ONEBASE;
+						score = options.getMatrixScore(i+1,j-1,len1,len2) + pairedScore;
+					}
+				} else {
+					score = Integer.MAX_VALUE;
+				}
+				
+				int unpaired;
+				if (options.foldSingleStranded){
+					bigloop: for(int index = 0; ; index++){
+						int k;
+						if (options.shortcutBifurcations){
+							switch(index){
+							case 0: k = i; break; 
+							case 1: k = j-1; break;
+							default: k = (j+i)/2; break;
+							case 3: break bigloop;
+							}
+						} else {
+							k = index + i;
+							if (k >= j){
+								break bigloop;
+							}
+						}
+						
+						int bifurc = options.getMatrixScore(i, k, len1, len2) + options.getMatrixScore(k+1, j, len1, len2);
+						
+						if (bifurc < score){
+							tb = -(k+1);
+							score = bifurc;
+						}
+					}
+				} else {
+					int leftBulge = options.getMatrixScore(i, j-1, len1, len2);
+					int rightBulge = options.getMatrixScore(i+1, j, len1, len2);
+					
+					if (leftBulge < score){
+						tb = LEFT_BULGE;
+						score = leftBulge;
+					}
+					if (rightBulge < score){
+						tb = RIGHT_BULGE;
+						score = rightBulge;
 					}
 				}
-				if(computeHelixScore){
-					gamma3 = foldSingleStranded_calcGamma3(len1,len2,seq,seq2,domain,i,j,Smatrix,SDmatrix,true);
-				} else { 
-					gamma3 = 0;
-				}
-				//Greedy algorithm: take the most minimal (proof: addititivity of delta G, optimization of a sum)
-				pick = Math.min(gamma1,Math.min(gamma2,gamma3));
-				//If there is a tie, use the following priority:
-				if (gamma3 == pick){
-					//Continuing helix, calcGamma3 autoincrements the helix length.
-					//SDmatrix[i][j] = Math.max(0,SDmatrix[i+1][j-1])+1;
-					//Leave the setting of the SDMatrix up to "calcGamma3". It must therefore run LAST in the above 3 seqs.
-				} else if (gamma1 == pick){
-					//Continuing loop, fix backtracking info
-					sdMatrix(SDmatrix,i,j)[0] = Math.min(0,sdMatrix(SDmatrix,i+1,j)[0])-1; //Negative means longer loop
-					sdMatrix(SDmatrix,i,j)[1] = Math.min(0,sdMatrix(SDmatrix,i+1,j)[1])-1; //Negative means longer loop
-				} else if (gamma2 == pick){
-					//Continuing loop, fix backtracking info
-					sdMatrix(SDmatrix,i,j)[0] = Math.min(0,sdMatrix(SDmatrix,i,j-1)[0])-1; //Negative means longer loop
-					sdMatrix(SDmatrix,i,j)[1] = Math.min(0,sdMatrix(SDmatrix,i,j-1)[1])-1; //Negative means longer loop
-				} else {
-					throw new RuntimeException("Assertion failure. foldSingleStranded_viaMatrix inner loop of filling.");
-				}
-				//Keep track of MFE.
-				Smatrix[i][j]= (float) pick;
-				if (Smatrix[i][j] < score){
-					score = Smatrix[i][j];
+				
+				W_shared[i][j] = score;
+				TB_shared[i][j] = tb;
+				
+				if (score < best){
+					best = score;
 					bestI = i;
 					bestJ = j;
 				}
 			}
 		}
+
+		if (bestI != -1){
+			traceback(bestI, bestJ, len1, len2, ds1, ds2, options);
+		}
 		
-		//Traceback.
-		double overCount = foldSingleStranded_traceBack(len1,len2,bestI,bestJ,seq,seq2,domain,domain_markings,!options.foldFullMatrix);
+		//Convert to kcal / mol for return value
+		return best / 100.0;
+	}
+
+	private ArrayList<Point> MFE_pointlist = new ArrayList();
+	private void traceback(int bestI, int bestJ, int len1, int len2, DomainSequence ds1, DomainSequence ds2, BiFoldAlgorithmConfig options) {
+		MFE_pointlist.clear();
+		final int[][] domain = options.domain;
+		final int[][] domain_markings = options.domain_markings;
 		
-		if (debugLCSAlgorithm){
-			/*
-			for(int k = 0; k < len1; k++){
-				for(int y = 0; y < len2; y++){
-					System.out.printf(" (%3d,%3d)",sdMatrix(SDmatrix,k,y)[0],sdMatrix(SDmatrix,k,y)[1]);
-				}
-				System.out.println();
+		ArrayList<Point> stack = new ArrayList();
+		stack.add(new Point(bestI, bestJ));
+		while(!stack.isEmpty()){
+			MFE_pointlist.add(null);
+			Point got = stack.remove(stack.size()-1);
+			if (Std.monomer.bindScore(base(ds1,got.x,domain), base(ds2,got.y,domain)) < 0){
+				ds1.mark(got.x, domain, domain_markings);
+				ds2.mark(got.y, domain,domain_markings);
 			}
-			*/
-			for(int k = 0; k < len1; k++){
-				for(int y = 0; y < len2; y++){
-					System.out.printf(" %4.8f",Smatrix[k][y]);
+			while(true){
+				MFE_pointlist.add(got);
+				final int i = got.x;
+				final int j = got.y;
+				if (i == len1-1 || j == 0){
+					break;
 				}
-				System.out.println();
+				int move = TB_shared[i][j];
+				
+				if (move==0){
+					break;
+				}
+
+				if (move == LEFT_BULGE){
+					got = new Point(i,j-1);
+				}
+				if (move == RIGHT_BULGE){
+					got = new Point(i+1,j);
+				}
+				if (move == STRAIGHT || move == STRAIGHT_ONEBASE){
+					if (Std.monomer.bindScore(base(ds1,i+1,domain), base(ds2,j-1,domain)) < 0){
+						ds1.mark(i+1, domain, domain_markings);
+						ds2.mark(j-1, domain,domain_markings);
+					}
+					got = new Point(i+1,j-1);
+				}
+				if (move < 0){
+					int k = -(move+1);
+					//i,k and k+1, j
+					Point leftBifurc = new Point(i,k);
+					Point rightBifurc = new Point(k+1,j);
+
+					MFE_pointlist.add(null);
+					got = leftBifurc;
+					stack.add(rightBifurc);
+				}
+			} //end while true
+		}
+	}
+	private int min(int a, int b){
+		return a < b ? a : b;
+	}
+	public double mfeStraight(DomainSequence ds1, DomainSequence ds2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int jOffset) {
+		//if (ds1.length(domain)!=ds2.length(domain)){
+		//	throw new RuntimeException("mfeStraight invalid arguments - must be two domain sequences of equal length.");
+		//}
+		int len1 = ds1.length(domain);
+		int len2 = ds2.length(domain);
+		
+		BiFoldAlgorithmConfig config = new BiFoldAlgorithmConfig();
+		config.domain = domain;
+		config.domain_markings = domain_markings;
+		
+		//Need only to keep one value - we are traversing up the bottom left to upper right diagonal.
+		int score = 0;
+		for(int i = len1-1, j = -jOffset; i >= 0 && j < len2; i--, j++){
+			if (j < 0)
+				continue;
+			score = score + pairedScore(len1, len2, ds1, ds2, i, j, config);
+			
+			if (Std.monomer.bindScore(base(ds1,i,domain), base(ds2,j,domain)) < 0){
+				if (i >= markLeft && i < markRight){
+					ds1.mark(i, domain, domain_markings);
+					ds2.mark(j, domain, domain_markings);
+				}
+			}		
+		}
+		
+		//Convert to kcal / mol for return value
+		return score / 100.0;
+	}
+	
+	private int[][] W_shared;
+	private int[][] TB_shared;
+	private void flushMatrixes(int i, int j) {
+		W_shared[i][j] = 0;
+		TB_shared[i][j] = 0;
+	}
+	private class BiFoldAlgorithmConfig {
+		public boolean ignoreDiagonal = false;
+		public boolean foldSingleStranded = false;
+		public boolean shortcutBifurcations = true;
+		public int[][] domain;
+		public int[][] domain_markings;
+		public String toString(){
+			return ignoreDiagonal ? "IGNORE_DIAGONALS" : (foldSingleStranded ? "SINGLE_STRANDED" : "???");
+		}
+		public int getFirstJOnRow(int i, int len2) {
+			int j;
+			if (foldSingleStranded){
+				j = i+minHairpinSize;
+				for(int o = i; o < j && o < len2; o++){
+					flushMatrixes(i,o);
+				}				
+			} else {
+				j = 0;
+			}
+			return j;
+		}
+		public int getMatrixScore(int i, int j, int len1, int len2) {
+			if (i >= len1 || j < 0)
+				return 0;
+			if (foldSingleStranded){
+				if (j < i)
+					return 0;
+			}
+			if (TB_shared[i][j]==STRAIGHT_ONEBASE || TB_shared[i][j]==STRAIGHT){
+				return W_shared[i+1][j-1];
+			}
+			return W_shared[i][j];
+		}
+	}
+	private void ensureMatrixes(int h, int w){
+		if (h==0 || w==0){
+			throw new RuntimeException("EnsureMatrixes called with 0 length or width");
+		}
+		if (W_shared==null || W_shared.length < h || W_shared[0].length < w){
+			W_shared = null;
+			TB_shared = null;
+			W_shared = new int[h][w];
+			TB_shared = new int[h][w];
+		}
+	}
+	
+	private int pairedScore(int len1, int len2, DomainSequence ds1, DomainSequence ds2, int i, int j, BiFoldAlgorithmConfig options) {
+		int[][] domain = options.domain;
+		int[][] domain_markings = options.domain_markings;
+		
+		if (options.ignoreDiagonal){
+			if (i==len2-1-j){
+				return 0;
 			}
 		}
 		
-		return score-overCount;
-	}
-	/**
-	 * Performs the standard nussinov tracebacking, sans bifurcation tracing (thus, no stack).
-	 */
-	private double foldSingleStranded_traceBack(int len1, int len2, int bestI,
-			int bestJ, DomainSequence seq, DomainSequence seq2,
-			int[][] domain, int[][] domain_markings, boolean isSingleStrandFold) {
-		
-		int helixLength = 0;
-		
-		MFE_numBasesPaired = 0;
-		MFE_longestHelixLength = 0;
-		MFE_pointlist.clear();
-		boolean inHelix = true;
-		
-		while(true){
-			//System.out.println(inHelix+" "+bestI+" "+bestJ+" "+Arrays.toString(domain_markings[0]));
-			//Break condition:
-			//System.out.println(bestI+" "+bestJ);
-			if (bestI>=len1 || bestJ < 0){
-				break;
-			}
-			boolean isOnFringeOfMap;
-			if (isSingleStrandFold){
-				isOnFringeOfMap = bestJ<=bestI;
-			} else {
-				isOnFringeOfMap = bestI==len1-1 || bestJ==0;
-			}
-			MFE_pointlist.add(new Point(bestI,bestJ));
-			if (isOnFringeOfMap){
-				if (inHelix){
-					if (Std.monomer.bindScore(base(seq,bestI,domain), base(seq2,bestJ,domain)) < 0){
-						helixLength++;
-						MFE_longestHelixLength = Math.max(MFE_longestHelixLength,helixLength);
-					}
-				}
-			}
-			if (inHelix && isOnFringeOfMap){ 
-				if (Std.monomer.bindScore(base(seq,bestI,domain), base(seq2,bestJ,domain)) < 0){
-					seq.mark(bestI, domain, domain_markings);
-					seq2.mark(bestJ, domain, domain_markings);
-				}
-			}
-			if (isOnFringeOfMap){
-				break;
-			}
-			//inHelix = false;
-			float gamma1 = sMatrix_shared[bestI+1][bestJ];
-			float gamma2 = sMatrix_shared[bestI][bestJ-1];
-			float gamma3 = sMatrix_shared[bestI][bestJ];
+		final int bi = base(ds1,i,domain);
+		final int bj = base(ds2,j,domain);
 
-			float best = Math.min(gamma1,Math.min(gamma2,gamma3));
-			if (gamma1 == best){
-				//Go there.
-				inHelix = false;
-				bestI++;	
-			}
-			else if (gamma2 == best){
-				//Go there.
-				inHelix = false;
-				bestJ--;
-			} else if (gamma3 == best){
-				if (Std.monomer.bindScore(base(seq,bestI,domain), base(seq2,bestJ,domain)) < 0){
-					seq.mark(bestI, domain, domain_markings);
-					seq2.mark(bestJ, domain, domain_markings);
-				}
-				inHelix = true;
-			}
-			else {
-				throw new RuntimeException("Assertion failure. foldSingleStranded_traceback in best check");
-			}
-			if (inHelix){
-				//Mark condition:
-				helixLength ++;
-				MFE_longestHelixLength = Math.max(MFE_longestHelixLength,helixLength);
-				//Go helix!
-				bestI++;
-				bestJ--;
-				MFE_numBasesPaired++;
+		//Do we have a prior base?
+		final int ni = i+1;
+		final int nj = j-1;
+		//Is increase 5' - 3'
+		//Js decrease 3' - 5' (i.e. i/j point in the same direction)
+		if (ni >= len1 || nj < 0){
+			return 0;
+		}
+		//Add a stack / mismatch score.
+		final int bni = base(ds1,ni,domain);
+		final int bnj = base(ds2,nj,domain);
+		
+		if (Std.monomer.bindScore(bi, bj) < 0){
+			if (Std.monomer.bindScore(bni, bnj) < 0){
+				//Stack.
+				return eParams.getNNdeltaG_deci(bi, bj, bni, bnj);
 			} else {
-				helixLength = 0;
+				//Mismatch
+				return eParams.getNNdeltaGterm_deci(bi, bj, bni, bnj);
 			}
-		}	
-		if (MFE_longestHelixLength==1){ //Ended on a single base.
-			return foldSingleStranded_calcDummyScore;
+		} else {
+			if (Std.monomer.bindScore(bni, bnj) < 0){
+				//Mismatch
+				return eParams.getNNdeltaGterm_deci(bni, bnj, bi, bj);
+			}
 		}
 		return 0;
 	}
-
-	private int MFE_longestHelixLength = -1, MFE_numBasesPaired = -1;
-	private ArrayList<Point> MFE_pointlist = new ArrayList();
-	/**
-	 * Allocates a new matrix. Used for visually displaying the results of the folding.
-	 */
-	public double[][] getNussinovMatrixScore(int len1, int len2) {
+	public void pairPr(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain) {
+		throw new RuntimeException("Not implemented");
+	}
+	public void pairPr(double[][] pairsOut, DomainSequence seq1, int[][] domain) {
+		throw new RuntimeException("Not implemented");
+	}
+	public double[][] getScoreMatrix(int len1, int len2) {
 		double[][] nussinovScores = new double[len1][len2];
 		for(int y = 0; y < len1; y++){
 			for(int x = 0; x < len2; x++){
-				nussinovScores[y][x] = sMatrix_shared[y][x];
+				nussinovScores[y][x] = W_shared[y][x] / 100.0;
 			}
 		}
 		return nussinovScores;
 	}
-	/**
-	 * WARNING: allocates a new list.
-	 */
 	public ArrayList<Point> getTraceback() {
-		ArrayList<Point> toRet = new ArrayList<Point>();
-		toRet.addAll(MFE_pointlist);
-		return toRet;
+		return MFE_pointlist;
 	}
-	private boolean debugLCSAlgorithm = false;
-	private double foldSingleStranded_calcDummyScore = -.25;
-	private double foldSingleStranded_calcGamma1(int i, int j, int len1, float[][] sMatrix, int[][][] sdMatrix) {
-		//This is the number, if we are a "bulge" and defer to the helix in sMatrix[i+1][j].
-		if (i+1>=len1){
-			//Off the map.
-			return 0.0;
-		}
-		double bulgeScore = sMatrix[i+1][j];
-		//Be sure to remove dummyScore
-		if (sdMatrix(sdMatrix,i+1,j)[0]==1){
-			bulgeScore-=foldSingleStranded_calcDummyScore;
-		}
-		return bulgeScore;
-	}
-	private double foldSingleStranded_calcGamma2(int i, int j, float[][] sMatrix, int[][][] sdMatrix) {
-		if (j-1<0){
-			//Off the map.
-			return 0.0;
-		}
-		double bulgeScore = sMatrix[i][j-1];
-		//Be sure to remove dummyScore
-		if (sdMatrix(sdMatrix,i,j-1)[0]==1){
-			bulgeScore-=foldSingleStranded_calcDummyScore;
-		}
-		return bulgeScore;
-	}
-	
-	/**
-	 * Helix, + dummy score if new helix, - dummy score if 2nd base, + nn score is length >= 2.
-	 * If beginning new helix, have to add the score of the last loop.
-	 * 
-	 * Both seq and seq2 should be in 5'-3' order.
-	 */
-	private double foldSingleStranded_calcGamma3(int len1, int len2, DomainSequence seq, DomainSequence seq2, int[][] domain, int i, int j, float[][] sMatrix, int[][][] sdMatrix, boolean writeToSD) {
-		double dummyScore = foldSingleStranded_calcDummyScore;
-		boolean onFringeOfMap = i+1>=len1 || j-1<0;
-		if (Std.monomer.bindScore(base(seq,i,domain), base(seq2,j,domain)) < 0){
-			//This is a pair. Extend helix
-			if (writeToSD){
-				sdMatrix(sdMatrix,i,j)[0] = Math.max(0,onFringeOfMap?0:sdMatrix(sdMatrix,i+1,j-1)[0])+1;
-				sdMatrix(sdMatrix,i,j)[1] = sdMatrix(sdMatrix,i,j)[0]; //MUST set this > 0. Have to seperate loop counters from helix counters!
-			}
-			//New helix
-			if (onFringeOfMap || sdMatrix(sdMatrix,i+1,j-1)[0]<=0){
-				double addLoopOpeningPenalty = 0;
-				if(!onFringeOfMap && sdMatrix(sdMatrix,i+1,j-1)[0]<0){
-					//Ending a loop, of length > 0
-					int leftLoopSize = -sdMatrix(sdMatrix,i+1,j-1)[0];
-					int rightLoopSize = -sdMatrix(sdMatrix,i+1,j-1)[1];
-				}
-				return (onFringeOfMap?0:sMatrix[i+1][j-1])+dummyScore+addLoopOpeningPenalty; //Add dummy deltaG for starting helix
-			}
-			//Continuing old helix
-			else {
-				//get NN score.
-				double nn = eParams.getNNdeltaG(base(seq,i+1, domain), base(seq2,j-1,domain), base(seq,i,domain), base(seq2, j,domain));
-				double helixScore = sMatrix[i+1][j-1];
-				if (sdMatrix(sdMatrix,i+1,j-1)[0]==1){
-					//Remove dummy score
-					helixScore -= dummyScore;
-				}
-				//Add nearest neighbor delta G
-				helixScore += nn;
-				return helixScore;
-			}
-		} else {
-			//No helix. Extend both left and right bulges by one.
-			if (writeToSD){
-				sdMatrix(sdMatrix,i,j)[0] = Math.min(0,onFringeOfMap?0:sdMatrix(sdMatrix,i+1,j-1)[0])-1; //Negative means longer loop
-				sdMatrix(sdMatrix,i,j)[1] = Math.min(0,onFringeOfMap?0:sdMatrix(sdMatrix,i+1,j-1)[1])-1;
-			}
-			if (onFringeOfMap){
-				return 0.0;
-			}
-			//Ending old helix?
-			if (sdMatrix(sdMatrix,i+1,j-1)[0]>0){
-				if (sdMatrix(sdMatrix,i+1,j-1)[0]==1){
-					//Remove dummy score
-					return sMatrix[i+1][j-1]-dummyScore;
-				} else {
-					//Add terminal score.
-					double terminalMismatch = eParams.getNNdeltaGterm(base(seq,i+1, domain), base(seq2,j-1,domain), base(seq,i,domain), base(seq2, j,domain));
-					return sMatrix[i+1][j-1]+terminalMismatch;
-				}
-			} 
-			//Continuing loop region
-			else {
-				return sMatrix[i+1][j-1];
-			}
-		}
-	}
-	private int[] sdMatrix(int[][][] sdMatrix, int i, int j) {
-		return sdMatrix[i%2][j];
-	}
-
-////////////////////////////////
-//// Pair Probability functions - Warning, not maintained
-////////////////////////////////
-	
-	public void pairPr(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain) {
-		throw new RuntimeException("Not available with this folding tool.");
-	}
-
-	public void pairPr(double[][] pairsOut, DomainSequence seq, int[][] domain) {
-		throw new RuntimeException("Not available with this folding tool.");
-	}
-	
 }

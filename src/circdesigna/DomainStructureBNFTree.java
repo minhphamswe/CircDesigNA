@@ -19,8 +19,8 @@
 */
 package circdesigna;
 
-import static circdesigna.DomainSequence.DNA_COMPLEMENT_FLAG;
-import static circdesigna.DomainSequence.DNA_SEQ_FLAGSINVERSE;
+import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAG;
+import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAGINV;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -115,7 +115,7 @@ public class DomainStructureBNFTree implements AbstractComplex{
 			}
 			
 			if (domainName.endsWith("*")){
-				numberDomain2 |= DNA_COMPLEMENT_FLAG;
+				numberDomain2 |= NA_COMPLEMENT_FLAG;
 			}
 			//highestDomainUsed = Math.max(highestDomainUsed,numberDomain);
 			whichDomainsInOrder.put(whichDomain,numberDomain2);
@@ -371,7 +371,7 @@ public class DomainStructureBNFTree implements AbstractComplex{
 			} else if (q instanceof SingleStranded){
 				boolean nonEmpty = false;
 				for(int p : q.sequencePartsInvolved){
-					int len = domainLengths[domains[p] & DNA_SEQ_FLAGSINVERSE];
+					int len = domainLengths[domains[p] & NA_COMPLEMENT_FLAGINV];
 					for(int k = 0; k < len; k++){
 						if (holder!=null) holder.add(1f);
 						nonEmpty= true;
@@ -397,7 +397,7 @@ public class DomainStructureBNFTree implements AbstractComplex{
 		
 		public void handleSubConformation(int[] domainLengths, int[] domains) {
 			//Check valid hairpin
-			if (domainLengths[domains[sequencePartsInvolved[0]] & DNA_SEQ_FLAGSINVERSE]!=domainLengths[domains[sequencePartsInvolved[1]] & DNA_SEQ_FLAGSINVERSE]){
+			if (domainLengths[domains[sequencePartsInvolved[0]] & NA_COMPLEMENT_FLAGINV]!=domainLengths[domains[sequencePartsInvolved[1]] & NA_COMPLEMENT_FLAGINV]){
 				throw new RuntimeException("Invalid duplex between domains of different lengths.");
 			}
 			loop:for(DomainStructure q : subStructure){

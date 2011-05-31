@@ -26,10 +26,9 @@
 %terminals DOMAINNAME, LPAREN, RPAREN, MULT, LSQBRACE, RCBRACE, DOT;
 
 %typeof DOMAINNAME = "String";
-%typeof declaration = "ArrayList";
 %typeof molecule = "ArrayList";
 
-%goal declaration;
+%goal molecule;
 
 molecule	
 	= molecule.b? DOMAINNAME.n  {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Domain neu = new CDNA2Token.Domain(n); p.add(neu); return new Symbol(p); :}
@@ -40,7 +39,3 @@ molecule
 	| molecule.b? LSQBRACE {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.add(new CDNA2Token.FivePrimeEnd(braceStack)); return new Symbol(p); :}
 	| molecule.a RCBRACE {: a.add(new CDNA2Token.ThreePrimeEnd(braceStack)); return new Symbol(a); :} 
 	;
-
-declaration
-    = DOMAINNAME.n molecule.q {: ArrayList p = new ArrayList(); p.add(n); p.addAll(q); return new Symbol(p); :}
-    ;
