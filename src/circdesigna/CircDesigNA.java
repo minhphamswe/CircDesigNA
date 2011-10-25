@@ -818,6 +818,12 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 						for(int j = 0; j < r.domain[k].length; j++){
 							mutate[k].mutateToOther(r.domain,k,j);
 						}
+						if (true){
+							for(int j = 0; j < r.domain[k].length; j++){
+								System.out.print(Std.monomer.displayBase(r.domain[k][j]));
+							}
+							System.out.println();
+						}
 					}
 					//Initial score.
 					
@@ -898,7 +904,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		}
 	}
 	/**
-	 * Postcondition: any bases which were < 10 will be alternated to most ideally balance ATCG.
+	 * 
 	 * @param designerCode 
 	 */
 	private void pickInitialSequence(int[][] domain, int mut_domain, DesignerCode mutator) {

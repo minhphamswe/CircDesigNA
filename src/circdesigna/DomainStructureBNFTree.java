@@ -49,7 +49,7 @@ import circdesignagui.math.CircumscribedPolygonTool.CircumscribedPolygon;
  * 
  * @author Benjamin
  */
-public class DomainStructureBNFTree implements AbstractComplex{
+public class DomainStructureBNFTree extends AbstractComplex{
 	private DomainDefinitions domainDefs;
 	public String moleculeName;
 	
@@ -85,7 +85,7 @@ public class DomainStructureBNFTree implements AbstractComplex{
 		}
 		//begin published section
 		void parse(){
-			ParseResult t = CDNA2PublicParser.parse(structure);
+			ParseResult t = CDNA2PublicParser.parse(structure, out.domainDefs);
 			out.moleculeName = t.moleculeName;
 			
 			for(Object token : t.parse){

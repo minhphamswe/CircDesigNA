@@ -25,6 +25,7 @@ import circdesigna.DesignSequenceConstraints;
 import circdesigna.abstractpolymer.DnaDefinition;
 import circdesigna.abstractpolymer.MonomerDefinition;
 import circdesigna.abstractpolymer.RnaDefinition;
+import circdesigna.energy.KineticsDefinition;
 import circdesigna.impl.CodonCode;
 import circdesigna.impl.SequenceCode;
 
@@ -35,14 +36,24 @@ import circdesigna.impl.SequenceCode;
 public class CircDesigNAConfig {
 	public static final int DNA_MODE = 0, RNA_MODE = DNA_MODE+1;
 	private int current_mode = DNA_MODE;
+	private boolean saveReactionDescriptions;
 
 	public CircDesigNAConfig(){
 		setMode(current_mode);
 
 		//Codon table information.
 		customCodonTable = new CodonCode(this).defaultTable();
+		kinetics = new KineticsDefinition();
+		saveReactionDescriptions = false;
 	}
 
+	public boolean saveReactionDescriptions(){
+		return saveReactionDescriptions;
+	}
+	public void setSaveReactionDescriptions(boolean val){
+		saveReactionDescriptions = val;
+	}
+	
 	/**
 	 * Returns true if the current mode deals with nucleic acids
 	 */
@@ -78,7 +89,16 @@ public class CircDesigNAConfig {
 	//Products
 	public MonomerDefinition monomer;
 	public String customCodonTable;
+	public KineticsDefinition kinetics;
 
+	public double getDeltaGPerStackPair() {
+		if (isDNAMode()){
+			return -1.6;
+		} else {
+			return -2.0;
+		}
+	}
+	
 	public DesignSequenceConstraints getDefaultConstraints() {
 		DesignSequenceConstraints defaults = new DesignSequenceConstraints(this);
 
@@ -96,3 +116,4 @@ public class CircDesigNAConfig {
 		return init;
 	}
 }
+

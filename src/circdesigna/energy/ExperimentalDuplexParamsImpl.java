@@ -45,7 +45,7 @@ import circdesigna.config.CircDesigNASystemElement;
 public class ExperimentalDuplexParamsImpl extends CircDesigNASystemElement implements NAExperimentDatabase{
 	public ExperimentalDuplexParamsImpl(CircDesigNAConfig config){
 		super(config);
-		System.out.print("Unpacking Thermo Parameters ... ");
+		//System.out.print("Unpacking Thermo Parameters ... ");
 		
 		ZipInputStream paramZip = ZipExtractor.getFile("parameters.zip");
 		ZipEntry nextEntry;

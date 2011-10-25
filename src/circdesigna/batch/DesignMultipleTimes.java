@@ -1,4 +1,4 @@
-/*
+/* 
   Part of the CircDesigNA Project - http://cssb.utexas.edu/circdesigna
   
   Copyright (c) 2010-11 Ben Braun
@@ -31,19 +31,17 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.TreeMap;
 
-
 import circdesigna.AbstractDomainDesignTarget;
+import circdesigna.CircDesigNA;
 import circdesigna.CircDesigNAOptions;
+import circdesigna.CircDesigNA_SharedUtils;
 import circdesigna.DesignIntermediateReporter;
 import circdesigna.DomainDefinitions;
-import circdesigna.CircDesigNA;
-import circdesigna.CircDesigNA_SharedUtils;
 import circdesigna.DomainSequence;
 import circdesigna.SequenceDesigner;
 import circdesigna.CircDesigNA.ScorePenalty;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.energy.CircDesigNAMCSFolder;
-import circdesigna.energy.NAFolding;
 import circdesigna.impl.CircDesigNAImpl;
 import circdesigna.impl.SequencePenaltiesImpl;
 import circdesigna.impl.CircDesigNAImpl.HairpinOpening;
@@ -52,7 +50,6 @@ import circdesigna.impl.CircDesigNAImpl.SelfFold;
 import circdesigna.impl.CircDesigNAImpl.SelfSimilarityScore;
 import circdesigna.impl.CircDesigNAImpl.VariousSequencePenalties;
 import circdesigna.plugins.RunNupackTool;
-
 
 
 public class DesignMultipleTimes {

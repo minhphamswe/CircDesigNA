@@ -140,6 +140,7 @@ public class RunUnafoldTool {
 				line = in.nextLine().split("\\s+");
 				int num = new Integer(line[0]);
 				//39	dG = -17.5	dH = -100.9	0-0
+				
 				double dg = new Double(line[3]);
 				newEntry.mfeDG = dg;
 				newEntry.pairs = new int[num];

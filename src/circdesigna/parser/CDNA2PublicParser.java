@@ -24,6 +24,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 
 import beaver.Parser.Exception;
+import circdesigna.DomainDefinitions;
 
 public class CDNA2PublicParser {
 	public static class ParseResult {
@@ -39,7 +40,7 @@ public class CDNA2PublicParser {
 			return sb.toString();
 		}
 	}
-	public static ParseResult parse(String info){
+	public static ParseResult parse(String info, DomainDefinitions domains){
 		CDNA2Parser cp = new CDNA2Parser();
 		ParseResult res = new ParseResult();
 		try {
@@ -51,7 +52,7 @@ public class CDNA2PublicParser {
 			res.moleculeName = (String) info2[0];
 			for(Object o : parse){
 				if (o instanceof CDNA2Token.Domain){
-					((CDNA2Token.Domain)o).validate();
+					((CDNA2Token.Domain)o).validate(domains);
 				}
 			}
 			

@@ -357,22 +357,19 @@ public class DesignSequenceConstraints extends CircDesigNASystemElement{
 			int oldBase = mut_new[j];
 			int oldBase_pure = Std.monomer.noFlags(oldBase);
 			int oldBase_flag = oldBase - oldBase_pure;
-			//Will replacing oldBase cause us to go under a minimum quota?
-			if (isUnderValidMin(oldBase_pure)){
-				//We can't remove it, it's keeping us above a quota.
-				return false;
-			}
 			int testBase = b_inBaseOrders;
 			//Count the number of occurrences of testBase, which is not the same as oldBase, so we can assume
 			//that the index j is irrelevent, and see if the incremented case is out of range
 			getBaseCounts_shared[oldBase_pure]--;
 			getBaseCounts_shared[testBase]++;
-			boolean isOverValidMax = isOverValidMax(testBase);
+			boolean isInvalidating = isOverValidMax(testBase) || isUnderValidMin(oldBase_pure);
 			getBaseCounts_shared[testBase]--;
 			getBaseCounts_shared[oldBase_pure]++;
-			if (isOverValidMax){
+			//Do we go outside of the design space?
+			if (isInvalidating){
 				return false;
 			}
+			//Alright, but is the replacement allowed?
 			if (!isAllowableBaseforFlags(oldBase_flag,testBase)){
 				return false;
 			}

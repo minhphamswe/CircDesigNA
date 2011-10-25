@@ -38,6 +38,7 @@ import circdesigna.DomainStructureBNFTree.DomainStructure;
 import circdesigna.DomainStructureBNFTree.HairpinStem;
 import circdesigna.DomainStructureBNFTree.SingleStranded;
 import circdesigna.abstractDesigner.PopulationDesignMember;
+import circdesigna.abstractpolymer.RnaDefinition;
 import circdesigna.impl.CircDesigNAPMemberImpl;
 import circdesigna.impl.CircDesigNAImpl.HairpinOpening;
 import circdesigna.impl.CircDesigNAImpl.MFEHybridScore;
@@ -74,7 +75,7 @@ public class CircDesigNA_SharedUtils {
 		rawDomains = "TMP "+rawDomains.replace(")"," ").replace("("," ").trim();
 
 		try {
-			ParseResult t = CDNA2PublicParser.parse(rawDomains);
+			ParseResult t = CDNA2PublicParser.parse(rawDomains, dsd);
 
 			ArrayList<Integer> bases = new ArrayList();
 			for(Object token : t.parse){
@@ -149,6 +150,36 @@ public class CircDesigNA_SharedUtils {
 			}
 		}
 		return true;
+	}
+
+	
+	private static boolean isComplements_(int domain1, int domain2) {
+		return (domain1 ^ NA_COMPLEMENT_FLAG)==domain2;
+	}
+	public static boolean isComplements(int domain1, int domain2, DomainDefinitions defs){
+		if ((domain1 ^ NA_COMPLEMENT_FLAG) == domain2){
+			return true;
+		}
+		//Check for locked, reverse complementary case.
+		boolean areRevCompFixed = false;
+		try {
+			String seqA = defs.getConstraint(domain1 & NA_COMPLEMENT_FLAGINV);
+			String seqB = defs.getConstraint(domain2 & NA_COMPLEMENT_FLAGINV);
+			if (seqA.length()==seqB.length()){
+				areRevCompFixed = true;
+				RnaDefinition test = new RnaDefinition();
+				for(int k = 0; k < seqA.length(); k++){
+					if (test.bindScore(test.decodeBaseChar(seqA.charAt(k)),test.decodeBaseChar(seqB.charAt(seqA.length()-1-k))) < 0){
+					} else {
+						areRevCompFixed = false; //They aren't reverse complementary.
+						break;
+					}
+				}
+			}
+		} catch(Throwable e){
+			areRevCompFixed = false;
+		}
+		return areRevCompFixed;
 	}
 
 
@@ -477,6 +508,7 @@ public class CircDesigNA_SharedUtils {
 
 	public static void utilHairpinClosingFinder(AbstractDomainDesignTarget target, DomainPolymerGraph dsg, ArrayList<HairpinClosingTarget> hairpinLoops) {
 		//Only add the hairpin closings on the closing of the hairpin (so when the later partner domain is encountered)
+		DomainDefinitions dd = dsg.getDomainDefs();
 		for(int k = 0; k < dsg.length(); k++){
 			int domain = dsg.getDomain(k);
 			if (domain<0){
@@ -490,7 +522,7 @@ public class CircDesigNA_SharedUtils {
 					if (dsg.getDomain(pair-1)>=0 && dsg.getDomain(k+1) >= 0){
 						//Ok, can (pair-1) or (k+1) pair?
 						if (canPair(dsg,pair-1) || canPair(dsg,k+1)
-								&& !areComplementary(dsg.getDomain(pair-1),dsg.getDomain(k+1))){
+								&& !isComplements(dsg.getDomain(pair-1),dsg.getDomain(k+1), dd)){
 							hairpinLoops.add(target.new HairpinClosingTarget(dsg.getDomain(pair-1),
 									pairDomain,
 									domain,
@@ -504,7 +536,7 @@ public class CircDesigNA_SharedUtils {
 					if (dsg.getDomain(pair+1)>=0 && dsg.getDomain(k-1) >= 0){
 						//How about the "inside": (pair+1) or (k-1).
 						if (canPair(dsg,pair+1) || canPair(dsg,k-1)
-								&& !areComplementary(dsg.getDomain(pair+1),dsg.getDomain(k-1))){
+								&& !isComplements(dsg.getDomain(pair+1),dsg.getDomain(k-1), dd)){
 							hairpinLoops.add(target.new HairpinClosingTarget(
 									pairDomain,
 									dsg.getDomain(pair+1),
@@ -531,7 +563,7 @@ public class CircDesigNA_SharedUtils {
 			int i, DomainSequence ds2, int j, int[][] domains) {
 		int domain1 = ds1.domainAt(i, domains);
 		int domain2 = ds2.domainAt(j, domains);
-		if (areComplementary(domain1,domain2)){
+		if (isComplements_(domain1,domain2)){
 			int domain = domain1 & NA_COMPLEMENT_FLAGINV;
 			
 			int offset1 = ds1.offsetInto(i, domains, false); //Don't uncomplement - give offset 
@@ -543,9 +575,6 @@ public class CircDesigNA_SharedUtils {
 		return false;
 	}
 	
-	private static boolean areComplementary(int domain1, int domain2) {
-		return (domain1 ^ NA_COMPLEMENT_FLAG)==domain2;
-	}
 
 	public static void utilPairsOfDomainsFinder(DomainPolymerGraph dsg, ArrayList<DomainSequence> pairsOfDomains) {
 		for(int k = 0; k < dsg.length()-1; k++){

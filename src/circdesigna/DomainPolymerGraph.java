@@ -22,8 +22,8 @@ package circdesigna;
 import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAG;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedList;
+import java.util.List;
 
 import circdesigna.parser.CDNA2PublicParser;
 import circdesigna.parser.CDNA2Token;
@@ -33,18 +33,20 @@ import circdesigna.parser.CDNA2PublicParser.ParseResult;
  * A data structure for representing DNA complexes. This one is based on the circular polymer graph.
  * @author Benjamin
  */
-public class DomainPolymerGraph implements AbstractComplex{
-	private DomainPolymerGraph(){
-	}
+public class DomainPolymerGraph extends AbstractComplex{
 	public DomainPolymerGraph(DomainDefinitions domainDefs){
 		this.domainDefs = domainDefs;
 		data = new BasePolymerGraph();
 	}	
+	private DomainPolymerGraph(DomainDefinitions domainDefs, AbstractPolymerGraph aa){
+		this.domainDefs = domainDefs;
+		data = aa;
+	}	
 	public DomainPolymerGraph getRotation(String moleculeName, int rotation){
-		DomainPolymerGraph toRet = new DomainPolymerGraph();
-		toRet.domainDefs = domainDefs;
-		toRet.data = new RotatedPolymerGraph(data,rotation);
-		return toRet;
+		if (rotation == 0){
+			return this; //Preserves things like being a CanonicalRotation.
+		}
+		return new DomainPolymerGraph(domainDefs, new RotatedPolymerGraph(data,rotation));
 	}
 	private DomainDefinitions domainDefs;
 	private AbstractPolymerGraph data;
@@ -58,6 +60,60 @@ public class DomainPolymerGraph implements AbstractComplex{
 	public int getDomainPair(int position){
 		return data.getDomainPair(position);
 	}
+	public boolean setDomainPair(int i, int j){
+		return data.setDomainPair(i,j);
+	}
+	/**
+	 * Assigns a number to each base, numbering it inside a region in the planar nonpseudoknotted graph.
+	 */
+	public int[] getDomainLevels() {
+		int[] toRet = new int[length()];
+		int[] levels = new int[length()+1];
+		int levels_ptr = 0;
+		for(int i =0; i < toRet.length; i++){
+			if (getDomainPair(i) >= 0){
+				if (getDomainPair(i) > i){
+					levels_ptr++;
+					levels[levels_ptr] = i+1; //Ensure that they are distinct.
+				}	
+			}
+			if (getDomain(i)<0){
+				toRet[i] = -1;
+			} else {
+				toRet[i] = levels[levels_ptr];
+			}
+			if (getDomainPair(i) >= 0){
+				if (getDomainPair(i) < i){
+					levels_ptr--;
+				}	
+			}
+		}
+		return toRet;
+	}
+	public boolean equals(Object other){
+		if (other instanceof DomainPolymerGraph){
+			DomainPolymerGraph apg = (DomainPolymerGraph)other;
+			if (apg.length() != length()){
+				return false;
+			}
+			for(int i = 0; i < length(); i++){
+				if (getDomain(i)!=apg.getDomain(i))
+					return false;
+				if (getDomainPair(i)!=apg.getDomainPair(i))
+					return false;
+			}
+			return true;
+		}
+		return false;
+	}
+	public boolean equalsRotation(DomainPolymerGraph other){
+		for(int i : getStrandRotations()){
+			if (other.equals(getRotation("A", i))){
+				return true;
+			}
+		}
+		return false;
+	}
 	
 	private abstract static class AbstractPolymerGraph {
 		public abstract BasePolymerGraph getCyclicIndependentForm();
@@ -70,6 +126,7 @@ public class DomainPolymerGraph implements AbstractComplex{
 		 * -1 if not paired
 		 */
 		public abstract int getDomainPair(int position);
+		public abstract boolean setDomainPair(int i, int j);
 	}
 	public class BasePolymerGraph extends AbstractPolymerGraph{
 		//Indexed by position in the string.
@@ -88,6 +145,53 @@ public class DomainPolymerGraph implements AbstractComplex{
 		}
 		public int length() {
 			return domains.length;
+		}
+		public boolean setDomainPair(int i, int j) {
+			if (j == i){
+				throw new RuntimeException("Cannot pair a domain with itself. "+i);
+			}
+			int oldTarget = domain_pairs[i];
+			if (oldTarget>=0){
+				domain_pairs[oldTarget] = -1;
+				domain_pairs[i] = -1;
+			}
+			if (j>=0){
+				int oldTargetOfTarget = domain_pairs[j];
+				if (oldTargetOfTarget>=0){
+					domain_pairs[oldTargetOfTarget] = -1;
+					domain_pairs[j] = -1;
+				}
+				if (getLevel_(j)!=getLevel_(i)){
+					if (oldTargetOfTarget>=0){
+						domain_pairs[oldTargetOfTarget] = j;
+						domain_pairs[j] = oldTargetOfTarget;
+					}
+					if (oldTarget>=0){
+						domain_pairs[oldTarget] = i;
+						domain_pairs[i] = oldTarget;
+					}
+					//throw new RuntimeException("Pairing "+i+" to "+j+" would cause a pseudoknot.");
+					return false;
+				}
+				domain_pairs[j] = i;
+			}
+			domain_pairs[i] = j;
+			return true;
+		}
+		private int getLevel_(int i) {
+			int pointer = 0;
+			int[] levels = new int[i+1];
+			for(int k = 0; k < i; k++){
+				if (domain_pairs[k] >= 0){
+					if (domain_pairs[k] < k){
+						pointer--;
+					} else {
+						pointer++;
+						levels[pointer] = k+1;
+					}	
+				}
+			}
+			return levels[pointer];
 		}
 	}
 	public class RotatedPolymerGraph extends BasePolymerGraph{
@@ -122,6 +226,16 @@ public class DomainPolymerGraph implements AbstractComplex{
 			int newPair = wrap(originalPair-rotation,base.domains.length);
 			return newPair;
 		}
+		public boolean setDomainPair(int i, int j){
+			if (j!=-1){
+				j = wrap(j+rotation,base.domains.length);
+			}
+			if (i < 0){
+				return false;
+			}
+			i = wrap(i+rotation,base.domains.length);
+			return super.setDomainPair(i,j);
+		}
 		public int length() {
 			return base.domains.length;
 		}
@@ -134,7 +248,7 @@ public class DomainPolymerGraph implements AbstractComplex{
 		out.domain_pairs = null;
 
 		//Tested and verified. Group 2 : Domain, with comp flag, Group 1 + Group 3: Structural flag
-		ParseResult t = CDNA2PublicParser.parse(moleculeDefinition);
+		ParseResult t = CDNA2PublicParser.parse(moleculeDefinition, out2.domainDefs);
 		out2.moleculeName = t.moleculeName;
 		
 		ArrayList<Integer> domains_tmp = new ArrayList();
@@ -207,24 +321,25 @@ public class DomainPolymerGraph implements AbstractComplex{
 	}
 
 	public String getStructureString(){
-		String lineS = System.getProperty("line.separator");
+		return getStructureString(0,length());
+	}
+	public String getStructureString(int start, int end){
+		return getStructureString(data, start, end);
+	}
+	public String getStructureString(AbstractPolymerGraph apg, int start, int end){
 		StringBuffer sb = new StringBuffer();
 		int depth = 0;
 		boolean needsOpenBracket = true, needsCloseItem = false;
-		for(int k = 0; k < length(); k++){
+		for(int k = start; k < end; k++){
 			if (needsOpenBracket){
 				sb.append("[");
 				needsOpenBracket = false;
 			}
-			int domain = getDomain(k);
+			int domain = apg.getDomain(k);
 			if (domain>=0){
-				if (needsCloseItem){
-					sb.append("|");
-					needsCloseItem = false;
-				}
 				//getDomainName does the works - adds an asterix, looks up the name, etc.
 				sb.append(domainDefs.getDomainName(domain));
-				int pair = getDomainPair(k);
+				int pair = apg.getDomainPair(k);
 				if (pair >= 0){
 					if (pair < k){
 						//the close parens
@@ -232,6 +347,8 @@ public class DomainPolymerGraph implements AbstractComplex{
 					} else {
 						sb.append("(");	
 					}
+				} else {
+					sb.append(" ");
 				}
 				needsCloseItem = true;
 			} else {
@@ -249,7 +366,7 @@ public class DomainPolymerGraph implements AbstractComplex{
 	/**
 	 * Returns the positions of all the 3' ends.
 	 */
-	public Collection<Integer> getStrandRotations() {
+	public List<Integer> getStrandRotations() {
 		ArrayList<Integer> toRet = new ArrayList<Integer>();
 		//Length -1, because the last one doesn't count.
 		for(int k = 0; k < length()-1; k++){
@@ -259,6 +376,21 @@ public class DomainPolymerGraph implements AbstractComplex{
 		}
 		return toRet;
 	}
+
+	/**
+	 * Returns an array of tuples (a,b) where the characters a,b are a strand in the molecule.
+	 * Essentially partitions the molecule into strands.
+	 */
+	public int[][] getStrands() {
+		List<Integer> rots = getStrandRotations();
+		rots.add(0,0);
+		int[][] strands = new int[rots.size()][];
+		rots.add(length());
+		for(int i = 0; i < strands.length; i++){
+			strands[i] = new int[]{rots.get(i),rots.get(i+1)};
+		}
+		return strands;
+	}
 	
 	public String getMoleculeName() {
 		return moleculeName;
@@ -267,4 +399,34 @@ public class DomainPolymerGraph implements AbstractComplex{
 	public DomainDefinitions getDomainDefs() {
 		return domainDefs;
 	}
+		
+	public CanonicalDomainPolymerGraph getCanonicalForm(){
+		if (this instanceof CanonicalDomainPolymerGraph){
+			return (CanonicalDomainPolymerGraph)this;
+		}
+		AbstractPolymerGraph selected = data;
+		String best = getStructureString(selected, 0, length());
+		List<Integer> rotations = getStrandRotations();
+		for(int k : rotations){
+			AbstractPolymerGraph test = new RotatedPolymerGraph(data,k);
+			String got = getStructureString(test, 0, length());
+			if (got.compareTo(best) < 0){
+				best = got;
+				selected = test;
+			}
+		}
+		CanonicalDomainPolymerGraph toRet = new CanonicalDomainPolymerGraph(this, selected);
+		{
+			DomainPolymerGraph test = new DomainPolymerGraph(toRet.getDomainDefs());
+			DomainPolymerGraph.readStructure("A " +toRet.getStructureString(), test);
+		}
+		return toRet;
+	}
+	
+	public static class CanonicalDomainPolymerGraph extends DomainPolymerGraph {
+		public CanonicalDomainPolymerGraph(DomainPolymerGraph g, AbstractPolymerGraph canonical) {
+			super(g.domainDefs,canonical);
+		}
+	}
+
 }

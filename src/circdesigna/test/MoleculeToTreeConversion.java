@@ -33,7 +33,7 @@ import circdesigna.config.CircDesigNAConfig;
 
 public class MoleculeToTreeConversion {
 	public static void main(String[] args){
-		Collection<AbstractComplex> dsd = getInputTree(2, GRAPH);
+		Collection<AbstractComplex> dsd = getInputStructure(2, GRAPH, new Scanner(System.in));
 		for(AbstractComplex ds : dsd){
 			System.out.println(ds.getStructureString()+"=");
 			if (ds instanceof DomainPolymerGraph){
@@ -48,9 +48,8 @@ public class MoleculeToTreeConversion {
 			System.out.println("////////");
 		}
 	}
-	private static final int BNF = 0, GRAPH = 1, BOTH = 2;
-	public static Collection<AbstractComplex> getInputTree(int numTrees, int structureForm){
-		Scanner in = new Scanner(System.in);
+	public static final int BNF = 0, GRAPH = 1, BOTH = 2;
+	public static ArrayList<AbstractComplex> getInputStructure(int numTrees, int structureForm, Scanner in){
 		System.out.println("Enter in the domain defs, END when finished");
 		StringBuffer domainDefs = new StringBuffer();
 		while(in.hasNextLine()){
@@ -66,35 +65,36 @@ public class MoleculeToTreeConversion {
 		ArrayList<AbstractComplex> list = new ArrayList();
 		DomainDefinitions dsd = new DomainDefinitions(config);
 		DomainDefinitions.readDomainDefs(domainDefsBlock, dsd);
-		for(int i = 0 ;i < numTrees; i++){
-			System.out.println("Enter the molecule to be converted to a tree");
+		big: for(int i = 0 ;i < numTrees || numTrees == -1; i++){
+			System.out.println("Enter the molecule to be converted to a tree" + (numTrees==-1?" and END when finished.":""));
 			String mol;
 			while(true){
 				mol = in.nextLine().trim();
+				if (mol.equalsIgnoreCase("END")){
+					break big;
+				}
 				if (mol.length()!=0){
 					break;
 				}
 			}
-			String[] mol2 = mol.split("\\s+");
-			mol = mol2[mol2.length-1];
 			AbstractComplex dsg;
 			switch(structureForm){
 			case BNF:
 				dsg = new DomainStructureBNFTree(dsd);
-				DomainStructureBNFTree.readStructure("A "+mol,(DomainStructureBNFTree) dsg);
+				DomainStructureBNFTree.readStructure(mol,(DomainStructureBNFTree) dsg);
 				list.add(dsg);
 				break;
 			case GRAPH:
 				dsg = new DomainPolymerGraph(dsd);
-				DomainPolymerGraph.readStructure("A "+mol,(DomainPolymerGraph)dsg);
+				DomainPolymerGraph.readStructure(mol,(DomainPolymerGraph)dsg);
 				list.add(dsg);
 				break;
 			case BOTH:
 				dsg = new DomainStructureBNFTree(dsd);
-				DomainStructureBNFTree.readStructure("A "+mol,(DomainStructureBNFTree) dsg);
+				DomainStructureBNFTree.readStructure(mol,(DomainStructureBNFTree) dsg);
 				list.add(dsg);
 				dsg = new DomainPolymerGraph(dsd);
-				DomainPolymerGraph.readStructure("A "+mol,(DomainPolymerGraph)dsg);
+				DomainPolymerGraph.readStructure(mol,(DomainPolymerGraph)dsg);
 				list.add(dsg);
 			}
 		}

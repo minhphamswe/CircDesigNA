@@ -98,7 +98,6 @@ public class UnafoldFolder extends CircDesigNASystemElement implements NAFolding
 					ds2.mark(k, domain, domain_markings);
 				}
 			}
-			
 		} catch( Throwable e){
 			e.printStackTrace();
 		}

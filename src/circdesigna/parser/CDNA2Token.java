@@ -19,7 +19,11 @@
 */
 package circdesigna.parser;
 
+import static circdesigna.CircDesigNA_SharedUtils.isComplements;
+
 import java.util.ArrayList;
+
+import circdesigna.DomainDefinitions;
 
 public class CDNA2Token {
 	public static class Domain {
@@ -75,7 +79,7 @@ public class CDNA2Token {
 			}
 			name+="*";
 		}
-		public void validate(){
+		public void validate(DomainDefinitions domains){
 			if (close){
 				boolean validPair = false;
 				if (pair.name.endsWith("*")){
@@ -88,7 +92,18 @@ public class CDNA2Token {
 					}
 				}
 				if (!validPair){
-					throw new RuntimeException(String.format("Not complementary: %s and %s",name,pair.name));
+					//Are they reverse complementary?
+					boolean areRevCompFixed = false;
+					try {
+						int i = domains.lookupDomainName(name);
+						int j = domains.lookupDomainName(pair.name);
+						areRevCompFixed = isComplements(i,j,domains);
+					} catch (Throwable e){
+						areRevCompFixed = false;
+					}
+					if (!areRevCompFixed){
+						throw new RuntimeException(String.format("Not complementary: %s and %s",name,pair.name));
+					}
 				}
 			}
 		}
@@ -108,7 +123,7 @@ public class CDNA2Token {
 	public static class ThreePrimeEnd{
 		public ThreePrimeEnd(ArrayList braceStack) {
 			if (braceStack.isEmpty()){
-				throw new RuntimeException("Stack underflow on }.");
+				throw new RuntimeException("Stack underflow on }. Remember, correct molecule format is <name> <molecule>");
 			}
 			braceStack.clear();
 		}

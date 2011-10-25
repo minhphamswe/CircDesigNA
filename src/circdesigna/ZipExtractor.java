@@ -13,12 +13,12 @@ public class ZipExtractor {
 		ZipInputStream paramZip = null;
 		try {
 			paramZip = new ZipInputStream(ExperimentalDuplexParamsImpl.class.getResourceAsStream("/"+name));
-			System.out.println("Done (1)");
+			//System.out.println("Done (1)");
 		} catch (Throwable e){
 			//Try loading it as a file.
 			try {
 				paramZip = new ZipInputStream(new FileInputStream("parameters.zip"));
-				System.out.println("Done (2)");
+				//System.out.println("Done (2)");
 				//System.out.println("Loaded parameters file from disk.");
 			} catch (Throwable f){
 				throw new RuntimeException("Could not load the "+name+" file. Please include this file in the working directory!");
