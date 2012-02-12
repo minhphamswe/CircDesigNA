@@ -258,7 +258,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			DesignScoreBreakdown breakdown = res.getBreakdown();
 			String[] outputDomains = res.getOutputDomains();
 			
-			sb.append(String.format("Net 'Score'\t%.2f.\n>> Cross Interactions\t%.2f.\n>> Breathing Helix Ends\t%d.\n>> Self-Folding Interactions\t%.2f.\n>> Self Similarity Factor\t%.2f.\n>> Homopolymer Factor\t%.2f.\n",breakdown.netScore,breakdown.crossInteractionsOnly,breakdown.breathingHelixes,breakdown.selfFoldOnly,breakdown.selfSimilarity,breakdown.homopolymer));
+			sb.append(String.format("Net 'Score'\t%.2f.\n>> Cross Interactions\t%.2f.\n>> Breathing Helix Ends\t%d.\n>> Self-Folding Interactions\t%.2f.\n>> Self Similarity Factor\t%.2f.\n>> Banned Patterns\t%.2f.\n",breakdown.netScore,breakdown.crossInteractionsOnly,breakdown.breathingHelixes,breakdown.selfFoldOnly,breakdown.selfSimilarity,breakdown.bannedPatterns));
 			sb.append(lR);
 			sb.append("Current designer state (to resume from this point, paste as 'Domain Definition'):");
 			sb.append(lR);

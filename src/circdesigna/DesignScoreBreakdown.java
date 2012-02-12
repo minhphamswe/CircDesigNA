@@ -29,5 +29,5 @@ public class DesignScoreBreakdown {
 	public int breathingHelixes;
 	public double selfFoldOnly;
 	public double selfSimilarity;
-	public double homopolymer;
+	public double bannedPatterns;
 }

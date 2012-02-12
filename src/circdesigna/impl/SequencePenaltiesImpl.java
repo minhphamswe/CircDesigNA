@@ -23,6 +23,7 @@ import static circdesigna.abstractpolymer.DnaDefinition.A;
 import static circdesigna.abstractpolymer.DnaDefinition.C;
 import static circdesigna.abstractpolymer.DnaDefinition.G;
 import static circdesigna.abstractpolymer.DnaDefinition.T;
+import circdesigna.BannedPatterns;
 import circdesigna.DomainSequence;
 import circdesigna.SequencePenalties;
 import circdesigna.config.CircDesigNAConfig;
@@ -31,48 +32,24 @@ import circdesigna.config.CircDesigNASystemElement;
 public class SequencePenaltiesImpl extends CircDesigNASystemElement implements SequencePenalties{
 	public SequencePenaltiesImpl(CircDesigNAConfig System) {
 		super(System);
+		banlist = new BannedPatterns(Std.bannedPatternsList, Std);
 	}
+	private BannedPatterns banlist;
 
 	/**
-	 * This routine checks for potentially problematic (hard to synthesize) DNA sequences.
-	 * 
-	 * Amounts to poly-N checking, and uses the same routines as David Zhang's Domain Designer
-	 * Penalizes:
-	 *    +1 for each GGGG or CCCC
-	 *    +1 for each run of As and Ts of length 6
-	 *    +1 for each run of Gs and Cs of length 6
+	 * This score adds a penalty for each match in the "banned patterns" list, according
+	 * to the weights specified there. 
 	 * 
 	 * @param domain_markings 
 	 */
 	public double getSynthesizabilityScore(DomainSequence seq, int[][] domain, int[][] domain_markings) {
 		int n = seq.length(domain_markings);
 		double sumResult = 0;
-		int[] baseCounts4 = new int[Std.monomer.getNumMonomers()];
-		int[] baseCounts6 = new int[Std.monomer.getNumMonomers()];
 		for(int i = 0; i < n; i++){
-			//Remove the counts 4/6 spaces back
-			if (i >= 4){
-				int prior = base(seq,i-4,domain);
-				baseCounts4[prior]--;
-			}
-			if (i >= 6){
-				int prior = base(seq,i-6,domain);
-				baseCounts6[prior]--;
-			}
-			//Add to the current count
-			int now = base(seq,i,domain);
-			baseCounts4[now]++;
-			baseCounts6[now]++;
-			//System.out.println(now+" "+Arrays.toString(baseCounts4)+" "+Arrays.toString(baseCounts6));
-			
-			if (baseCounts4[G]==4 || baseCounts4[C]==4){
-				sumResult++;
-				seq.mark(i, -4, domain, domain_markings);
-			}
-			
-			if (baseCounts6[A]+baseCounts6[T]==6 || baseCounts6[G]+baseCounts6[C]==6){
-				sumResult++;
-				seq.mark(i, -6, domain, domain_markings);
+			for(int pattern = 0; pattern < banlist.patternSize(); pattern++){
+				if (banlist.matches(pattern, seq, domain, domain_markings, i)){
+					sumResult += banlist.patternWeight(pattern);
+				}
 			}
 		}
 		

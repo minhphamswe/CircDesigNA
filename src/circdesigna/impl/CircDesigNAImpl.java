@@ -354,7 +354,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 			for(DomainSequence seq : seqs){
 				sum += sp.getSynthesizabilityScore(seq, domain,domain_markings);
 			}
-			return sum * 10;
+			return sum;
 		}
 
 		public int getNumDomainsInvolved() {

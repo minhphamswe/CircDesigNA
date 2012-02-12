@@ -11,6 +11,7 @@ import circdesigna.TripleSim.ReactionGraph3X.BimolecularNode;
 import circdesigna.TripleSim.ReactionGraph3X.Graph;
 import circdesigna.TripleSim.ReactionGraph3X.GraphEdge;
 import circdesigna.TripleSim.ReactionGraph3X.GraphNode;
+import circdesigna.TripleSim.SolutionMemory.Solution;
 import circdesigna.TripleSim.VeryGoodLA.LUFactorization;
 import circdesigna.TripleSim.VeryGoodLA.Matrix;
 import circdesigna.TripleSim.VeryGoodLA.MatrixOp;
@@ -143,87 +144,118 @@ public class TripleSim {
 	 * Returns the actual time that was simulated up to.
 	 */
 	public double updatePriorities(Graph g, double epsilon, double tf, PrintWriter out, double ignorePriority) {
+		//Epsilon passed in as "acceptable error per second"
+		epsilon *= tf;
+		
 		double t0 = 0; 
 		
 		//Reset priorities of all nodes, and set up initial concentration vector.
 		int n = g.allSingles.size();
-		double[] y = new double[n];
-		for(GraphNode u : g.allSingles.values()){
-			u.priority = y[u.index] = u.initialConc;
-
-		}
-		if (out!=null){
-			out.printf("%-10s ","Step");
-			out.printf("%-10s ","Time");
-			for(int i = 0; i < y.length; i++){
-				out.printf("%-10d ",i);
+		
+		//Uses an implicit (stiff) method to integrate the system.
+		double step = 1e-4;
+		
+		SolutionMemory solutions = new SolutionMemory(n,BDFcooef.length-1);
+		{
+			Solution y = solutions.getBuffer();
+			for(GraphNode u : g.allSingles.values()){
+				u.priority = y.values[u.index] = u.initialConc;
 			}
-			out.println();
+			F(y.f,g,y.values);
+			y.time = 0;
+			solutions.dedicateBuffer(step);
+			if (out!=null){
+				out.printf("%-17s ","Step");
+				out.printf("%-17s ","Time");
+				for(int i = 0; i < y.values.length; i++){
+					out.printf("%-17d ",i);
+				}
+				out.println();
+			}
 		}
 		for(PulseEvents e : g.events){
 			e.reset();
 		}
-				
-		//Uses an implicit (stiff) method to integrate the system.
-		double step = 1e-4;
+		
 		while(t0 < tf){
 			boolean hasSolution = false;
-			double[] yhat = new double[y.length];
 
 			//System.out.print(t0+" ");
 			big:while(!hasSolution){
 				boolean invalidState = false;
-				double acceptableError = epsilon / (tf / step);
 				
-				boolean diverged = !EulerTrapezoidal(g, step, yhat, new double[][]{y}, acceptableError);
+				boolean diverged = false;
+				/*
+				if (solutions.size() < 3){
+					Solution yhat = solutions.getBuffer();
+					Solution y = solutions.getSolution(0);
+					diverged = !EulerTrapezoidal(g, step, yhat.values, new double[][]{y.values}, acceptableError);
+				} else {
+					//diverged = !PredictorCorrector(g, step, solutions);
+					 */
+				
+				diverged = !BDF(g, step, solutions);
+				
+				//boolean diverged = !GBSCore(g, yhat, y, step, acceptableError);
 				if (diverged){
 					invalidState = true;
 					//throw new RuntimeException("Newton Raphson Non-Convergence with stepsize "+step);
-				} else {
-					for(double q : yhat){
-						if (q < 0){
-							invalidState = true;
-							//System.out.print("O");
-						}
+				}
+				
+				for(double q : solutions.getBuffer().values){
+					if (q < 0){
+						invalidState = true;
+						//System.out.print("O");
 					}
 				}
 
 				if (invalidState){
 					step /= 2;
 				} else {
-					step *= 2;
 					hasSolution = true;
 				}
 			}
 			
-			//Move to next timestep and update priorities
-			y = yhat;
+			//Move to next timestep
 			t0 += step;
+
+			solutions.dedicateBuffer(step);
+			Solution y = solutions.getSolution(0); 
 			for(PulseEvents e : g.events){
-				double[] shock = e.handlePulses(y, t0, step);
+				double[] shock = e.handlePulses(y.values, t0, step);
 				t0 = shock[0];
 				step = shock[1];
 			}
 			
 			for(GraphNode u : g.allSingles.values()){
-				u.priority = Math.max(u.priority,y[u.index]);
+				u.priority = Math.max(u.priority,y.values[u.index]);
 				if (Double.isNaN(u.priority)){
 					throw new RuntimeException("Undefined priorities.");
 				}
 				
-				if (!u.visited && u.priority > ignorePriority){
+				if (ignorePriority >= 0 && !u.visited && u.priority > ignorePriority){
 					tf = t0; //End simulation.
 				}
 			}
 			
 			if (out!=null){
-				out.printf("%-10.3e ",step);
-				out.printf("%-10.3e ",t0);
-				for(double q : y){
-					out.printf("%-10.3e ",q);
+				out.printf("%-17.10e ",step);
+				out.printf("%-17.10e ",t0);
+				for(double q : y.values){
+					out.printf("%-17.10e ",q);
 				}
 				out.println();
 				out.flush();
+			}
+
+			double systemMass = 0;
+			for(double q : y.values){
+				systemMass += q;
+			}
+			double EST = 1/2. * Math.pow(systemMass * step, 2-1);
+			double r = Math.pow(.9*epsilon / EST,1./(2-1));
+			if (Math.abs(1-r) > .1){
+				step *= r;						
 			}
 		}
 		//System.out.println();
@@ -231,9 +263,79 @@ public class TripleSim {
 		//Update data structures to respond to changes in priority.
 		g.recreateUnvisited();
 		
-		lastEndConcentrations = y;
+		lastEndConcentrations = solutions.getSolution(0).values;
 		
 		return t0;
+	}
+	private boolean PredictorCorrector(Graph g, double h, SolutionMemory solutions){
+		boolean toRet = true;
+		Solution ytilde = solutions.getBuffer();
+		Arrays.fill(ytilde.f,0);
+		Arrays.fill(ytilde.values,0);
+		toRet &= axpy(ytilde.values, ytilde.values, 1, solutions.getSolution(0).values);
+		toRet &= axpy(ytilde.values, ytilde.values, h*23/12, solutions.getSolution(0).f);
+		toRet &= axpy(ytilde.values, ytilde.values, h*-16/12, solutions.getSolution(-1).f);
+		toRet &= axpy(ytilde.values, ytilde.values, h*5/12, solutions.getSolution(-2).f);
+		
+		F(ytilde.f,g,ytilde.values);
+		Arrays.fill(ytilde.values,0);
+		toRet &= axpy(ytilde.values, ytilde.values, 1, solutions.getSolution(0).values);
+		toRet &= axpy(ytilde.values, ytilde.values, h*5/12, ytilde.f);
+		toRet &= axpy(ytilde.values, ytilde.values, h*8/12, solutions.getSolution(0).f);
+		toRet &= axpy(ytilde.values, ytilde.values, h*-1/12, solutions.getSolution(-1).f);
+		F(ytilde.f,g,ytilde.values);
+		return toRet;
+	}
+	
+	private static final double[][] BDFcooef = new double[][]{
+		{},
+		{1, -1},
+		{3/2., -4/2, 1/2.},
+		//{11/6., -18/6, 9/6., -2/6.},
+		//{25/12., -48/12, 36/12, -16/12., 3/12.},
+	};
+	private boolean BDF(Graph g, double h, SolutionMemory solutions){
+		boolean toRet = true;
+		Solution ytilde = solutions.getBuffer();
+		//Initial guess: yhat = y + h f(y).
+		toRet &= axpy(ytilde.values, solutions.getSolution(0).values, h, solutions.getSolution(0).f);
+		F(ytilde.f,g,ytilde.values);
+		
+		double[] LHS = new double[ytilde.f.length];
+		Matrix b = new Matrix(LHS); //BACKED
+		double[] newtonD = new double[ytilde.f.length];
+		Matrix x = new Matrix(newtonD); //BACKED
+		Matrix A = new Matrix(ytilde.f.length,ytilde.f.length);
+		Matrix I_A = Matrix.eye(A);
+		
+		//Evaluate jacobian of g at y = A, and its LU factorization.
+		DF(g,solutions.getSolution(0).values,A);
+		MatrixOp.add(-h, A, I_A, A); 
+		LUFactorization LU = LUFactorization.LUFactorize(A,false);
+
+		double[] yhat_new = new double[ytilde.f.length];
+		for(int i = 0; i < 4; i++){
+			//Evaluate g(yhat) = b = yhat - y - h f(yhat) - h / 2 f(y)
+			Arrays.fill(LHS,0);
+			toRet &= axpy(LHS, LHS, -h, ytilde.f);
+			int k = solutions.size(h);
+			toRet &= axpy(LHS, LHS, BDFcooef[k][0], ytilde.values);
+			for(int u = 0; u < k; u++){
+				toRet &= axpy(LHS, LHS, BDFcooef[k][u+1], solutions.getSolution(-u).values);
+			}
+			
+			//No dependence on h beyond this point
+			
+			//yhat_new = yhat - (x after solving Ax = b)
+			LU.solve(b, x);
+			toRet &= axpy(yhat_new, ytilde.values, -1, newtonD);
+			
+			//Move to yhat_new.
+			toRet &= axpy(ytilde.values, yhat_new, 0, ytilde.values);
+			F(ytilde.f,g,ytilde.values);
+		}
+		
+		return true;
 	}
 	/**
 	 * Solves the system g(yhat) = yhat - y - h*f(yhat) = 0 for yhat.

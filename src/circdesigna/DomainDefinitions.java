@@ -273,46 +273,48 @@ public class DomainDefinitions extends CircDesigNASystemElement{
 		return (integer & FLAG_CONSERVEAMINOS)!=0;
 	}
 
+	/**
+	 * Load the constraints associated with domain i into constraints object dsc.
+	 */
 	public void loadConstraints(int i, DesignSequenceConstraints dsc, boolean crashOnOverwrite) {
 		String args = compositionConstraints.get(i);
-		if (args==null){
-			return;
-		}
-		String[] array = args.split(",");
-		if (array.length%3!=0){
-			throw new RuntimeException("Each contraint has 3 parts: base, min, and max");
-		}
+		if (args!=null){
+			String[] array = args.split(",");
+			if (array.length%3!=0){
+				throw new RuntimeException("Each contraint has 3 parts: base, min, and max");
+			}
 
-		{ //Set ceiling: all bases.
-			dsc.setMaxConstraint(domainLengths[i], Std.monomer.getMonomers());
-		}
-		for(int k = 0; k < array.length; k+=3){
-			ArrayList<Integer> bases = new ArrayList();
-			for(char q : array[k].toCharArray()){
-				if (Character.isLetter(q)){
-					q = Character.toUpperCase(q);
-					int base = Std.monomer.decodeBaseChar(q);
-					bases.add(base);
+			{ //Set ceiling: all bases.
+				dsc.setMaxConstraint(domainLengths[i], Std.monomer.getMonomers());
+			}
+			for(int k = 0; k < array.length; k+=3){
+				ArrayList<Integer> bases = new ArrayList();
+				for(char q : array[k].toCharArray()){
+					if (Character.isLetter(q)){
+						q = Character.toUpperCase(q);
+						int base = Std.monomer.decodeBaseChar(q);
+						bases.add(base);
+					}
 				}
-			}
-			//pure base.
-			int num1 = parsePercent(array[k+1],domainLengths[i],false);
-			int num2 = parsePercent(array[k+2],domainLengths[i],true);
-			if (num1 < -1 || num2 < -1){
-				throw new RuntimeException("Bound values must be >= -1. -1 means no bound.");
-			}
-			if (num2 !=-1 && num1 != -1 && num2 < num1){
-				throw new RuntimeException("Invalid bound: max < min");
-			}
-			int[] bases2 = new int[bases.size()];
-			int count = 0;
-			for(int j : bases){
-				bases2[count++]=j;
-			}
-			boolean hadMin = dsc.setMinConstraint(num1, bases2);
-			boolean hadMax = dsc.setMaxConstraint(num2, bases2);
-			if (crashOnOverwrite && (hadMax||hadMin)){
-				throw new RuntimeException("Duplicate bounds for "+array[k]);
+				//pure base.
+				int num1 = parsePercent(array[k+1],domainLengths[i],false);
+				int num2 = parsePercent(array[k+2],domainLengths[i],true);
+				if (num1 < -1 || num2 < -1){
+					throw new RuntimeException("Bound values must be >= -1. -1 means no bound.");
+				}
+				if (num2 !=-1 && num1 != -1 && num2 < num1){
+					throw new RuntimeException("Invalid bound: max < min");
+				}
+				int[] bases2 = new int[bases.size()];
+				int count = 0;
+				for(int j : bases){
+					bases2[count++]=j;
+				}
+				boolean hadMin = dsc.setMinConstraint(num1, bases2);
+				boolean hadMax = dsc.setMaxConstraint(num2, bases2);
+				if (crashOnOverwrite && (hadMax||hadMin)){
+					throw new RuntimeException("Duplicate bounds for "+array[k]);
+				}
 			}
 		}
 	}

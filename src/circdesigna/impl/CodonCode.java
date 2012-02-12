@@ -220,10 +220,10 @@ public class CodonCode extends CircDesigNASystemElement implements DesignerCode{
 						int pow8 = pow8(array, 0);
 						writeCodon(pow8, line2[1].charAt(0),oneWayLookup);
 					} else {
-						throw new RuntimeException("Invalid one-letter amino: "+line2[1]);
+						throw new RuntimeException("On "+line+", Invalid one-letter amino: "+line2[1]);
 					}
 				} else {
-					throw new RuntimeException("Invalid codon: "+line2[0]);
+					throw new RuntimeException("On "+line+", Invalid codon: "+line2[0]);
 				}
 			}
 		}

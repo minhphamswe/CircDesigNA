@@ -649,7 +649,7 @@ public class CircDesigNA_SharedUtils {
 		toRet.netScore = 0;
 		toRet.selfFoldOnly = 0;
 		toRet.selfSimilarity = 0;
-		toRet.homopolymer = 0;
+		toRet.bannedPatterns = 0;
 		for(ScorePenalty p : penalties){
 			if (p instanceof MFEHybridScore || p instanceof HairpinOpening){
 				toRet.crossInteractionsOnly += p.old_score;
@@ -661,7 +661,7 @@ public class CircDesigNA_SharedUtils {
 				toRet.selfSimilarity += p.old_score;
 			} else
 			if (p instanceof VariousSequencePenalties){
-				toRet.homopolymer += p.old_score;
+				toRet.bannedPatterns += p.old_score;
 			}
 			toRet.netScore += p.old_score;
 		}

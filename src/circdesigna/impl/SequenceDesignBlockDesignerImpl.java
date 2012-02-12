@@ -475,5 +475,4 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 		}
 		//System.out.printf("%d of %d crossover bases successfully transferred.\n",sucessful,num);
 	}
-
 }

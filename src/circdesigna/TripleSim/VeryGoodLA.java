@@ -19,18 +19,18 @@ public class VeryGoodLA {
 		long nano;
 		nTestArr = new int[]{5};
 		for(int N : nTestArr){
-			Matrix A = new Matrix(N,N);
+			Matrix A = new Matrix(N+1,N);
 			for(int y = 0; y < A.m; y++){
 				for(int x = 0; x < A.n; x++){
 					//REALLY BAD example.
-					//A.set(y, x, y==x?1e12:1e12-1);
+					//A.set(y, x, y==x?1 : 0);
 					A.set(y,x,Math.random());
 				}
 			}
 
-			//testQR(A);
 			A.print();
-			testLU(A);
+			testQR(A);
+			//testLU(A);
 
 			/*
 			Matrix C = Matrix.zeros(A);
@@ -85,28 +85,51 @@ public class VeryGoodLA {
 	}
 
 	private static void testQR(Matrix A) {
-		QRFactorization QR = QRFactorization.HouseholderQR(A);
-		//Test vector
-		Matrix p = new Matrix(A.n,1);
-		for(int y = 0; y < p.m; y++){
-			p.set(y,0,Math.random());
-		}
-		//p.print();
-		Matrix Ap = Matrix.zeros(A.partition(0, 0, A.m, 1));
-		MatrixOp.GEMV(1, A, p, Ap);
-		//Ap.print();
+		LinearLeastSquares lls = new LinearLeastSquares(A);
 		
-		//Multiply by R, Q.
-		Matrix testx = Matrix.zeros(Ap);
-		QR.multR(p,testx);
-		//testx = Q*testX
-		QR.multQ(testx,testx);
+		//Test solution:
+		Matrix b = new Matrix(A.m,1);
+		for(int y = 0; y < b.m; y++){
+			b.set(y,0,Math.random());
+		}
+		b.print();
+		
+		Matrix cooeficients = new Matrix(A.n, 1);
+		lls.project(b, cooeficients);
+		
+		Matrix testx2 = Matrix.zeros(b);
+		//MatrixOp.GEMV(1, QR.R.partition(0, 0, QR.R.m, QR.R.n, true), testx, testx2);
+		//testx2.print();
+		MatrixOp.GEMV(1, A, cooeficients, testx2);
+		//testx2.print();
+		MatrixOp.subtract(b,testx2,testx2);
 		//testx.print();
-		MatrixOp.subtract(testx,Ap,testx);
-		//testx.print();
-		System.out.println(MatrixOp.twoNorm(testx));
+		System.out.println(MatrixOp.twoNorm(testx2));
 	}
-	
+	public static class LinearLeastSquares {
+		/**
+		 * Given a matrix of n m-dimensional vectors, pre-compute a projection system
+		 * that finds the cooeficients a_i such that the linear combination of the n
+		 * vectors, with cooeficients a_i, comes as close as possible (in two norm) to
+		 * a given vector b.
+		 */
+		public LinearLeastSquares(Matrix LIVectors){
+			this.A = LIVectors;
+			Matrix AtA = new Matrix(A.n, A.n);
+			Matrix At = A.partition(0,0,A.m,A.n,true);
+			MatrixOp.GEMM(1, At, A, AtA);
+			QR = QRFactorization.HouseholderQR(AtA);
+		}
+		private Matrix A;
+		private QRFactorization QR;
+		public void project(Matrix b, Matrix cooeficients){
+			Matrix At = A.partition(0,0,A.m,A.n,true);
+			MatrixOp.GEMV(1, At, b, cooeficients);
+			TriangularMatrix.forwardSub(QR.R.partition(0, 0, QR.R.m, QR.R.n, true), cooeficients);
+			QR.multQ(cooeficients, cooeficients);
+		}
+	}
+
 	public static class TriangularMatrix {
 		/**
 		 * Solves the system Lx = b, where b becomes x after method completes ("in place solve")
@@ -121,7 +144,20 @@ public class VeryGoodLA {
 					}
 				}
 			} else {
-				throw new RuntimeException("Derp");
+				if (b.n == 1){
+					for(int i = 0; i < L.m; i++){
+						b.set(i, 0, b.get(i,0) / L.get(i,i));
+						if (i + 1 < L.m){
+							for(int j = 0; j < b.n; j++){
+								Matrix b2 = b.partition(i+1, j, b.m-(i+1), 1);
+								Matrix l21 = L.partition(i+1, i, L.m-(i+1), 1);
+								MatrixOp.add(-b.get(i,j),l21,b2,b2);
+							}
+						}
+					}
+				} else {
+					throw new RuntimeException("Derp");
+				}
 			}
 		}
 
@@ -638,7 +674,13 @@ public class VeryGoodLA {
 				offset = ind(i,j);
 				int maxOff = ind(i+rows-1,j+cols-1);
 			}
-			return new Matrix(this,offset,rows,cols,b ^ transpose);
+			if (transpose){
+				int tmp = cols;
+				cols = rows;
+				rows = tmp;
+				b = !b;
+			}
+			return new Matrix(this,offset,rows,cols,b);
 		}
 		/**
 		 * see partition (i,j,r,col,transpose)
@@ -767,13 +809,9 @@ public class VeryGoodLA {
 		*/
 		private int ind(int row, int col) {
 			if (transpose){
-				row ^= col;
-				//row = A + B, col = B
-				col ^= row;
-				//col = B + A + B = A
-				row ^= col;
-				//row = A + B + A = B
-				//row = B, col = A
+				int tmp = row;
+				row = col;
+				col = tmp;
 			}
 			if (col < 0 || col >= numCols){
 				throw new ArrayIndexOutOfBoundsException(col);

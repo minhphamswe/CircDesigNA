@@ -21,6 +21,7 @@ package circdesigna.config;
 
 import static circdesigna.abstractpolymer.DnaDefinition.P;
 import static circdesigna.abstractpolymer.DnaDefinition.Z;
+import circdesigna.BannedPatterns;
 import circdesigna.DesignSequenceConstraints;
 import circdesigna.abstractpolymer.DnaDefinition;
 import circdesigna.abstractpolymer.MonomerDefinition;
@@ -43,6 +44,7 @@ public class CircDesigNAConfig {
 
 		//Codon table information.
 		customCodonTable = new CodonCode(this).defaultTable();
+		bannedPatternsList = new BannedPatterns(this).defaultBannedWords();
 		kinetics = new KineticsDefinition();
 		saveReactionDescriptions = false;
 	}
@@ -89,6 +91,7 @@ public class CircDesigNAConfig {
 	//Products
 	public MonomerDefinition monomer;
 	public String customCodonTable;
+	public String bannedPatternsList;
 	public KineticsDefinition kinetics;
 
 	public double getDeltaGPerStackPair() {
