@@ -456,13 +456,13 @@ public class CircDesigNA_SharedUtils {
 				int firstIndex = ThreePrimeEnds.getFirst();
 				int endIndex = ((firstIndex+1)%closedCircuit.size());
 				ArrayList<Integer> subArray = new ArrayList();
-				boolean wrapAroundCheck = false;
+				boolean onceAround = false;
 				for(int t = endIndex; ; t = (t+1)%closedCircuit.size()){
 					if (t==endIndex){
-						if (wrapAroundCheck){
+						if (onceAround){
 							break;
 						}
-						wrapAroundCheck = true;
+						onceAround = true;
 					}
 					int domain = closedCircuit.get(t);
 					if (domain < 0){

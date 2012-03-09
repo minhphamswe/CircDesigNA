@@ -58,6 +58,6 @@ public interface NAFolding {
 	public double mfeNoDiag(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings);
 	public double mfeStraight(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset);
 	
-	public void pairPr(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain);
-	public void pairPr(double[][] pairsOut, DomainSequence seq1, int[][] domain);
+	//public void pairPr(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain);
+	//public void pairPr(double[][] pairsOut, DomainSequence seq1, int[][] domain);
 }

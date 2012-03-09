@@ -398,7 +398,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 			return ds;
 		}
 	}
-	
+	/*
 	public class LocalDefectSSScore extends ScorePenalty {
 		private DomainSequence[] ds;
 		private AbstractDomainDesignTarget target;
@@ -514,4 +514,5 @@ public class CircDesigNAImpl extends CircDesigNA{
 			return ds;
 		}
 	}
+	*/
 }
