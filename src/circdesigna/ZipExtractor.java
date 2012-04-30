@@ -6,13 +6,13 @@ import java.io.IOException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import circdesigna.energy.ExperimentalDuplexParamsImpl;
+import circdesigna.energy.ExperimentalDuplexParams;
 
 public class ZipExtractor {
 	public static ZipInputStream getFile(String name){
 		ZipInputStream paramZip = null;
 		try {
-			paramZip = new ZipInputStream(ExperimentalDuplexParamsImpl.class.getResourceAsStream("/"+name));
+			paramZip = new ZipInputStream(ExperimentalDuplexParams.class.getResourceAsStream("/"+name));
 			//System.out.println("Done (1)");
 		} catch (Throwable e){
 			//Try loading it as a file.

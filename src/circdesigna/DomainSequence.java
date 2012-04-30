@@ -195,7 +195,6 @@ public class DomainSequence {
 		throw new ArrayIndexOutOfBoundsException(i);
 	}
 	/**
-	 * 
 	 * @param i
 	 * @param domain
 	 * @param offsetIntoUncomplemented - if true, the offset is into the uncomplemented version of the base.

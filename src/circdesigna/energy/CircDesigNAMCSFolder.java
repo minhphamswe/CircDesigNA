@@ -10,9 +10,9 @@ import circdesigna.config.CircDesigNASystemElement;
 public class CircDesigNAMCSFolder extends CircDesigNASystemElement implements OneMatrixNAFolder {
 	public CircDesigNAMCSFolder(CircDesigNAConfig System) {
 		super(System);
-		eParams = new ExperimentalDuplexParamsImpl(System);
+		eParams = new ExperimentalDuplexParams(System);
 	}
-	private NAExperimentDatabase eParams;
+	private ExperimentalDuplexParams eParams;
 	
 	public double mfe(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings) {
 		BiFoldAlgorithmConfig config = new BiFoldAlgorithmConfig();
@@ -313,15 +313,15 @@ public class CircDesigNAMCSFolder extends CircDesigNASystemElement implements On
 		if (Std.monomer.bindScore(bi, bj) < 0){
 			if (Std.monomer.bindScore(bni, bnj) < 0){
 				//Stack.
-				return eParams.getNNdeltaG_deci(bi, bj, bni, bnj);
+				return eParams.getNN_deci(bi, bj, bni, bnj);
 			} else {
 				//Mismatch
-				return eParams.getNNdeltaGterm_deci(bi, bj, bni, bnj);
+				return eParams.getInteriorNNTerminal_deci(bi, bj, bni, bnj);
 			}
 		} else {
 			if (Std.monomer.bindScore(bni, bnj) < 0){
 				//Mismatch
-				return eParams.getNNdeltaGterm_deci(bni, bnj, bi, bj);
+				return eParams.getInteriorNNTerminal_deci(bni, bnj, bi, bj);
 			}
 		}
 		return 0;

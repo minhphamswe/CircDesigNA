@@ -24,15 +24,15 @@ import java.io.FileNotFoundException;
 import java.util.Arrays;
 import java.util.Scanner;
 
-
 import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.NAFolding;
 import circdesigna.energy.UnafoldFolder;
+import circdesigna.energy.UnpseudoknottedFolder;
 
 public class FoldingImplTest4 {
 	public static void main(String[] args) throws FileNotFoundException{
-		File outFile = new File("output.txt");
+		File outFile = new File(System.getProperty("inFile")+".out");
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		System.out.println(outFile.getAbsolutePath());
 		//System.setOut(new PrintStream(new FileOutputStream(outFile)));
@@ -40,8 +40,8 @@ public class FoldingImplTest4 {
 		//Scanner in = new Scanner(new File("C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\Circ_DesigNAPaper\\AssemblaRepo\\circdesignapaper_w_figures\\scoresComparison_SS.txt"));
 		Scanner in = new Scanner(new File(System.getProperty("inFile")));
 		in.nextLine();
-		CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
-		UnafoldFolder fl_unafold = new UnafoldFolder(config);
+		UnpseudoknottedFolder fl = new UnpseudoknottedFolder(config);
+		NAFolding fl_unafold = new UnafoldFolder(config);
 		int[][] domain = new int[2][];
 		int[][] domain_markings = new int[2][];
 
@@ -51,22 +51,37 @@ public class FoldingImplTest4 {
 		ds2.setDomains(1, null);
 		while(in.hasNextLine()){
 			String line2 = in.nextLine();
-			String[] line = line2.split(" ");
-			int seqLength = line[1].length();
-			for(int j = 0; j < 1; j++){
+			String[] line = line2.trim().split(" ");
+			for(int j = 0; j < 2; j++){
+				int seqLength = line[j+1].length();
 				domain[j] = new int[seqLength];
 				domain_markings[j] = new int[seqLength];
 				for(int k = 0; k < seqLength; k++){
 					domain[j][k] = config.monomer.decodeConstraintChar(line[j+1].charAt(k));
 				}
 			}
-			double resultLocal = fl.mfe(ds1, domain, domain_markings);
-			System.out.println(Arrays.toString(domain_markings[0]));
+			//double resultLocal = fl.mfe(ds1, domain, domain_markings);
+			long now = System.nanoTime();
+			fl.setOrder(3);
+			double resultLocal3 = fl.mfe(ds1, domain, domain_markings);
+			double dt3 = (System.nanoTime()-now)/1e9;
+			now = System.nanoTime();
+			fl.setOrder(2);
+			double resultLocal2 = fl.mfe(ds1, domain, domain_markings);
+			double dt2 = (System.nanoTime()-now)/1e9;
+			//System.out.println(String.format("%d %.3e %.3e %.3e %.3e",ds1.length(domain), resultLocal2, resultLocal3, dt2, dt3));
+			if (line.length > 3){
+				double error3 = Math.abs(new Double(line[3]) - resultLocal3);
+				double error2 = Math.abs(new Double(line[3]) - resultLocal2);
+				System.out.printf("Nupack: %.2f errN^3: %.2f errN^2: %.2f\n", new Double(line[3]), error3, error2);
+			} else {
+				//System.out.println(line2+" "+resultLocal3);
+			}
+			//System.out.println(Arrays.toString(domain_markings[0]));
 			Arrays.fill(domain_markings[0],0);
 			//double result = fl.mfeHybridDeltaG_viaUnafold(ds1, ds1, domain, domain_markings);
-			double result = fl_unafold.mfe(ds1, domain, domain_markings);
-			System.out.println(Arrays.toString(domain_markings[0]));
-			System.out.println(line2+" "+resultLocal+" "+(result));
+			double result = 0; //fl_unafold.mfe(ds1, domain, domain_markings);
+			//System.out.println(Arrays.toString(domain_markings[0]));
 		}
 		System.out.flush();
 	}

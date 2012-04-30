@@ -44,9 +44,9 @@ import circdesigna.config.CircDesigNAConfig;
 import circdesigna.energy.CircDesigNAMCSFolder;
 import circdesigna.impl.CircDesigNAImpl;
 import circdesigna.impl.SequencePenaltiesImpl;
-import circdesigna.impl.CircDesigNAImpl.HairpinOpening;
-import circdesigna.impl.CircDesigNAImpl.MFEHybridScore;
-import circdesigna.impl.CircDesigNAImpl.SelfFold;
+import circdesigna.impl.CircDesigNAImpl.DuplexOpening;
+import circdesigna.impl.CircDesigNAImpl.MFEHybridNonlegalScore;
+import circdesigna.impl.CircDesigNAImpl.SelfFoldNonlegalScore;
 import circdesigna.impl.CircDesigNAImpl.SelfSimilarityScore;
 import circdesigna.impl.CircDesigNAImpl.VariousSequencePenalties;
 import circdesigna.plugins.RunNupackTool;
@@ -208,16 +208,16 @@ public class DesignMultipleTimes {
 		double total = 0;
 		for(ScorePenalty k : listPenalties){
 			int num = -1;
-			if (k instanceof MFEHybridScore){
+			if (k instanceof MFEHybridNonlegalScore){
 				num = GS_MFEHyb;
 			}
-			if (k instanceof HairpinOpening){
+			if (k instanceof DuplexOpening){
 				num = GS_HP;
 			}
 			if (k instanceof SelfSimilarityScore){
 				num = GS_SS;
 			}
-			if (k instanceof SelfFold){
+			if (k instanceof SelfFoldNonlegalScore){
 				num = GS_SF;
 			}
 			if (k instanceof VariousSequencePenalties){

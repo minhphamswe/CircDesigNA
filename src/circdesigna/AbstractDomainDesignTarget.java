@@ -49,7 +49,7 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 	public ArrayList<DomainSequence> pairsOfDomains = new ArrayList();
 	private TreeSet<String> targetMoleculeNames = new TreeSet();
 	
-	public class HairpinClosingTarget {
+	public class DuplexClosingTarget {
 		public DomainSequence[] stemOnly;
 		/**
 		 * Print these sequences when debugging
@@ -63,7 +63,7 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 		 * When inside, the unwanted structure region is (stemAndOpening.length-stemOnly.length)...stemAndOpening.length
 		 */
 		public boolean outside;
-		public HairpinClosingTarget(int domain0, int domain1, int domain2, int domain3, boolean outside, AbstractComplex dsg){
+		public DuplexClosingTarget(int domain0, int domain1, int domain2, int domain3, boolean outside, AbstractComplex dsg){
 			DomainSequence sA1 = new DomainSequence();
 			DomainSequence sA2 = new DomainSequence();
 			DomainSequence s1 = new DomainSequence();
@@ -93,10 +93,10 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 			return toRet.toString();
 		}
 		public boolean equals(Object other){
-			if (!(other instanceof HairpinClosingTarget)){
+			if (!(other instanceof DuplexClosingTarget)){
 				return false;
 			}
-			HairpinClosingTarget oth = (HairpinClosingTarget) other;
+			DuplexClosingTarget oth = (DuplexClosingTarget) other;
 			for(int i = 0; i < stemAndOpening.length; i++){
 				if (!oth.stemAndOpening[i].equals(stemAndOpening[i])){
 					return false;
@@ -105,7 +105,7 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 			return true;
 		}
 	}
-	public ArrayList<HairpinClosingTarget> hairpinClosings = new ArrayList();
+	public ArrayList<DuplexClosingTarget> duplexClosings = new ArrayList();
 	
 	public static final int overlap_length = 8;
 	public ArrayList<DomainSequence> singleDomainsWithOverlap = new ArrayList();
@@ -113,7 +113,7 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 	public void clear(){
 		generalizedSingleStranded.clear();
 		pairsOfDomains.clear();
-		hairpinClosings.clear();
+		duplexClosings.clear();
 		wholeStrands.clear();
 		singleDomainsWithOverlap.clear();
 		singleDomains.clear();
@@ -131,7 +131,7 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 		targetMoleculeNames.add(dpg.moleculeName);
 		
 		CircDesigNA_SharedUtils.utilSingleStrandedFinder(dpg, generalizedSingleStranded);
-		CircDesigNA_SharedUtils.utilHairpinClosingFinder(this, dpg, hairpinClosings);
+		CircDesigNA_SharedUtils.utilDuplexClosingFinder(this, dpg, duplexClosings);
 		CircDesigNA_SharedUtils.utilPairsOfDomainsFinder(dpg, pairsOfDomains);
 		CircDesigNA_SharedUtils.utilSingleDomainsFinder(dpg, singleDomains);
 		CircDesigNA_SharedUtils.utilSingleDomainsWithOverlap(dpg, singleDomainsWithOverlap, overlap_length);

@@ -28,9 +28,11 @@ import java.util.ArrayList;
 import java.util.Scanner;
 
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.ExperimentalDuplexParamsImpl.DangleScore;
-import circdesigna.energy.ExperimentalDuplexParamsImpl.NearestNeighborScore;
-import circdesigna.energy.ExperimentalDuplexParamsImpl.TerminalMismatchPairScore;
+import circdesigna.energy.ExperimentalDuplexParams.DangleScore;
+import circdesigna.energy.ExperimentalDuplexParams.InteriorLoop;
+import circdesigna.energy.ExperimentalDuplexParams.NearestNeighborScore;
+import circdesigna.energy.ExperimentalDuplexParams.HairpinLoop;
+import circdesigna.energy.ExperimentalDuplexParams.TerminalMismatchPairScore;
 
 public class StandardizedThermoFileLoader {
 	/**
@@ -43,14 +45,17 @@ public class StandardizedThermoFileLoader {
 	 * 
 	 * and their corresponding dH files.
 	 */
-	public static void makeTable(ExperimentalDuplexParamsImpl ex, String dg, String dh) {
+	public static void makeTable(ExperimentalDuplexParams ex, String dg, String dh) {
 		CircDesigNAConfig std = ex.Std;
 		
 		ArrayList<NearestNeighborScore> nns = new ArrayList();
 		//For the very last nearest neighbor in a hairpin or an inner loop.
 		ArrayList<TerminalMismatchPairScore> misHairpin = new ArrayList(); 
 		ArrayList<TerminalMismatchPairScore> misInnerLoop = new ArrayList();
-		ArrayList<DangleScore> dangles = new ArrayList();
+		ArrayList<DangleScore> topDangle = new ArrayList();
+		ArrayList<DangleScore> bottomDangle = new ArrayList();
+		ArrayList<HairpinLoop> specialHairpins = new ArrayList();
+		ArrayList<InteriorLoop> specialInteriorLoops = new ArrayList();
 		
 		Scanner in = new Scanner(dg);
 		
@@ -67,29 +72,27 @@ public class StandardizedThermoFileLoader {
 			}
 		}
 		
-		String HairpinLoopEnergies =  spinToNextRealLine(in);
-		String BulgeLoopEnergies =  spinToNextRealLine(in);
-		String InteriorLoopEnergies =  spinToNextRealLine(in);
-		String NINIOAssymetry =  spinToNextRealLine(in);
+		ex.setLoopEnergies(
+						convertFloat(spinToNextRealLine(in).trim().split("\\s+")),
+						convertFloat(spinToNextRealLine(in).trim().split("\\s+")),
+						convertFloat(spinToNextRealLine(in).trim().split("\\s+")),
+						convertFloat(spinToNextRealLine(in).trim().split("\\s+"))
+						);
 		
 		if (!in.nextLine().startsWith(">Triloops")){
 			throw new RuntimeException("Bad formatted file (>Triloops missing)");
 		}
 		
-		while(in.hasNextLine()){
-			String line = in.nextLine();
-			if (line.startsWith(">")){
-				break;
+		for(int i = 0; i < 2; i++){
+			while(in.hasNextLine()){
+				String line = in.nextLine();
+				if (line.startsWith(">")){
+					break;
+				}
+				//Triloops, then tetraloops
+				String[] parts = line.trim().split("\\s+");
+				specialHairpins.add(ex.new HairpinLoop(convertBases(parts[0],std), convertFloat(parts[1])));
 			}
-			//Triloops
-		}
-		
-		while(in.hasNextLine()){
-			String line = in.nextLine();
-			if (line.startsWith(">")){
-				break;
-			}
-			//Tetraloops
 		}
 		
 		//Mismatch hairpin
@@ -117,44 +120,62 @@ public class StandardizedThermoFileLoader {
 			}
 		}
 		
-		// 6x left dangle
+		// 6x top dangle
 		for(int k = 0; k < 6; k++){
-			String line = spinToNextRealLine(in);
+			String[] line = spinToNextRealLine(in).trim().split("\\s+");
+			for(int col = 0; col < bases.length; col++){
+				double dgv = convertFloat(line[col]);
+				topDangle.add(ex.new DangleScore(headers[k][0], headers[k][1], bases[col], dgv));				
+			}
 		}
 		
-		// 6x right dangle
+		// 6x bottom dangle
 		for(int k = 0; k < 6; k++){
-			String line = spinToNextRealLine(in);
+			String[] line = spinToNextRealLine(in).trim().split("\\s+");
+			for(int col = 0; col < bases.length; col++){
+				double dgv = convertFloat(line[col]);
+				bottomDangle.add(ex.new DangleScore(headers[k][0], headers[k][1], bases[col], dgv));				
+			}
 		}
+
+		ex.setMultibranchTerms(
+						convertFloat(spinToNextRealLine(in).trim().split("\\s+"))
+						);
 		
-		String[] multiloopTerms = spinToNextRealLine(in).trim().split("\\s+");
+		ex.setATPenalty(convertFloat(spinToNextRealLine(in).trim()));
 		
-		spinToNextRealLine(in); //AT penalty. ha.
-		
-		// Symmetryc 1x1 interior loops:
+		// Interior loops, L1 = 1, L2 = 1
 		for(int leftPair = 0; leftPair < headers.length; leftPair++){
 			for(int rightPair = 0; rightPair < headers.length; rightPair++){
 				spinToNextRealLine(in); // I already know this.
 				for(int x1 = 0; x1 < bases.length; x1++){
 					String[] line = spinToNextRealLine(in).trim().split("\\s+");
 					for(int x2 = 0; x2 < bases.length; x2++){
-						//line[x2];
+						specialInteriorLoops.add(ex.new InteriorLoop(new int[]{
+							headers[leftPair][0], bases[x1], headers[rightPair][0]
+						}, new int[]{
+							headers[leftPair][1], bases[x2], headers[rightPair][1]
+						}, convertFloat(line[x2])));
 					}
 				}
 			}
 		}
 		
-		// Symmetric, "2x2" interior bulges
+		// Interior loops, L1 = 2, L2 = 2
 		for(int leftPair = 0; leftPair < headers.length; leftPair++){
 			for(int rightPair = 0; rightPair < headers.length; rightPair++){
-				for(int Y1 = 0; Y1 < bases.length; Y1++){
-					for(int Y2 = 0; Y2 < bases.length; Y2++){
+				for(int x1 = 0; x1 < bases.length; x1++){
+					for(int y1 = 0; y1 < bases.length; y1++){
 						spinToNextRealLine(in); // I already know this.
 						//Ok, now we have all combinations of the two base interior loops.
-						for(int x1 = 0; x1 < bases.length; x1++){
+						for(int y2 = 0; y2 < bases.length; y2++){
 							String[] line = spinToNextRealLine(in).trim().split("\\s+");
 							for(int x2 = 0; x2 < bases.length; x2++){
-								//line[x2];
+								specialInteriorLoops.add(ex.new InteriorLoop(new int[]{
+										headers[leftPair][0], bases[x1], bases[y1], headers[rightPair][0]
+									}, new int[]{
+										headers[leftPair][1], bases[x2], bases[y2], headers[rightPair][1]
+									}, convertFloat(line[x2])));
 							}
 						}
 					}
@@ -162,16 +183,20 @@ public class StandardizedThermoFileLoader {
 			}
 		}
 		
-		// Antisymmetric, "2x1" interior loops
+		// Interior Loops, L1 = 1, L2 = 2
 		for(int leftPair = 0; leftPair < headers.length; leftPair++){
 			for(int rightPair = 0; rightPair < headers.length; rightPair++){
-				for(int mismatchedTopBase = 0; mismatchedTopBase < bases.length; mismatchedTopBase++){
-					spinToNextRealLine(in); // I already know this.
-					//Ok, now we have all combinations of the two base interior loops.
-					for(int x1 = 0; x1 < bases.length; x1++){
+				for(int x1 = 0; x1 < bases.length; x1++){
+					spinToNextRealLine(in);
+					//Ok, now we have all combinations of the two bottom bases
+					for(int y2 = 0; y2 < bases.length; y2++){
 						String[] line = spinToNextRealLine(in).trim().split("\\s+");
 						for(int x2 = 0; x2 < bases.length; x2++){
-							//line[x2];
+							specialInteriorLoops.add(ex.new InteriorLoop(new int[]{
+									headers[leftPair][0], bases[x1], headers[rightPair][0]
+								}, new int[]{
+									headers[leftPair][1], bases[x2], bases[y2], headers[rightPair][1]
+								}, convertFloat(line[x2])));
 						}
 					}
 				}
@@ -182,11 +207,26 @@ public class StandardizedThermoFileLoader {
 		String beta = spinToNextRealLine(in);
 		String bimolecular = spinToNextRealLine(in);
 		
-		ex.reformScoreLists(nns, misHairpin, dangles);
+		ex.setSequenceSpecificStructures(nns, misHairpin, topDangle, bottomDangle, specialHairpins, specialInteriorLoops);
+	}
+	private static int[] convertBases(String string, CircDesigNAConfig std) {
+		int[] toRet = new int[string.length()];
+		for(int i = 0; i < string.length(); i++){
+			toRet[i] = std.monomer.decodeBaseChar(string.charAt(i));
+		}
+		return toRet;
 	}
 	private static double convertFloat(String string) {
 		//Units of dekacals per mol
 		return new Double(string)/100;
+	}
+	private static double[] convertFloat(String[] string) {
+		//Units of dekacals per mol
+		double[] toRet = new double[string.length];
+		for(int i = 0; i < toRet.length; i++){
+			toRet[i] = convertFloat(string[i]);
+		}
+		return toRet;
 	}
 	private static String spinToNextRealLine(Scanner in) {
 		while(in.hasNextLine()){

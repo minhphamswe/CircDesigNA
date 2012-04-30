@@ -30,12 +30,12 @@ import java.util.Arrays;
 import circdesigna.AbstractDomainDesignTarget;
 import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
-import circdesigna.AbstractDomainDesignTarget.HairpinClosingTarget;
+import circdesigna.AbstractDomainDesignTarget.DuplexClosingTarget;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.energy.CircDesigNAMCSFolder;
 import circdesigna.impl.CircDesigNAImpl;
 import circdesigna.impl.SequencePenaltiesImpl;
-import circdesigna.impl.CircDesigNAImpl.HairpinOpening;
+import circdesigna.impl.CircDesigNAImpl.DuplexOpening;
 
 
 public class FoldingImplTest3 {
@@ -44,8 +44,8 @@ public class FoldingImplTest3 {
 		for(int i = 0; i < 1; i++){
 			CircDesigNAImpl impl = new CircDesigNAImpl(new CircDesigNAMCSFolder(config),new SequencePenaltiesImpl(config), config);
 			DomainDefinitions dsd = new DomainDefinitions(config);
-			HairpinClosingTarget hairpin = new AbstractDomainDesignTarget(dsd,config).new HairpinClosingTarget(1,0,0|DomainSequence.NA_COMPLEMENT_FLAG,2,true,null);
-			HairpinOpening hairpinOpening = impl.new HairpinOpening(hairpin, null);
+			DuplexClosingTarget hairpin = new AbstractDomainDesignTarget(dsd,config).new DuplexClosingTarget(1,0,0|DomainSequence.NA_COMPLEMENT_FLAG,2,true,null);
+			DuplexOpening hairpinOpening = impl.new DuplexOpening(hairpin, null);
 			DomainSequence seqS = new DomainSequence();
 			seqS.setDomains(0, null);
 			String[] seq = new String[3];

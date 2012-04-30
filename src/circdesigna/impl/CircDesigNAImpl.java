@@ -25,6 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import circdesigna.AbstractDomainDesignTarget;
+import circdesigna.AbstractDomainDesignTarget.DuplexClosingTarget;
 import circdesigna.CircDesigNA;
 import circdesigna.CircDesigNAOptions;
 import circdesigna.CircDesigNA_SharedUtils;
@@ -32,17 +33,16 @@ import circdesigna.DesignIntermediateReporter;
 import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
 import circdesigna.SequencePenalties;
-import circdesigna.AbstractDomainDesignTarget.HairpinClosingTarget;
 import circdesigna.abstractDesigner.ParetoSort;
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.NAFolding;
+import circdesigna.energy.ConstraintsNAFolding;
 
 /**
  * Implementation of CircDesigNA
  */
 public class CircDesigNAImpl extends CircDesigNA{
-	private NAFolding flI;
-	private SequencePenalties sp;
+	private final ConstraintsNAFolding flI;
+	private final SequencePenalties sp;
 	
 	/**
 	 * @param std 
@@ -53,7 +53,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 	 * If designSSonly is true, only SingleStrandedAssurance will be used; As a result, crosstalk and dimerization may occur
 	 * in solution candidates.
 	 */
-	public CircDesigNAImpl(NAFolding foldingImpl, SequencePenalties sp, CircDesigNAConfig std) {
+	public CircDesigNAImpl(ConstraintsNAFolding foldingImpl, SequencePenalties sp, CircDesigNAConfig std) {
 		super(std);
 		this.flI = foldingImpl;
 		this.sp = sp;
@@ -70,12 +70,12 @@ public class CircDesigNAImpl extends CircDesigNA{
 		ArrayList<DomainSequence> makeSS = new ArrayList();
 		makeSS.addAll(designTarget.generalizedSingleStranded);
 		makeSS.addAll(designTarget.singleDomains);
-		ArrayList<HairpinClosingTarget> hairpinClosings = designTarget.hairpinClosings;
+		ArrayList<DuplexClosingTarget> duplexClosings = designTarget.duplexClosings;
 
 		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(rawStrands);
 		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(makeSS);
 
-		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(hairpinClosings);
+		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(duplexClosings);
 
 		List<ScorePenalty> allScores = new LinkedList<ScorePenalty>();
 		//Only add this penalty if the system contains at least one base.
@@ -87,37 +87,25 @@ public class CircDesigNAImpl extends CircDesigNA{
 			allScores.add(new VariousSequencePenalties(rawStrands,DIR));	
 		}
 
-		ArrayList<MFEHybridScore> hybridScorings = new ArrayList<MFEHybridScore>();
+		ArrayList<MFEHybridNonlegalScore> hybridScorings = new ArrayList<MFEHybridNonlegalScore>();
 		for(int i = 0; i < makeSS.size(); i++){
 			DomainSequence ds = makeSS.get(i);
 			//Secondary Structure Formation
-			if (CircDesigNA_SharedUtils.checkComplementary(ds, ds)){
-				/*
-				allScores.add(new LocalDefectSSScore(ds, DIR, designTarget));	
-				//Dimerization
-				allScores.add(new PairDefectScore(ds, ds, DIR, false, designTarget));
-				 */
-			} else {
-				allScores.add(new SelfFold(ds, DIR));
-				hybridScorings.add(new MFEHybridScore(ds, ds, DIR, ds.numDomains==1));
-			}
+			allScores.add(new SelfFoldNonlegalScore(ds, DIR));
+			hybridScorings.add(new MFEHybridNonlegalScore(ds, ds, DIR, false));
 
 			//Hybridization
 			for(int k = i+1; k < makeSS.size(); k++){ //Do only upper triangle
 				DomainSequence ds2 = makeSS.get(k);
 				boolean sameMol = ds.getMoleculeName().equals(ds2.getMoleculeName());
-				if (CircDesigNA_SharedUtils.checkComplementary(ds, ds2)){
-					//allScores.add(new PairDefectScore(ds, ds2, DIR, sameMol, designTarget));
-				} else {
-					hybridScorings.add(new MFEHybridScore(ds, ds2, DIR, sameMol || (ds.numDomains==1 && ds2.numDomains==1)));
-				}
+				hybridScorings.add(new MFEHybridNonlegalScore(ds, ds2, DIR, sameMol));
 			}
 		}
 
 		for(int i = 0; i < hybridScorings.size(); i++){
-			MFEHybridScore target = hybridScorings.get(i);
+			MFEHybridNonlegalScore target = hybridScorings.get(i);
 			for(int j = i+1; j < hybridScorings.size(); j++){
-				MFEHybridScore match = hybridScorings.get(j);
+				MFEHybridNonlegalScore match = hybridScorings.get(j);
 				if (match.ds[0].isSubsequenceOf(target.ds[0]) && match.ds[1].isSubsequenceOf(target.ds[1])){
 					hybridScorings.remove(j--);
 				}
@@ -126,8 +114,8 @@ public class CircDesigNAImpl extends CircDesigNA{
 
 		allScores.addAll(hybridScorings);
 
-		for(HairpinClosingTarget hairpin : hairpinClosings){
-			allScores.add(new HairpinOpening(hairpin, DIR));
+		for(DuplexClosingTarget hairpin : duplexClosings){
+			allScores.add(new DuplexOpening(hairpin, DIR));
 		}
 
 		if (options.selfSimilarityPenalty.getState() >= 0){
@@ -155,7 +143,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 			for(int i = 0; i < t.penalties.size(); i++){
 				int index = 0;
 				ScorePenalty sp = t.penalties.get(i);
-				if (sp instanceof MFEHybridScore || sp instanceof SelfFold){
+				if (sp instanceof MFEHybridNonlegalScore || sp instanceof SelfFoldNonlegalScore){
 					index = 0;
 				} else {
 					index = 1;
@@ -180,10 +168,10 @@ public class CircDesigNAImpl extends CircDesigNA{
 		}
 	}
 
-	public class MFEHybridScore extends ScorePenalty {
+	public class MFEHybridNonlegalScore extends ScorePenalty {
 		//True for intermolecular interactions
 		private boolean entropicPenalty = false;
-		public MFEHybridScore(DomainSequence ds, DomainSequence ds2, DesignIntermediateReporter dir, boolean sameMolecule){
+		public MFEHybridNonlegalScore(DomainSequence ds, DomainSequence ds2, DesignIntermediateReporter dir, boolean sameMolecule){
 			super(dir);
 			this.ds = new DomainSequence[]{ds,ds2};
 			chooseScore(dir);
@@ -195,7 +183,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			double BIMOLECULAR = options.bimolecularPenalty.getState();
-			double deltaG = (flI.mfe(ds[0],ds[1],domain,domain_markings))+(entropicPenalty?BIMOLECULAR:0);
+			double deltaG = (flI.mfe(ds[0],ds[1],domain,domain_markings,true))+(entropicPenalty?BIMOLECULAR:0);
 			//int longestHelixLength = flI.getLongestHelixLength();
 			//int numBasesPaired = flI.getNumBasesPaired();
 			//double normal = longestHelixLength*numBasesPaired;
@@ -210,7 +198,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 			return ds;
 		}
 		public ScorePenalty clone() {
-			MFEHybridScore ci = new MFEHybridScore(ds[0],ds[1],dir,!entropicPenalty);
+			MFEHybridNonlegalScore ci = new MFEHybridNonlegalScore(ds[0],ds[1],dir,!entropicPenalty);
 			ci.old_score = old_score;
 			ci.cur_score = cur_score;
 			return ci;
@@ -220,17 +208,17 @@ public class CircDesigNAImpl extends CircDesigNA{
 	/**
 	 * Penalize complementarity at the base of a hairpin loop
 	 */
-	public class HairpinOpening extends ScorePenalty {
-		private HairpinClosingTarget hairpin;
+	public class DuplexOpening extends ScorePenalty {
+		private DuplexClosingTarget hairpin;
 		private int markLeft = -1, markRight, jOffset;
-		public HairpinOpening(HairpinClosingTarget hairpin, DesignIntermediateReporter dir){
+		public DuplexOpening(DuplexClosingTarget hairpin, DesignIntermediateReporter dir){
 			super(dir);
 			this.ds = hairpin.stemAndOpening;
 			this.hairpin = hairpin;
 			chooseScore(dir);
 		}
 		public ScorePenalty clone() {
-			HairpinOpening ci = new HairpinOpening(hairpin,dir);
+			DuplexOpening ci = new DuplexOpening(hairpin,dir);
 			ci.old_score = old_score;
 			ci.cur_score = cur_score;
 			return ci;
@@ -370,21 +358,21 @@ public class CircDesigNAImpl extends CircDesigNA{
 		}
 	}
 	
-	public class SelfFold extends ScorePenalty { 
-		public SelfFold(DomainSequence ds, DesignIntermediateReporter dir){
+	public class SelfFoldNonlegalScore extends ScorePenalty { 
+		public SelfFoldNonlegalScore(DomainSequence ds, DesignIntermediateReporter dir){
 			super(dir);
 			this.ds = new DomainSequence[]{ds};
 			chooseScore(dir);
 		}
 		public ScorePenalty clone() {
-			SelfFold ci = new SelfFold(ds[0],dir);
+			SelfFoldNonlegalScore ci = new SelfFoldNonlegalScore(ds[0],dir);
 			ci.old_score = old_score;
 			ci.cur_score = cur_score;
 			return ci;
 		}
 		private DomainSequence[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
-			double deltaG = (flI.mfe(ds[0],domain,domain_markings));
+			double deltaG = (flI.mfe(ds[0],domain,domain_markings,true));
 			return Math.max(0,-deltaG);
 			//int longestHelixLength = flI.getLongestHelixLength();
 			//int numBasesPaired = flI.getNumBasesPaired();

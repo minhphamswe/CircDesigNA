@@ -32,7 +32,7 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import circdesigna.AbstractDomainDesignTarget.HairpinClosingTarget;
+import circdesigna.AbstractDomainDesignTarget.DuplexClosingTarget;
 import circdesigna.CircDesigNA.ScorePenalty;
 import circdesigna.DomainStructureBNFTree.DomainStructure;
 import circdesigna.DomainStructureBNFTree.HairpinStem;
@@ -40,9 +40,9 @@ import circdesigna.DomainStructureBNFTree.SingleStranded;
 import circdesigna.abstractDesigner.PopulationDesignMember;
 import circdesigna.abstractpolymer.RnaDefinition;
 import circdesigna.impl.CircDesigNAPMemberImpl;
-import circdesigna.impl.CircDesigNAImpl.HairpinOpening;
-import circdesigna.impl.CircDesigNAImpl.MFEHybridScore;
-import circdesigna.impl.CircDesigNAImpl.SelfFold;
+import circdesigna.impl.CircDesigNAImpl.DuplexOpening;
+import circdesigna.impl.CircDesigNAImpl.MFEHybridNonlegalScore;
+import circdesigna.impl.CircDesigNAImpl.SelfFoldNonlegalScore;
 import circdesigna.impl.CircDesigNAImpl.SelfSimilarityScore;
 import circdesigna.impl.CircDesigNAImpl.VariousSequencePenalties;
 import circdesigna.parser.CDNA2PublicParser;
@@ -108,11 +108,11 @@ public class CircDesigNA_SharedUtils {
 
 
 	public static void utilRemoveDuplicateSequences(
-			ArrayList<HairpinClosingTarget> hairpinClosings) {
-		ListIterator<HairpinClosingTarget> itr = hairpinClosings.listIterator();
+			ArrayList<DuplexClosingTarget> hairpinClosings) {
+		ListIterator<DuplexClosingTarget> itr = hairpinClosings.listIterator();
 		big: while(itr.hasNext()){
-			HairpinClosingTarget seq = itr.next();
-			for(HairpinClosingTarget q : hairpinClosings){
+			DuplexClosingTarget seq = itr.next();
+			for(DuplexClosingTarget q : hairpinClosings){
 				if (q!=seq && q.equals(seq)){
 					for(int i = 0; i < q.stemAndOpening.length; i++){
 						q.stemAndOpening[i].appendMoleculeNames(seq.stemAndOpening[i]);	
@@ -506,16 +506,16 @@ public class CircDesigNA_SharedUtils {
 		}
 	}
 
-	public static void utilHairpinClosingFinder(AbstractDomainDesignTarget target, DomainPolymerGraph dsg, ArrayList<HairpinClosingTarget> hairpinLoops) {
-		//Only add the hairpin closings on the closing of the hairpin (so when the later partner domain is encountered)
+	public static void utilDuplexClosingFinder(AbstractDomainDesignTarget target, DomainPolymerGraph dsg, ArrayList<DuplexClosingTarget> hairpinLoops) {
+		//Only add the duplex closings on the closing of the duplex (so when the later partner domain is encountered)
 		DomainDefinitions dd = dsg.getDomainDefs();
 		for(int k = 0; k < dsg.length(); k++){
 			int domain = dsg.getDomain(k);
 			if (domain<0){
-				continue; //Only care about hairpin domains.
+				continue; //Only care about paired domains.
 			}
 			int pair = dsg.getDomainPair(k);
-			if (pair >= 0 && pair < k){ //only care about hairpin closing-domains
+			if (pair >= 0 && pair < k){ //only care about ends of duplexes
 				int pairDomain = dsg.getDomain(pair);
 				if (pair > 0 && (k+1)<dsg.length()){
 					//Are both neighbors valid domains?
@@ -523,7 +523,7 @@ public class CircDesigNA_SharedUtils {
 						//Ok, can (pair-1) or (k+1) pair?
 						if (canPair(dsg,pair-1) || canPair(dsg,k+1)
 								&& !isComplements(dsg.getDomain(pair-1),dsg.getDomain(k+1), dd)){
-							hairpinLoops.add(target.new HairpinClosingTarget(dsg.getDomain(pair-1),
+							hairpinLoops.add(target.new DuplexClosingTarget(dsg.getDomain(pair-1),
 									pairDomain,
 									domain,
 									dsg.getDomain(k+1),
@@ -537,7 +537,7 @@ public class CircDesigNA_SharedUtils {
 						//How about the "inside": (pair+1) or (k-1).
 						if (canPair(dsg,pair+1) || canPair(dsg,k-1)
 								&& !isComplements(dsg.getDomain(pair+1),dsg.getDomain(k-1), dd)){
-							hairpinLoops.add(target.new HairpinClosingTarget(
+							hairpinLoops.add(target.new DuplexClosingTarget(
 									pairDomain,
 									dsg.getDomain(pair+1),
 									dsg.getDomain(k-1),
@@ -651,10 +651,10 @@ public class CircDesigNA_SharedUtils {
 		toRet.selfSimilarity = 0;
 		toRet.bannedPatterns = 0;
 		for(ScorePenalty p : penalties){
-			if (p instanceof MFEHybridScore || p instanceof HairpinOpening){
+			if (p instanceof MFEHybridNonlegalScore || p instanceof DuplexOpening){
 				toRet.crossInteractionsOnly += p.old_score;
 			} else
-			if (p instanceof SelfFold){
+			if (p instanceof SelfFoldNonlegalScore){
 				toRet.selfFoldOnly += p.old_score;
 			} else
 			if (p instanceof SelfSimilarityScore){

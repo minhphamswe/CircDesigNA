@@ -36,12 +36,12 @@ public class UnafoldFolder extends CircDesigNASystemElement implements NAFolding
 	/**
 	 * Constructors, define parameters and / or a configuration.
 	 */
-	private NAExperimentDatabase eParams;
+	private ExperimentalDuplexParams eParams;
 	public UnafoldFolder(CircDesigNAConfig sys){
 		super(sys);
-		eParams = new ExperimentalDuplexParamsImpl(sys);
+		eParams = new ExperimentalDuplexParams(sys);
 	}
-	public UnafoldFolder(NAExperimentDatabase params, CircDesigNAConfig sys){
+	public UnafoldFolder(ExperimentalDuplexParams params, CircDesigNAConfig sys){
 		super(sys);
 		eParams = params;
 	}
