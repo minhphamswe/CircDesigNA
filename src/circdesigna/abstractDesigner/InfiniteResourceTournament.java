@@ -69,6 +69,7 @@ public class InfiniteResourceTournament <T extends PopulationDesignMember<T>>  e
 					}
 				}
 			//}
+			setProgress((itrCount+1), param_iterationShortcut);
 			if (blockIterationLevel.size()<populationSize*.5){
 				break;
 			}

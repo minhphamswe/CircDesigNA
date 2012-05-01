@@ -23,7 +23,7 @@ import circdesigna.DomainDefinitions;
 import circdesigna.CircDesigNA;
 import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 import circdesigna.energy.NAFolding;
 
 public class CloverTRnaFoldTest {
@@ -33,7 +33,7 @@ public class CloverTRnaFoldTest {
 	//1-4x
 	public static void main(String[] args){
 		CircDesigNAConfig config = new CircDesigNAConfig();
-		NAFolding na = new CircDesigNAMCSFolder(config);
+		NAFolding na = new ConstraintsNAFoldingImpl(config);
 		String seq = "AAATGGCCAAACAGGCCGGCGCCGAACGCCCGGGAGCAGCCCGATTT";
 		int[][] domain = new int[1][seq.length()];
 		int[][] domainMark= new int[1][seq.length()];

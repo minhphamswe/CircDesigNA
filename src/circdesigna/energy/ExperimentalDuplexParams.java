@@ -133,26 +133,20 @@ public class ExperimentalDuplexParams extends CircDesigNASystemElement {
 	 * Returns (in deci-kcal/mol) the energy contribution of a a stack whose terminal bases are inside an interior loop
 	 * (or hairpin). The energy is of the pair 5'-WY-3' over 3'-XZ-5', where W and X are paired but Y and Z are not paired.
 	 */
-	public int getInteriorNNTerminal_deci(int W, int X, int Y, int Z) {
-		return getHairpinNNTerminal_deci(W, X, Y, Z);
-		/*
-		int ATPenalty = getATPenalty_deci(W, X);
-		int loop = getHairpinNNTerminal_deci(W, X, Y, Z);
-		if (loop == Integer.MAX_VALUE){
-			return Integer.MAX_VALUE;
-		}
-		return loop + ATPenalty;
-		*/
-	}
-	public int getHairpinNNTerminal_deci(int W, int X, int Y, int Z) {
+	public final int getInteriorNNTerminal_deci(int W, int X, int Y, int Z) {
 		W = getNormalBase(W);
 		X = getNormalBase(X);
 		Y = getNormalBase(Y);
 		Z = getNormalBase(Z);
-		int loop = getInteriorNNTerminal_deci[W][X][Y][Z]; 
-		if (loop == Integer.MAX_VALUE){
-			return Integer.MAX_VALUE;
-		}
+		int loop = getInteriorNNTerminal_deci[W][X][Y][Z];
+		return loop;
+	}
+	public final int getHairpinNNTerminal_deci(int W, int X, int Y, int Z) {
+		W = getNormalBase(W);
+		X = getNormalBase(X);
+		Y = getNormalBase(Y);
+		Z = getNormalBase(Z);
+		int loop = getInteriorNNTerminal_deci[W][X][Y][Z];
 		return loop;
 	}
  
@@ -171,10 +165,11 @@ public class ExperimentalDuplexParams extends CircDesigNASystemElement {
 
 		//See Matthews, Mol Biol, 2009
 		int s = L - 2 - 1; //0 index corresponds to hairpin loop of size 1 (which is impossible, incidentally)
-		while (s >= getHairpinLoopGeneral_deci.size() && s > 8){
+		while (s >= getHairpinLoopGeneral_deci.size() && s > 29){
 			int n = getHairpinLoopGeneral_deci.size() + 1;
-			double T = 310.5;
-			getHairpinLoopGeneral_deci.add(getHairpinLoopGeneral_deci.get(8) + D2DECI(1.75 * getR_kcalmol() * T * Math.log(n/9.0)));
+			double T = 310.15;
+			//Use 1.75 for RNA???
+			getHairpinLoopGeneral_deci.add(getHairpinLoopGeneral_deci.get(29) + D2DECI(1.75 * getR_kcalmol() * T * Math.log(n/30.0)));
 		}
 		
 		int energy = getHairpinLoopGeneral_deci.get(s);
@@ -204,23 +199,44 @@ public class ExperimentalDuplexParams extends CircDesigNASystemElement {
 	public int getBulgeLoop_deci(int s) {
 		s--; //0-index corresponds to s==1
 		//See Matthews, Mol Biol, 2009
-		while (s >= getBulgeLoop_deci.size() && s > 5){
+		while (s >= getBulgeLoop_deci.size() && s > 29){
 			int n = getBulgeLoop_deci.size() + 1;
-			double T = 310.5;
-			getBulgeLoop_deci.add(getBulgeLoop_deci.get(5) + D2DECI(1.75 * getR_kcalmol() * T * Math.log(n/6.0)));
+			double T = 310.15;
+			getBulgeLoop_deci.add(getBulgeLoop_deci.get(29) + D2DECI(1.75 * getR_kcalmol() * T * Math.log(n/30.0)));
 		}
 		return getBulgeLoop_deci.get(s);
 	}
+	/**
+	 * Local derivative of getInteriorLoopSizeTerm_deci.
+	 */
+	public int getBulgeLoopDx_deci(int s){
+		if (s < 30){
+			throw new RuntimeException("Linear overapproximation only implemented for large bulge loops");
+		}
+		double T = 310.5;
+		return D2DECI(1.75 * getR_kcalmol() * T / s);
+	}
+	
 	private ArrayList<Integer> getInteriorLoopSizeTerm_deci;
 	public int getInteriorLoopSizeTerm_deci(int s) {
 		s--; //0 index corresponds to interior loop of size 1 (which is impossible, incidentally)
 		//See Matthews, Mol Biol, 2009. 
-		while (s >= getInteriorLoopSizeTerm_deci.size() && s > 5){
+		while (s >= getInteriorLoopSizeTerm_deci.size() && s > 29){
 			int n = getInteriorLoopSizeTerm_deci.size() + 1;
 			double T = 310.5;
-			getInteriorLoopSizeTerm_deci.add(getInteriorLoopSizeTerm_deci.get(5) + D2DECI(1.75 * getR_kcalmol() * T * Math.log(n/6.0)));
+			getInteriorLoopSizeTerm_deci.add(getInteriorLoopSizeTerm_deci.get(29) + D2DECI(1.75 * getR_kcalmol() * T * Math.log(n/30.0)));
 		}
 		return getInteriorLoopSizeTerm_deci.get(s);
+	}
+	/**
+	 * Local derivative of getInteriorLoopSizeTerm_deci.
+	 */
+	public int getInteriorLoopSizeTermDx_deci(int s){
+		if (s < 30){
+			throw new RuntimeException("Linear overapproximation only implemented for large interior loops");
+		}
+		double T = 310.5;
+		return D2DECI(1.75 * getR_kcalmol() * T / s);
 	}
 	
 	private int[][][][][][] get1x1InteriorLoop_deci;
@@ -631,7 +647,7 @@ public class ExperimentalDuplexParams extends CircDesigNASystemElement {
 	}
 	
 	public double getR_kcalmol(){
-		return 1.3806504 * 6.02214179 / 4.184 / 1000;
+		return 0.00198588; //1.3806504 * 6.02214179 / 4.184 / 1000;
 	}
 	public double getDeltaGAssoc(int numStrands, double T) {
 		double H37Bimolecular = .2;

@@ -28,7 +28,7 @@ import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.energy.NAFolding;
 import circdesigna.energy.UnafoldFolder;
-import circdesigna.energy.UnpseudoknottedFolder;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 
 public class FoldingImplTest4 {
 	public static void main(String[] args) throws FileNotFoundException{
@@ -40,7 +40,7 @@ public class FoldingImplTest4 {
 		//Scanner in = new Scanner(new File("C:\\Users\\Benjamin\\CLASSWORK\\002. UT UNDERGRADUATE GENERAL\\EllingtonLab\\Circ_DesigNAPaper\\AssemblaRepo\\circdesignapaper_w_figures\\scoresComparison_SS.txt"));
 		Scanner in = new Scanner(new File(System.getProperty("inFile")));
 		in.nextLine();
-		UnpseudoknottedFolder fl = new UnpseudoknottedFolder(config);
+		ConstraintsNAFoldingImpl fl = new ConstraintsNAFoldingImpl(config);
 		NAFolding fl_unafold = new UnafoldFolder(config);
 		int[][] domain = new int[2][];
 		int[][] domain_markings = new int[2][];
@@ -62,18 +62,23 @@ public class FoldingImplTest4 {
 			}
 			//double resultLocal = fl.mfe(ds1, domain, domain_markings);
 			long now = System.nanoTime();
-			fl.setOrder(3);
-			double resultLocal3 = fl.mfe(ds1, domain, domain_markings);
+			fl.setScoringModel(3);
+			double resultLocal3 = fl.mfe(ds1, domain, domain_markings, true);
 			double dt3 = (System.nanoTime()-now)/1e9;
 			now = System.nanoTime();
-			fl.setOrder(2);
-			double resultLocal2 = fl.mfe(ds1, domain, domain_markings);
+			fl.setScoringModel(2);
+			double resultLocal2 = fl.mfe(ds1, domain, domain_markings, true);
 			double dt2 = (System.nanoTime()-now)/1e9;
-			//System.out.println(String.format("%d %.3e %.3e %.3e %.3e",ds1.length(domain), resultLocal2, resultLocal3, dt2, dt3));
+			now = System.nanoTime();
+			fl.setScoringModel(1);
+			double resultLocal1 = fl.mfe(ds1, domain, domain_markings, true);
+			double dt1 = (System.nanoTime()-now)/1e9;
+			System.out.println(String.format("%d M3 %.2f %.3e M2 %.2f %.3e M1 %.2f %.3e",ds1.length(domain), resultLocal3, dt3, resultLocal2, dt2, resultLocal1, dt1));
 			if (line.length > 3){
-				double error3 = Math.abs(new Double(line[3]) - resultLocal3);
-				double error2 = Math.abs(new Double(line[3]) - resultLocal2);
-				System.out.printf("Nupack: %.2f errN^3: %.2f errN^2: %.2f\n", new Double(line[3]), error3, error2);
+				double error3 = (resultLocal3 - new Double(line[3]));
+				double error2 = (resultLocal2 - new Double(line[3]));
+				double error1 = (resultLocal1 - new Double(line[3]));
+				System.out.printf("Nupack: %.2f errN^3: %.2f errN^2: %.2f errN^1: %.2f\n", new Double(line[3]), error3, error2, error1);
 			} else {
 				//System.out.println(line2+" "+resultLocal3);
 			}

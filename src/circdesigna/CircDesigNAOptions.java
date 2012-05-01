@@ -142,7 +142,7 @@ public class CircDesigNAOptions {
 			population_size = newVal;
 		}
 	};
-	
+	/*
 	public SeqDesignerOption.Integer selfSimilarityPenalty = new SeqDesignerOption.Integer(){
 		public String getDescription() {
 			return "Apply the \"Self Similarity\" penalty only to domains of length greater than or equal to this value. Negative input disables the penalty for all domains.";
@@ -158,11 +158,12 @@ public class CircDesigNAOptions {
 			this.minimumForSelfSimilarity = newVal;
 		}
 	};
+	*/
 
 	
 	//Make sure to update this please.
 	public final SeqDesignerOption[] options = new SeqDesignerOption[]{
-			rule_ccend_option, end_score_threshold, standardUseGA, resourcePerMember, population_size, selfSimilarityPenalty, bimolecularPenalty
+			rule_ccend_option, end_score_threshold, standardUseGA, resourcePerMember, population_size, bimolecularPenalty
 	};
 	
 }

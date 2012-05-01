@@ -140,6 +140,12 @@ public class DomainDefinitions extends CircDesigNASystemElement{
 	}
 
 	private static int parseDomainDefLine(String nextLine, DomainDefinitions out, List<Integer> domainLengths, int k) {
+		//Hack to simulate tokenizing 
+		nextLine = nextLine.replaceAll("\\s*,\\s*",",");
+		nextLine = nextLine.replaceAll("\\s*\\(\\s*","(");
+		nextLine = nextLine.replaceAll("\\s*\\)",")");
+		nextLine = nextLine.replaceAll("\\s*\\+\\s*","+");
+		
 		String[] line = nextLine.trim().split("\\s+");
 		if (line.length<=1){ //0 is sort of impossible though.
 			return k;
@@ -281,7 +287,7 @@ public class DomainDefinitions extends CircDesigNASystemElement{
 		if (args!=null){
 			String[] array = args.split(",");
 			if (array.length%3!=0){
-				throw new RuntimeException("Each contraint has 3 parts: base, min, and max");
+				throw new RuntimeException("Each constraint has 3 parts: base, min, and max");
 			}
 
 			{ //Set ceiling: all bases.
@@ -294,6 +300,10 @@ public class DomainDefinitions extends CircDesigNASystemElement{
 						q = Character.toUpperCase(q);
 						int base = Std.monomer.decodeBaseChar(q);
 						bases.add(base);
+					} else if (q == '+' || Character.isWhitespace(q)){
+						//Allowed.
+					} else {
+						throw new RuntimeException("Invalid character in -seq argument: "+q);
 					}
 				}
 				//pure base.

@@ -44,6 +44,7 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 	protected int populationSize = 0;
 	private T fittest;
 	private int iterations = 0;
+	private double progressInIteration = 0;
 	/**
 	 * Initializes this designer with one member, and numCopies-1 number of newly created members with that same seed.
 	 * Necessary before designing.
@@ -60,6 +61,13 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>> {
 				population_mutable[k] = init;
 			}
 		}
+		progressInIteration = 0;
+	}
+	public void setProgress(int a, int max){
+		progressInIteration = a / (double)max;
+	}
+	public double getProgress(){
+		return progressInIteration;
 	}
 	/**
 	 * Wraps runBlockIteration_  

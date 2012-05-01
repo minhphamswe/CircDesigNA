@@ -43,6 +43,7 @@ import circdesigna.abstractDesigner.StandardTournament;
 import circdesigna.abstractDesigner.TinyGADesigner;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.config.CircDesigNASystemElement;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 import circdesigna.impl.CircDesigNAImpl;
 import circdesigna.impl.CircDesigNAPMemberImpl;
 import circdesigna.impl.CodonCode;
@@ -73,7 +74,9 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	 * Some designer options are also taken from the CircDesigNAConfig object. 
 	 */
 	public static SequenceDesigner<CircDesigNAOptions> getDefaultDesigner(String Molecules,String domainDefs,CircDesigNAConfig Std) {
-		CircDesigNA r = new CircDesigNAImpl(new circdesigna.energy.CircDesigNAMCSFolder(Std), new SequencePenaltiesImpl(Std), Std);
+		ConstraintsNAFoldingImpl folder = new circdesigna.energy.ConstraintsNAFoldingImpl(Std);
+		folder.setScoringModel(1);
+		CircDesigNA r = new CircDesigNAImpl(folder, new SequencePenaltiesImpl(Std), Std);
 		return new SequenceDesignAdapter(r, Molecules, domainDefs);
 	}
 	
@@ -229,7 +232,6 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		public AlternativeResult[] getAlternativeResults(){
 			return r.alternatives;
 		}
-
 		
 		public String getResult() {
 			if (r.alternatives==null){
@@ -244,8 +246,12 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			if (errorResult!=null){
 				return errorResult;
 			}
+			String progress = "";
+			if (r.dbesign != null){
+				progress = String.format("Progress to next iteration: %.0f%%\n", 100*r.dbesign.getProgress());
+			}
 			if (res2==null){
-				return "Output incomplete. Run designer longer";
+				return progress + "No output. Please wait, and then click the button above to get intermediate results.";
 			}
 			DomainDesignerAlternativeResult res = (DomainDesignerAlternativeResult) res2;
 
@@ -255,10 +261,11 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			DomainDefinitions.readDomainDefs(domainDefsBlock, dsd);
 			StringBuffer sb = new StringBuffer();
 			String lR = "\n";
+			sb.append(progress);
 			DesignScoreBreakdown breakdown = res.getBreakdown();
 			String[] outputDomains = res.getOutputDomains();
 			
-			sb.append(String.format("Net 'Score'\t%.2f.\n>> Cross Interactions\t%.2f.\n>> Breathing Helix Ends\t%d.\n>> Self-Folding Interactions\t%.2f.\n>> Self Similarity Factor\t%.2f.\n>> Banned Patterns\t%.2f.\n",breakdown.netScore,breakdown.crossInteractionsOnly,breakdown.breathingHelixes,breakdown.selfFoldOnly,breakdown.selfSimilarity,breakdown.bannedPatterns));
+			sb.append(String.format("Net 'Score'\t%.2f.\n>> Cross Interactions\t%.2f.\n>> Breathing Helix Ends\t%d.\n>> Self-Folding Interactions\t%.2f.\n>> Banned Patterns\t%.2f.\n",breakdown.netScore,breakdown.crossInteractionsOnly,breakdown.breathingHelixes,breakdown.selfFoldOnly,breakdown.bannedPatterns));
 			sb.append(lR);
 			sb.append("Current designer state (to resume from this point, paste as 'Domain Definition'):");
 			sb.append(lR);
@@ -443,6 +450,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	private ActionListener runOnIteration = null;
 	private double bestScore = -1;
 	private DomainDesignerAlternativeResult[] alternatives;
+	private BlockDesigner<CircDesigNAPMemberImpl> dbesign;
 	private boolean waitForResume = false;
 
 	public boolean abort = false;
@@ -785,12 +793,12 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			//Briefly describe the initial sequence member (because its interesting)
 			System.out.println("Randomized initial sequence (for population member 0):");
 			displayDomains(domain,true,dsd);
-			System.out.println("Initial score (for population member 0): "+current_score);	
+			System.out.printf("Initial score (for population member 0): %.2f\n",current_score);	
 
 			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
 			CircDesigNAPMemberImpl tempMember = initialSeed.designerCopyConstructor(-1); //needed for "reverting" mutations
 			SequenceDesignBlockDesignerImpl dbesignSingle = new SequenceDesignBlockDesignerImpl(mutableDomains,mutate,dsd,this,tempMember);
-			BlockDesigner<CircDesigNAPMemberImpl> dbesign = null;
+			dbesign = null;
 			
 			if (options.standardUseGA.getState()){
 				dbesign = new TinyGADesigner(dbesignSingle, new CircDesigNAImpl.DParetoSort(), true);
@@ -826,6 +834,10 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 						}
 					}
 					//Initial score.
+
+					if (abort){
+						return 0;
+					}
 					
 					double current_score_pmember = 0;
 					deepFill(r.domain_markings,DNAMARKER_DONTMUTATE);
@@ -833,8 +845,13 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 					for(ScorePenalty q : r.penalties){
 						current_score_pmember += q.getScore(r.domain, r.domain_markings);
 					}
-					System.out.println("Initial score (for population member "+i+"): "+current_score_pmember);
-					//}DIR.endScoreReport();			
+					System.out.printf("Initial score (for population member %d): %.2f\n",i,current_score_pmember);
+					//}DIR.endScoreReport();
+					dbesign.setProgress((i+1), a.length);
+					
+					if (abort){
+						return 0;
+					}
 				}
 			}
 			

@@ -32,7 +32,7 @@ import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
 import circdesigna.AbstractDomainDesignTarget.DuplexClosingTarget;
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 import circdesigna.impl.CircDesigNAImpl;
 import circdesigna.impl.SequencePenaltiesImpl;
 import circdesigna.impl.CircDesigNAImpl.DuplexOpening;
@@ -42,7 +42,7 @@ public class FoldingImplTest3 {
 	public static void main(String[] args){
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		for(int i = 0; i < 1; i++){
-			CircDesigNAImpl impl = new CircDesigNAImpl(new CircDesigNAMCSFolder(config),new SequencePenaltiesImpl(config), config);
+			CircDesigNAImpl impl = new CircDesigNAImpl(new ConstraintsNAFoldingImpl(config),new SequencePenaltiesImpl(config), config);
 			DomainDefinitions dsd = new DomainDefinitions(config);
 			DuplexClosingTarget hairpin = new AbstractDomainDesignTarget(dsd,config).new DuplexClosingTarget(1,0,0|DomainSequence.NA_COMPLEMENT_FLAG,2,true,null);
 			DuplexOpening hairpinOpening = impl.new DuplexOpening(hairpin, null);

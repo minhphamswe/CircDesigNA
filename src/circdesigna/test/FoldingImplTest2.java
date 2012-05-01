@@ -34,7 +34,7 @@ import javax.swing.plaf.basic.BasicInternalFrameTitlePane.RestoreAction;
 import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 import circdesigna.plugins.RunNupackTool;
 
 
@@ -92,7 +92,7 @@ public class FoldingImplTest2 {
 			DomainSequence ds2 = new DomainSequence();
 			ds2.setDomains(1, null);
 			System.out.printf("%d ",seqLength);
-			CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
+			ConstraintsNAFoldingImpl fl = new ConstraintsNAFoldingImpl(config);
 			double resultSelf = fl.mfe(ds1, domain, domainMark);
 			double resultNupack;
 			{

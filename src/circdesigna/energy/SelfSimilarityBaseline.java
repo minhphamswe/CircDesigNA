@@ -31,7 +31,7 @@ public class SelfSimilarityBaseline {
 	public static void main(String[] args){
 		CircDesigNAConfig cfg = new CircDesigNAConfig();
 		cfg.setMode(CircDesigNAConfig.RNA_MODE);
-		CircDesigNAMCSFolder fli = new CircDesigNAMCSFolder(cfg);
+		ConstraintsNAFoldingImpl fli = new ConstraintsNAFoldingImpl(cfg);
 		for(int u = 0; u < 1000; u++){
 			int len = (int) (Math.random()*8000+10);
 			int[][] domain = new int[1][len];
@@ -45,7 +45,7 @@ public class SelfSimilarityBaseline {
 			DomainSequence ds2 = new DomainSequence();
 			ds1.setDomains(0,null);
 			ds2.setDomains(0 | DomainSequence.NA_COMPLEMENT_FLAG,null);
-			System.out.println(len+" "+fli.mfeNoDiag_NoBaseline(ds1, ds2, domain, nullMark));
+			//System.out.println(len+" "+fli.mfeNoDiag_NoBaseline(ds1, ds2, domain, nullMark));
 		}
 	}
 }

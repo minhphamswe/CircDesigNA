@@ -43,8 +43,10 @@ public class StandardTournament <T extends PopulationDesignMember<T>>  extends T
 				boolean mutationSuccessful = SingleDesigner.mutateAndTestAndBackup(population_mutable[i]);
 				//System.out.println(mutationSuccessful);
 				if(runner!=null && runner.abort){
-					return; //OUT OUT OUT
+					return; //Abort
 				}	
+
+				setProgress((i+1), populationSize);
 			}
 			tournamentSelect(numElites);
 			if (System.nanoTime()-now > designTime){

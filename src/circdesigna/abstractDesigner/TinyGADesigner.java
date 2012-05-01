@@ -106,7 +106,9 @@ public class TinyGADesigner <T extends PopulationDesignMember<T>>  extends Block
 			//Swap it out.
 			T temp = tempOffspring;
 			tempOffspring = population_mutable[child];
-			population_mutable[child] = temp; 
+			population_mutable[child] = temp;
+
+			setProgress((i+1), NUM_CHILDREN_PER_GENERATION);
 		}
 		int best = 0; double bestScore = Double.MAX_VALUE;
 		for(int i = 0; i < population_mutable.length; i++){

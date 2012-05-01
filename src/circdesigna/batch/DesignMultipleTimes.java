@@ -41,7 +41,7 @@ import circdesigna.DomainSequence;
 import circdesigna.SequenceDesigner;
 import circdesigna.CircDesigNA.ScorePenalty;
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 import circdesigna.impl.CircDesigNAImpl;
 import circdesigna.impl.SequencePenaltiesImpl;
 import circdesigna.impl.CircDesigNAImpl.DuplexOpening;
@@ -92,7 +92,7 @@ public class DesignMultipleTimes {
 				CircDesigNAOptions options = defaultDesigner.getOptions();
 				options.rule_ccend_option.setState(false);
 				options.population_size.setState(popSize);
-				options.selfSimilarityPenalty.setState(selfSimilarOpt);
+				//options.selfSimilarityPenalty.setState(selfSimilarOpt);
 				options.resourcePerMember.setState(tournamentInterval);
 				options.standardUseGA.setState(runGA);
 
@@ -137,7 +137,7 @@ public class DesignMultipleTimes {
 				}
 			} else if (args[0].equals("-evaluate_self")){
 				CircDesigNAOptions options = CircDesigNAOptions.getDefaultOptions();
-				options.selfSimilarityPenalty.setState(selfSimilarOpt);
+				//options.selfSimilarityPenalty.setState(selfSimilarOpt);
 				
 				for(int i = 1; i <= numTimesToRun; i++){
 					for(String rprefix : new String[]{prefix,prefix+"rnd",prefix+"ra"}){
@@ -165,7 +165,7 @@ public class DesignMultipleTimes {
 			}
 		}
 		
-		CircDesigNAImpl ddi = new CircDesigNAImpl(new CircDesigNAMCSFolder(config),new SequencePenaltiesImpl(config),config);
+		CircDesigNAImpl ddi = new CircDesigNAImpl(new ConstraintsNAFoldingImpl(config),new SequencePenaltiesImpl(config),config);
 		DesignIntermediateReporter DIR = new DesignIntermediateReporter();
 		
 		//generate domain from dsd.

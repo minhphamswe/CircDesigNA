@@ -69,7 +69,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 		ArrayList<DomainSequence> rawStrands = designTarget.wholeStrands;
 		ArrayList<DomainSequence> makeSS = new ArrayList();
 		makeSS.addAll(designTarget.generalizedSingleStranded);
-		makeSS.addAll(designTarget.singleDomains);
+		//makeSS.addAll(designTarget.singleDomains);
 		ArrayList<DuplexClosingTarget> duplexClosings = designTarget.duplexClosings;
 
 		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(rawStrands);
@@ -117,7 +117,8 @@ public class CircDesigNAImpl extends CircDesigNA{
 		for(DuplexClosingTarget hairpin : duplexClosings){
 			allScores.add(new DuplexOpening(hairpin, DIR));
 		}
-
+		
+		/*
 		if (options.selfSimilarityPenalty.getState() >= 0){
 			//Only do each domain once.
 			List<DomainSequence> domainsOnceApiece = new ArrayList();
@@ -129,6 +130,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 				}
 			}
 		}
+		*/
 
 		return allScores;
 	}
@@ -232,18 +234,13 @@ public class CircDesigNAImpl extends CircDesigNA{
 			if (markLeft==-1){
 				int start = 0;
 				int end = hairpin.stemAndOpening[0].length(domain);
-				if (hairpin.outside){ //Differentiate depending on which direction the duplex opens towards
-					int middle = hairpin.stemAndOpening[0].length(domain)-hairpin.stemOnly[0].length(domain);
-					markLeft = 0;
-					markRight = middle;
-					jOffset = 0; //Aligned at the left position.
-				} else {
-					int middle = hairpin.stemOnly[0].length(domain);
-					markLeft = middle;
-					markRight = end;
-					//Aligned at the right, so offset j by the difference
-					jOffset = hairpin.stemAndOpening[0].length(domain)-hairpin.stemAndOpening[1].length(domain);
-				}
+				
+				//TODO fix this mess
+				int middle = hairpin.stemOnly[0].length(domain);
+				markLeft = middle;
+				markRight = end;
+				//Aligned at the right, so offset j by the difference
+				jOffset = hairpin.stemAndOpening[0].length(domain)-hairpin.stemAndOpening[1].length(domain);
 			}
 			double StemAndOpeningScore =flI.mfeStraight(hairpin.stemAndOpening[0],hairpin.stemAndOpening[1],domain,domain_markings,markLeft,markRight,jOffset); 
 			double OnlyStem =flI.mfeStraight(hairpin.stemOnly[0],hairpin.stemOnly[1],domain,domain_markings,0,0,0); 

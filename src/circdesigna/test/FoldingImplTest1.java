@@ -25,7 +25,7 @@ import java.util.Arrays;
 import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 
 public class FoldingImplTest1 {
 	public static void main(String[] args){
@@ -55,7 +55,7 @@ public class FoldingImplTest1 {
 				}
 			}
 			for(int k = 0; k < domainMark.length; k++)Arrays.fill(domainMark[k],0);
-			CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
+			ConstraintsNAFoldingImpl fl = new ConstraintsNAFoldingImpl(config);
 			final double viaMatrix = fl.mfe(seqS, domain, domainMark);
 			System.out.println(Arrays.deepToString(domainMark));
 			System.out.println(viaMatrix);

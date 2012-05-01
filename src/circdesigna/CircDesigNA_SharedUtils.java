@@ -648,7 +648,6 @@ public class CircDesigNA_SharedUtils {
 		toRet.crossInteractionsOnly = 0;
 		toRet.netScore = 0;
 		toRet.selfFoldOnly = 0;
-		toRet.selfSimilarity = 0;
 		toRet.bannedPatterns = 0;
 		for(ScorePenalty p : penalties){
 			if (p instanceof MFEHybridNonlegalScore || p instanceof DuplexOpening){
@@ -656,9 +655,6 @@ public class CircDesigNA_SharedUtils {
 			} else
 			if (p instanceof SelfFoldNonlegalScore){
 				toRet.selfFoldOnly += p.old_score;
-			} else
-			if (p instanceof SelfSimilarityScore){
-				toRet.selfSimilarity += p.old_score;
 			} else
 			if (p instanceof VariousSequencePenalties){
 				toRet.bannedPatterns += p.old_score;

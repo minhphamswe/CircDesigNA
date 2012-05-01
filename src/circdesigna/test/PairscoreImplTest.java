@@ -30,13 +30,13 @@ import java.util.Arrays;
 import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;
-import circdesigna.energy.CircDesigNAMCSFolder;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 import circdesigna.energy.UnafoldFolder;
 public class PairscoreImplTest {
 	public static void main(String[] args){
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		for(int i = 0; i < 1000; i++){
-			CircDesigNAMCSFolder fl = new CircDesigNAMCSFolder(config);
+			ConstraintsNAFoldingImpl fl = new ConstraintsNAFoldingImpl(config);
 			UnafoldFolder fl_unafold = new UnafoldFolder(config);
 			DomainSequence seqS = new DomainSequence();
 			DomainSequence seq2S = new DomainSequence();

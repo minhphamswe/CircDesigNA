@@ -28,6 +28,5 @@ public class DesignScoreBreakdown {
 	public double crossInteractionsOnly;
 	public int breathingHelixes;
 	public double selfFoldOnly;
-	public double selfSimilarity;
 	public double bannedPatterns;
 }

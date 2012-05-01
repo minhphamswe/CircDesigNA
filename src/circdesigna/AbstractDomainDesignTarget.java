@@ -56,27 +56,23 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 		 */
 		public DomainSequence[] stemAndOpening;
 		/**
-		 * Outside (true) means deltaDeltaG = (d0d1*d2d3)-(d1*d2)
-		 * Inside means deltaDeltaG = (d0d1*d2d3)-(d0*d3)
-		 * 
-		 * When outside, the "unwanted structure" region is 0...(stemAndOpening.length-stemOnly.length)
-		 * When inside, the unwanted structure region is (stemAndOpening.length-stemOnly.length)...stemAndOpening.length
+		 * The structure is rotated so that the first domain of stemAndOpening[0] pairs with the last domain of stemAndOpening[1].
 		 */
-		public boolean outside;
 		public DuplexClosingTarget(int domain0, int domain1, int domain2, int domain3, boolean outside, AbstractComplex dsg){
 			DomainSequence sA1 = new DomainSequence();
 			DomainSequence sA2 = new DomainSequence();
 			DomainSequence s1 = new DomainSequence();
 			DomainSequence s2 = new DomainSequence();
-			sA1.setDomains(domain0, domain1, dsg);
-			sA2.setDomains(domain2, domain3, dsg);
-			this.outside = outside;
 			if (outside){
-				s1.setDomains(domain1, dsg);
-				s2.setDomains(domain2, dsg);
+				s1.setDomains(domain2, dsg);
+				s2.setDomains(domain1, dsg);
+				sA1.setDomains(domain2, domain3, dsg);
+				sA2.setDomains(domain0, domain1, dsg);
 			} else {
 				s1.setDomains(domain0, dsg);
 				s2.setDomains(domain3, dsg);
+				sA1.setDomains(domain0, domain1, dsg);
+				sA2.setDomains(domain2, domain3, dsg);
 			}
 			stemAndOpening = new DomainSequence[]{sA1,sA2};
 			stemOnly = new DomainSequence[]{s1,s2};
@@ -129,6 +125,11 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 			throw new RuntimeException(String.format("Listed molecule %s twice.",dpg.moleculeName));
 		}
 		targetMoleculeNames.add(dpg.moleculeName);
+
+		//Target structures must end with a }.
+		if (!moleculeDefinition.trim().endsWith("}")){
+			throw new RuntimeException("Target molecule "+dpg.moleculeName+" did not end with a 3' end.");
+		}
 		
 		CircDesigNA_SharedUtils.utilSingleStrandedFinder(dpg, generalizedSingleStranded);
 		CircDesigNA_SharedUtils.utilDuplexClosingFinder(this, dpg, duplexClosings);
