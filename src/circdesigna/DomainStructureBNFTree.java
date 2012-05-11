@@ -31,11 +31,11 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 
+import circdesigna.geometry.CircumscribedPolygonTool;
+import circdesigna.geometry.CircumscribedPolygonTool.CircumscribedPolygon;
 import circdesigna.parser.CDNA2PublicParser;
 import circdesigna.parser.CDNA2Token;
 import circdesigna.parser.CDNA2PublicParser.ParseResult;
-import circdesignagui.math.CircumscribedPolygonTool;
-import circdesignagui.math.CircumscribedPolygonTool.CircumscribedPolygon;
 
 /**
  * A more physical representation of a domain structure than the polymer graph, which already

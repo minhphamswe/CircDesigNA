@@ -52,8 +52,6 @@ import circdesigna.impl.SequenceCode;
 import circdesigna.impl.SequenceDesignBlockDesignerImpl;
 import circdesigna.impl.SequencePenaltiesImpl;
 
-
-
 /**
  * CircDesigNA designs a set of sequences (split into "domains", by the parameters in Domain Defs) 
  * to optimize a set of score functions over a sequence space which is itself a constrained subset of all possible dna
@@ -813,6 +811,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			
 			//Score the original
 			scorePopulation(new CircDesigNAPMemberImpl[]{initialSeed}, 0, 0);
+			selectPhaseAndUpdateScore(new CircDesigNAPMemberImpl[]{initialSeed});
 			
 			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
 			CircDesigNAPMemberImpl tempMember = initialSeed.designerCopyConstructor(-1); //needed for "reverting" mutations
@@ -871,7 +870,8 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			
 			//Compute initial scores using current phase
 			scorePopulation(dbesign.getPopulation(), 1, dbesign.getPopulation().length-1);
-			//Report initial scores, phase 0
+			selectPhaseAndUpdateScore(dbesign.getPopulation());
+			//Report initial scores
 			fullScoreReport(dbesign.getPopulation(),DIR,designTarget,dsd);			
 		
 			design_iteration = 0;
@@ -890,7 +890,6 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 				if (abort){
 					break;
 				}
-
 				//We are currently in this iteration:
 				design_iteration++;
 
@@ -903,8 +902,6 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 					scorePopulation(dbesign.getPopulation(), 0, dbesign.getPopulation().length-1);
 					System.out.println("Iteration "+design_iteration+" Score "+bestScore);
 				} else {
-					//Update phase and rescore, if necessary.
-					selectPhaseAndUpdateScore(dbesign.getPopulation());
 					//Mutate and update scores, under the assumption that phase does not change
 					dbesign.runBlockIteration(this,options.end_score_threshold.getState());
 					System.out.flush();
@@ -983,7 +980,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	}
 	public void selectPhaseAndUpdateScore(CircDesigNAPMemberImpl[] pop){
 		double endingScore = options.end_score_threshold.getState();
-		if (bestScore <= endingScore && design_phase < countPhases()){
+		while (bestScore <= endingScore && design_phase < countPhases()){
 			design_phase++;
 			iteration_history.append("Phase "+design_phase+"\n");
 			System.out.println("Entering Phase "+design_phase);
