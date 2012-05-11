@@ -69,9 +69,8 @@ public class ExperimentalDuplexParams extends CircDesigNASystemElement {
 		}
 		StandardizedThermoFileLoader.makeTable(this,dG,dH);
 	}
-	private static final int getNormalBase(int nonnormalBase){
-		return nonnormalBase - 1;
-		//return Std.monomer.getNormalBaseFromZero(nonnormalBase);
+	private final int getNormalBase(int nonnormalBase){
+		return Std.monomer.getNormalBaseFromZero(nonnormalBase);
 	}
 	private static final int D2DECI(double value){
 		//Round.

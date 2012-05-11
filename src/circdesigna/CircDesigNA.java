@@ -31,8 +31,8 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import circdesigna.DesignIntermediateReporter.DesignIntermediateScore;
 import circdesigna.SequenceDesigner.AlternativeResult;
@@ -41,6 +41,7 @@ import circdesigna.abstractDesigner.InfiniteResourceTournament;
 import circdesigna.abstractDesigner.PopulationDesignMember;
 import circdesigna.abstractDesigner.StandardTournament;
 import circdesigna.abstractDesigner.TinyGADesigner;
+import circdesigna.abstractpolymer.MonomerDefinition;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.config.CircDesigNASystemElement;
 import circdesigna.energy.ConstraintsNAFoldingImpl;
@@ -75,7 +76,6 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	 */
 	public static SequenceDesigner<CircDesigNAOptions> getDefaultDesigner(String Molecules,String domainDefs,CircDesigNAConfig Std) {
 		ConstraintsNAFoldingImpl folder = new circdesigna.energy.ConstraintsNAFoldingImpl(Std);
-		folder.setScoringModel(1);
 		CircDesigNA r = new CircDesigNAImpl(folder, new SequencePenaltiesImpl(Std), Std);
 		return new SequenceDesignAdapter(r, Molecules, domainDefs);
 	}
@@ -97,6 +97,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		private boolean finished = false;
 		
 		CircDesigNA r;
+		private Thread runner;
 		private List<String> inputMolecules;
 		private String domainDefsBlock;
 		private Map<Integer, String> lock;
@@ -186,7 +187,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 				}
 				
 
-				new Thread(){public void run(){
+				runner = new Thread(){public void run(){
 					while(waitOnStart && ! r.abort){
 						try {
 							Thread.sleep(10);
@@ -205,10 +206,10 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 						try {
 							results.add(r.main(num_domain_2, domain_length, Integer.MAX_VALUE, lock, initial, positionConstraints, mutators, designTarget, dir, dsd));
 						} catch (OutOfMemoryError e){
-							errorResult = "Could not start designer: " +e.getMessage()+"\nJava ran out of memory! Strategies to fix:\n\t1) Reduce the population size.\n\t2)Download this applet, and run it with the argument -Xmx700 from the command line.";//ensure nonnull
+							errorResult = "Error in design: " +e.getMessage()+"\nJava ran out of memory! Strategies to fix:\n\t1) Reduce the population size.\n\t2)Download this applet, and run it with the argument -Xmx700 from the command line.";//ensure nonnull
 						} catch (Throwable e){
 							e.printStackTrace();
-							errorResult = "Could not start designer: " +e.getMessage()+"";//ensure nonnull
+							errorResult = "Error in design: " +e.getMessage()+"";//ensure nonnull
 							break;
 						}
 					}
@@ -219,7 +220,9 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 					if (r.runOnIteration!=null){
 						r.runOnIteration.actionPerformed(null);
 					}
-				}}.start();
+				}};
+				
+				runner.start();
 			}
 		};
 		
@@ -243,15 +246,18 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		 * Returns a human-readable dump of the output.
 		 */
 		public String getResult(AlternativeResult res2) {
-			if (errorResult!=null){
-				return errorResult;
-			}
 			String progress = "";
 			if (r.dbesign != null){
 				progress = String.format("Progress to next iteration: %.0f%%\n", 100*r.dbesign.getProgress());
 			}
 			if (res2==null){
 				return progress + "No output. Please wait, and then click the button above to get intermediate results.";
+			}
+			if (res2.TYPE == AlternativeResult.ERROR){
+				return errorResult;
+			}
+			if (res2.TYPE == AlternativeResult.LOG){
+				return r.iteration_history.toString();
 			}
 			DomainDesignerAlternativeResult res = (DomainDesignerAlternativeResult) res2;
 
@@ -265,7 +271,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			DesignScoreBreakdown breakdown = res.getBreakdown();
 			String[] outputDomains = res.getOutputDomains();
 			
-			sb.append(String.format("Net 'Score'\t%.2f.\n>> Cross Interactions\t%.2f.\n>> Breathing Helix Ends\t%d.\n>> Self-Folding Interactions\t%.2f.\n>> Banned Patterns\t%.2f.\n",breakdown.netScore,breakdown.crossInteractionsOnly,breakdown.breathingHelixes,breakdown.selfFoldOnly,breakdown.bannedPatterns));
+			sb.append(String.format("Design Phase\t%d\nIteration\t%d\nNet 'Score'\t%.2f.\n>> Cross Interactions\t%.2f.\n>> Breathing Helix Ends\t%d.\n>> Self-Folding Interactions\t%.2f.\n>> Banned Patterns\t%.2f.\n",res.getPhase(),res.getIteration(),breakdown.netScore,breakdown.crossInteractionsOnly,breakdown.breathingHelixes,breakdown.selfFoldOnly,breakdown.bannedPatterns));
 			sb.append(lR);
 			sb.append("Current designer state (to resume from this point, paste as 'Domain Definition'):");
 			sb.append(lR);
@@ -377,6 +383,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 
 		public void abort() {
 			r.abort = true;
+			runner.interrupt();
 		}
 		public DesignIntermediateReporter getDir() {
 			return dir;
@@ -387,8 +394,8 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			}
 			return r.bestScore;
 		}
-		public int getIterationCount() {
-			return r.num_mut_attempts;
+		public int getCurrentIteration() {
+			return r.design_iteration;
 		}
 		public void runIteration() {
 			final boolean[] return_shared = new boolean[]{false};
@@ -424,14 +431,36 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 
 	}
 	
+	private class SpecialAlternativeResult extends AlternativeResult {
+		private String description;
+		public SpecialAlternativeResult(String description, int TYPE, int ID) {
+			this.description = description;
+			this.TYPE = TYPE;
+			this.ID = ID;
+		}
+		public String getDescription() {
+			return description;
+		}	
+	}
+	
 	private class DomainDesignerAlternativeResult extends AlternativeResult{
 		private DesignScoreBreakdown breakdown;
 		private String[] outputDomains;
 		private String description;
+		private int phase;
+		private int iteration;
 		public DomainDesignerAlternativeResult(String description, CircDesigNAPMemberImpl best, AbstractDomainDesignTarget designTarget, DomainDefinitions dsd) {
 			breakdown = CircDesigNA_SharedUtils.getScoreBreakdown(best.domain,designTarget,best.penalties);
 			outputDomains = displayDomains(best.domain, false, dsd);
 			this.description = description;
+			this.phase = CircDesigNA.this.design_phase;
+			this.iteration = dbesign.getIterationCount();
+		}
+		public int getPhase(){
+			return phase;
+		}
+		public int getIteration(){
+			return iteration;
 		}
 		public DesignScoreBreakdown getBreakdown(){
 			return breakdown;
@@ -446,10 +475,11 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	
 	public CircDesigNAOptions options = CircDesigNAOptions.getDefaultOptions();
 	
-	private int num_mut_attempts = 0;
+	private int design_iteration = 0, design_phase = 0;
+	private StringBuffer iteration_history = new StringBuffer();
 	private ActionListener runOnIteration = null;
 	private double bestScore = -1;
-	private DomainDesignerAlternativeResult[] alternatives;
+	private AlternativeResult[] alternatives;
 	private BlockDesigner<CircDesigNAPMemberImpl> dbesign;
 	private boolean waitForResume = false;
 
@@ -580,6 +610,8 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	}
 	
 	private void fullScoreReport(PopulationDesignMember<CircDesigNAPMemberImpl>[] population, DesignIntermediateReporter DIR, AbstractDomainDesignTarget designTarget, DomainDefinitions dsd){
+		iteration_history.append(String.format("%d %.3f",design_iteration, bestScore)+"\n");
+		
 		CircDesigNAPMemberImpl best = CircDesigNA_SharedUtils.getBestMember(population);
 		
 		//Report best member, primarily
@@ -591,22 +623,22 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		}
 		DIR.endScoreReport();
 		DesignScoreBreakdown outputScore = CircDesigNA_SharedUtils.getScoreBreakdown(best.domain,designTarget,best.penalties);
-		bestScore = outputScore.netScore;
 		displayDomains(best.domain, true, dsd);
 		
 		//Other miscellaneous data kept include the farthest member from the best (by hamming distance)
 		//and every population member.
 		CircDesigNAPMemberImpl farthest = CircDesigNA_SharedUtils.getFarthestFrom(best,population);
 		
-		DomainDesignerAlternativeResult[] tmp_alternatives = new DomainDesignerAlternativeResult[AlternativeResult.OTHER + population.length];
-		tmp_alternatives[0] = new DomainDesignerAlternativeResult("Best Design", best, designTarget, dsd);
-		tmp_alternatives[1] = new DomainDesignerAlternativeResult("Farthest from Best", farthest, designTarget, dsd);
+		AlternativeResult[] tmp_alternatives = new AlternativeResult[AlternativeResult.OTHER + population.length];
+		tmp_alternatives[AlternativeResult.BEST] = new DomainDesignerAlternativeResult("Best Design", best, designTarget, dsd);
+		tmp_alternatives[AlternativeResult.FARTHEST1] = new DomainDesignerAlternativeResult("Farthest from Best", farthest, designTarget, dsd);
+		tmp_alternatives[AlternativeResult.ERROR] = new SpecialAlternativeResult("Design Status", AlternativeResult.ERROR, 0);
+		tmp_alternatives[AlternativeResult.LOG] = new SpecialAlternativeResult("Design Log", AlternativeResult.LOG, 0);
 		for(int i = 0; i < population.length; i++){
-			tmp_alternatives[2+i] = new DomainDesignerAlternativeResult("Population ID "+i, (CircDesigNAPMemberImpl)population[i], designTarget, dsd);
+			tmp_alternatives[AlternativeResult.OTHER+i] = new DomainDesignerAlternativeResult("Population ID "+i, (CircDesigNAPMemberImpl)population[i], designTarget, dsd);
 		}
 		alternatives = tmp_alternatives;
 	}
-
 	
 	/**
 	 * The program will attempt to prevent any interaction between the DNASequences in toSynthesize, though interactions
@@ -615,7 +647,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	 * @param hairpinInnards 
 	 * @param dsd 
 	 */
-	int main(int num_domain, int[] domain_length, int TOTAL_ATTEMPTS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, Map<Integer, String> positionConstraints, Map<Integer, DesignerCode> mutators, AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, DomainDefinitions dsd) {
+	int main(int num_domain, int[] domain_length, int MAX_ITERATIONS, Map<Integer, String> lockedDomains, Map<Integer, String> initial, Map<Integer, String> positionConstraints, Map<Integer, DesignerCode> mutators, AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, DomainDefinitions dsd) {
 		while (waitForResume && !abort){
 			try {
 				Thread.sleep(100);
@@ -627,7 +659,12 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		System.out.println("           CircDesigNA");
 		System.out.println("----------------------------------");
 		System.out.println("Designer started on "+new Date());
-
+		
+		//Initialization
+		design_phase = 1;
+		setPhase(design_phase);
+		iteration_history.append("Phase "+design_phase+"\n");
+		
 		//Domains to be designed. The integer type is being used to hold DNA bases,
 		//with additional metadata (multiples of 10 are added to mean certain things)
 		int[][] domain = new int[num_domain][];
@@ -726,20 +763,8 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			}
 		}
 
-		//Initialize sequences
-		//Mutation strategies (which are aware of sequence space constraints) pick valid starting sequences.
-		for(int i = 0; i < num_domain; i++){
-			if (options.rule_ccend_option.getState() && domain[i].length>0){
-				if (domain[i][0]==0)domain[i][0] = C + Std.monomer.GCL_FLAG();
-				if (domain[i][domain[i].length-1]==0)domain[i][domain[i].length-1] = C + Std.monomer.GCL_FLAG();
-			}
-			//Will initialize unconstrained portion of domain
-			try {
-				pickInitialSequence(domain,i,mutate[i]);
-			} catch (Throwable e){
-				throw new RuntimeException(e.getMessage()+" (Domain "+dsd.getDomainName(i)+")");
-			}
-		}
+		//Initialize sequences, using initial seed (if initial sequence provided, no randomization occurs.)
+		randomizeSequence(domain, mutate, dsd, false);
 
 		//Locked domains. Legacy feature.
 		if (lockedDomains!=null){
@@ -781,20 +806,14 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			//We will duplicate our initial population member POPSIZE times.
 			//First though, calculate its score:
 			CircDesigNAPMemberImpl initialSeed = new CircDesigNAPMemberImpl(allScores,scoredElements,domain,domain_markings);
-			double current_score = 0;
-			deepFill(domain_markings,DNAMARKER_DONTMUTATE);
-			for(ScorePenalty q : initialSeed.penalties){
-				current_score += q.getScore(domain, domain_markings);
-				if (abort){
-					return 0;
-				}
-			}
-
-			//Briefly describe the initial sequence member (because its interesting)
+			
+			//Briefly describe the initial sequence member (because it's interesting)
 			System.out.println("Randomized initial sequence (for population member 0):");
 			displayDomains(domain,true,dsd);
-			System.out.printf("Initial score (for population member 0): %.2f\n",current_score);	
-
+			
+			//Score the original
+			scorePopulation(new CircDesigNAPMemberImpl[]{initialSeed}, 0, 0);
+			
 			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
 			CircDesigNAPMemberImpl tempMember = initialSeed.designerCopyConstructor(-1); //needed for "reverting" mutations
 			SequenceDesignBlockDesignerImpl dbesignSingle = new SequenceDesignBlockDesignerImpl(mutableDomains,mutate,dsd,this,tempMember);
@@ -809,8 +828,10 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 					dbesign = new StandardTournament(dbesignSingle, options.resourcePerMember.getState());
 				}
 			}
-			//Clone the initial sequence (popsize-1) times.
-			dbesign.initialize(initialSeed, options.population_size.getState());
+			
+			{
+				dbesign.initialize(initialSeed, options.population_size.getState());	
+			}
 
 			//Randomize the clones?
 			boolean randomizePopulation = true;
@@ -838,14 +859,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 					if (abort){
 						return 0;
 					}
-					
-					double current_score_pmember = 0;
-					deepFill(r.domain_markings,DNAMARKER_DONTMUTATE);
-					//DIR.beginScoreReport();{
-					for(ScorePenalty q : r.penalties){
-						current_score_pmember += q.getScore(r.domain, r.domain_markings);
-					}
-					System.out.printf("Initial score (for population member %d): %.2f\n",i,current_score_pmember);
+
 					//}DIR.endScoreReport();
 					dbesign.setProgress((i+1), a.length);
 					
@@ -855,13 +869,17 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 				}
 			}
 			
-			//Report initial scores:
-			fullScoreReport(dbesign.getPopulation(),DIR,designTarget,dsd);						
+			//Compute initial scores using current phase
+			scorePopulation(dbesign.getPopulation(), 1, dbesign.getPopulation().length-1);
+			//Report initial scores, phase 0
+			fullScoreReport(dbesign.getPopulation(),DIR,designTarget,dsd);			
+		
+			design_iteration = 0;
 
-			System.out.println("Entering design loop");
-			long lastDumpState = System.nanoTime();		
-			num_mut_attempts = 0;
-			while (!abort) {
+			double endingScore = options.end_score_threshold.getState();
+			
+			int finalPhase = countPhases();
+			while (!((design_phase == finalPhase && bestScore <= endingScore) || (design_iteration >= MAX_ITERATIONS) || abort)) {
 				while (waitForResume && !abort){
 					try {
 						Thread.sleep(100);
@@ -869,49 +887,115 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 						e.printStackTrace();
 					}
 				}
-				double endingThreshold = options.end_score_threshold.getState();
-				dbesign.runBlockIteration(this,endingThreshold);
-				System.out.flush();
-				CircDesigNAPMemberImpl q = dbesign.getBestPerformingChild();
-				if (q==null){
-					System.out.println("Iteration did not complete.");
+				if (abort){
 					break;
 				}
+
+				//We are currently in this iteration:
+				design_iteration++;
+
+				//Update phase and rescore, if necessary.
+				selectPhaseAndUpdateScore(dbesign.getPopulation());
+				if (options.random_design.getState()){
+					for(CircDesigNAPMemberImpl member : dbesign.getPopulation()){
+						randomizeSequence(member.domain, mutate, dsd, true); //Completely random sequence, ignoring initial seed
+					}
+					scorePopulation(dbesign.getPopulation(), 0, dbesign.getPopulation().length-1);
+					System.out.println("Iteration "+design_iteration+" Score "+bestScore);
+				} else {
+					//Update phase and rescore, if necessary.
+					selectPhaseAndUpdateScore(dbesign.getPopulation());
+					//Mutate and update scores, under the assumption that phase does not change
+					dbesign.runBlockIteration(this,options.end_score_threshold.getState());
+					System.out.flush();
+					CircDesigNAPMemberImpl q = dbesign.getBestPerformingChild();
+					if (q==null){
+						System.out.println("Iteration did not complete.");
+						break;
+					}
+					updateBestScore(dbesign.getPopulation());
+				}
+				System.out.flush();
+
 				//Iteration complete.
 				resetDebugPenalty();
 				//Report the status of the best member.
 				fullScoreReport(dbesign.getPopulation(),DIR,designTarget,dsd);
-				
-				if (bestScore <= endingThreshold){
-					break;
-				}
-				
+
 				//debugPenalty(s, q.domain, dsd);
 				//System.out.println(num_domains_mut);
-
-				num_mut_attempts++;
-				if (num_mut_attempts > TOTAL_ATTEMPTS){
-					break;
-				}
+				
 				if (runOnIteration!=null){
 					runOnIteration.actionPerformed(null);
 				}
-				if ((System.nanoTime()-lastDumpState)>2e9){
-					lastDumpState = System.nanoTime();
-					//if (DEBUG_PENALTIES){
-					//System.out.println("iteration: "+num_mut_attempts+" score: "+best_score+" most significant subscore: "+(priority-1)+" "+(current_score+deltaScore));
-					//}
-				}
 			}
 		} finally {
-			System.out.print("Designer ended after "+num_mut_attempts+" iterations");
+			System.out.print("Designer ended after "+design_iteration+" iterations");
 			if (bestScore>=0){
 				System.out.print("with a score of "+bestScore);
 			}
 			System.out.println();
 		}
-		return num_mut_attempts;
+		return design_iteration;
 	}
+	private void randomizeSequence(int[][] domain, DesignerCode[] mutate, DomainDefinitions dsd, boolean forceNewSequence) {
+		for(int i = 0; i < domain.length; i++){
+			if (forceNewSequence){
+				Arrays.fill(domain[i], MonomerDefinition.NOBASE);
+			}
+			if (options.rule_ccend_option.getState() && domain[i].length>0){
+				if (domain[i][0]==0)domain[i][0] = C + Std.monomer.GCL_FLAG();
+				if (domain[i][domain[i].length-1]==0)domain[i][domain[i].length-1] = C + Std.monomer.GCL_FLAG();
+			}
+			//Will initialize unconstrained portion of domain
+			try {
+				pickInitialSequence(domain,i,mutate[i]);
+			} catch (Throwable e){
+				throw new RuntimeException(e.getMessage()+" (Domain "+dsd.getDomainName(i)+")");
+			}
+		}
+	}
+	/**
+	 * For all indices in [i, j], performs a complete rescoring of those member's scores.
+	 * Then, the value of bestScore is updated to contain the best score of any member in the entire
+	 * population (i.e. indices [0, pop.length-1].)
+	 */
+	public void scorePopulation(CircDesigNAPMemberImpl[] pop, int i, int j){
+		for(int k = i; k <= j; k++){
+			CircDesigNAPMemberImpl r = pop[k];
+			for(ScorePenalty s : r.penalties){
+				s.getScore(r.domain, r.domain_markings);
+			}
+		}
+		updateBestScore(pop);
+	}
+	public void updateBestScore(CircDesigNAPMemberImpl[] pop){
+		double bestScore_tmp = Double.POSITIVE_INFINITY;
+		for(int k = 0; k < pop.length; k++){
+			CircDesigNAPMemberImpl r = pop[k];
+			double score = 0;
+			for(ScorePenalty s : r.penalties){
+				score += s.cur_score;
+			}
+			bestScore_tmp = Math.min(bestScore_tmp, score);
+		}
+		bestScore = bestScore_tmp;
+	}
+	public void selectPhaseAndUpdateScore(CircDesigNAPMemberImpl[] pop){
+		double endingScore = options.end_score_threshold.getState();
+		if (bestScore <= endingScore && design_phase < countPhases()){
+			design_phase++;
+			iteration_history.append("Phase "+design_phase+"\n");
+			System.out.println("Entering Phase "+design_phase);
+			setPhase(design_phase);
+			//Need complete rescore because score function probably changed
+			scorePopulation(pop, 0, pop.length-1);
+		}
+	}
+	
+	public abstract int countPhases();
+	public abstract void setPhase(int phase);
+	
 	public abstract List<ScorePenalty> listPenalties(
 			AbstractDomainDesignTarget designTarget, DesignIntermediateReporter DIR, int[][] domain, CircDesigNAOptions options2, DomainDefinitions dsd) ;
 

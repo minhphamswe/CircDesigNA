@@ -222,15 +222,17 @@ public class CircDesigNA_SharedUtils {
 			for(int y = 0; y < b.numDomains; y++){
 				int abase = a.domainList[k];
 				int bbase = b.domainList[y];
-				if ((abase&NA_COMPLEMENT_FLAG)!=(bbase&NA_COMPLEMENT_FLAG)){
-					if ((abase&NA_COMPLEMENT_FLAGINV)==(bbase&NA_COMPLEMENT_FLAGINV)){
-						return true;
-					}
+				if (checkComplementary(abase, bbase)){
+					return true;
 				}
 			}
 		}
 		return false;
 	}
+	public static boolean checkComplementary(int domainA, int domainB){
+		return domainA == (domainB ^ NA_COMPLEMENT_FLAG);
+	}
+	
 
 
 	/**

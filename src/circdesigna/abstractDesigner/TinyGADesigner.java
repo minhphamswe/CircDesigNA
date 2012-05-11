@@ -78,6 +78,7 @@ public class TinyGADesigner <T extends PopulationDesignMember<T>>  extends Block
 	}
 	public void runBlockIteration_ (CircDesigNA runner, double endThreshold) {
 		double maxFitness = 0;
+		updateBestChild(); //Make sure bestChild is current.
 		for(int i = 0; i < NUM_CHILDREN_PER_GENERATION; i++){
 			//A new child will be born, by either SEXUAL or ASEXUAL reproduction.
 			//This child will immediately knock out a randomly selected member of the population.
@@ -110,16 +111,7 @@ public class TinyGADesigner <T extends PopulationDesignMember<T>>  extends Block
 
 			setProgress((i+1), NUM_CHILDREN_PER_GENERATION);
 		}
-		int best = 0; double bestScore = Double.MAX_VALUE;
-		for(int i = 0; i < population_mutable.length; i++){
-			double score = SingleDesigner.getOverallScore(population_mutable[i]);
-			//System.out.println(i+" "+score+" "+population_mutable[i]);
-			if (score < bestScore){
-				best = i;
-				bestScore = score;
-			}
-		}
-		setBestChild(population_mutable[best]);
+		updateBestChild();
 		/*
 		//Adjust for pareto fitness
 		if (isMOGA){
@@ -133,5 +125,17 @@ public class TinyGADesigner <T extends PopulationDesignMember<T>>  extends Block
 			population_backups[i] = redist[i+populationSize].myKey;
 		}
 		*/
+	}
+	private void updateBestChild() {
+		int best = 0; double bestScore = Double.MAX_VALUE;
+		for(int i = 0; i < population_mutable.length; i++){
+			double score = SingleDesigner.getOverallScore(population_mutable[i]);
+			//System.out.println(i+" "+score+" "+population_mutable[i]);
+			if (score < bestScore){
+				best = i;
+				bestScore = score;
+			}
+		}
+		setBestChild(population_mutable[best]);
 	}
 }

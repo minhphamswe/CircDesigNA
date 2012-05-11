@@ -17,7 +17,7 @@ public class ZipExtractor {
 		} catch (Throwable e){
 			//Try loading it as a file.
 			try {
-				paramZip = new ZipInputStream(new FileInputStream("parameters.zip"));
+				paramZip = new ZipInputStream(new FileInputStream(name));
 				//System.out.println("Done (2)");
 				//System.out.println("Loaded parameters file from disk.");
 			} catch (Throwable f){

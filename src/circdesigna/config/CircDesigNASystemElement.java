@@ -28,6 +28,9 @@ public class CircDesigNASystemElement extends SystemElement<CircDesigNAConfig>{
 	public final int base(DomainSequence ds, int i, int[][] domain){
 		return ds.base(i,domain,Std.monomer);
 	}
+	public final int Nbase(DomainSequence ds, int i, int[][] domain){
+		return Std.monomer.getNormalBaseFromZero(ds.base(i,domain,Std.monomer));
+	}
 	public CircDesigNASystemElement(CircDesigNAConfig System) {
 		super(System);
 	}

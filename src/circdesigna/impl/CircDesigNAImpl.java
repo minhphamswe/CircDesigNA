@@ -36,6 +36,7 @@ import circdesigna.SequencePenalties;
 import circdesigna.abstractDesigner.ParetoSort;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.energy.ConstraintsNAFolding;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 
 /**
  * Implementation of CircDesigNA
@@ -57,6 +58,18 @@ public class CircDesigNAImpl extends CircDesigNA{
 		super(std);
 		this.flI = foldingImpl;
 		this.sp = sp;
+	}
+
+	public void setPhase(int phase){
+		if (flI instanceof ConstraintsNAFoldingImpl){
+			((ConstraintsNAFoldingImpl) flI).setScoringModel(phase);
+		}
+	}
+	public int countPhases() {
+		if (flI instanceof ConstraintsNAFoldingImpl){
+			return 3;
+		}
+		return 1;
 	}
 	
 	/**

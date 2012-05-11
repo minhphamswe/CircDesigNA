@@ -55,7 +55,7 @@ public class CircDesigNAOptions {
 	
 	public SeqDesignerOption.Double end_score_threshold = new SeqDesignerOption.Double(){
 		public String getDescription() {
-			return "Stop design when a design candidate with a score less than this value is found.";
+			return "Advance to next phase when a design candidate with score less than this value is found.";
 		}
 		public double getDefaultState(){
 			return 0;
@@ -142,6 +142,26 @@ public class CircDesigNAOptions {
 			population_size = newVal;
 		}
 	};
+	
+	public SeqDesignerOption.Boolean random_design = new SeqDesignerOption.Boolean(){
+		public String getDescription() {
+			return "Randomize all population members each iteration.";
+		}
+		private boolean randomize = getDefaultState();
+		public boolean getState() {
+			return randomize;
+		}
+		public synchronized void toggle() {
+			randomize = !randomize;
+		}
+		public boolean getDefaultState() {
+			return false;
+		}
+		public void setState(boolean state) {
+			randomize = state;
+		}
+	};
+
 	/*
 	public SeqDesignerOption.Integer selfSimilarityPenalty = new SeqDesignerOption.Integer(){
 		public String getDescription() {

@@ -188,13 +188,13 @@ public class DomainDesignerTest2 {
 					System.err.println(dd.getResult());
 					break;
 				}
-				int itr = dd.getIterationCount()-1;
+				int itr = dd.getCurrentIteration()-1;
 				DesignScoreBreakdown scoreBreakdown = dd.getScoreBreakdown();
 				oh[0].addScore(itr,scoreBreakdown.netScore);
 				oh[1].addScore(itr,scoreBreakdown.crossInteractionsOnly);
 				oh[2].addScore(itr,scoreBreakdown.breathingHelixes);
 				oh[3].addScore(itr,scoreBreakdown.selfFoldOnly);
-			} while(dd.getIterationCount() < k);
+			} while(dd.getCurrentIteration() < k);
 
 			//Output final result:
 			{

@@ -65,7 +65,7 @@ public interface SequenceDesigner<T extends CircDesigNAOptions> {
 	 * Not enforced to be of any specific standard unit.
 	 * Just make it monotonic increasing with time, please;
 	 */
-	public int getIterationCount();
+	public int getCurrentIteration();
 	/**
 	 * Use System.getProperty("line.separator") to split multiline result into individual lines.
 	 * Should return the Best Result.
@@ -75,7 +75,12 @@ public interface SequenceDesigner<T extends CircDesigNAOptions> {
 	public String getResult();
 	
 	public static abstract class AlternativeResult {
-		public static final int BEST = 0, FARTHEST1 = BEST+1, OTHER=BEST+2;
+		public static final int 
+				BEST = 0, 
+				FARTHEST1 = BEST+1, 
+				ERROR = FARTHEST1+1,
+				LOG = ERROR + 1,
+				OTHER=LOG + 1;
 		public int TYPE;
 		//Used as a "subtype"
 		public int ID;

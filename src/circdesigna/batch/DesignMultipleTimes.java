@@ -56,6 +56,8 @@ public class DesignMultipleTimes {
 	/**
 	 * Input is a path to a file of the form
 	 * NumTimesToRun
+	 * MaxIteration
+	 * PopulationSize
 	 * TargetDirectory
 	 * Prefix
 	 * (Domain definitions)
@@ -67,20 +69,16 @@ public class DesignMultipleTimes {
 	public static void main(String[] args) throws IOException{
 		Scanner in = new Scanner(System.in);
 		int numTimesToRun = new Integer(readToken(in));
+		int maxIteration = new Integer(readToken(in));
 		int popSize = new Integer(readToken(in));
-		int selfSimilarOpt = new Integer(readToken(in));
-		double numSecondsEach = new Double(readToken(in));
-		int maximumComplexSize = new Integer(readToken(in));
-		double tournamentInterval = new Double(readToken(in));
-		boolean runGA = new Integer(readToken(in))==1;
 		String targetDir = in.nextLine();
 		String prefix = in.nextLine();
 		String Domains = readToEnd(in);
 		String Molecules = readToEnd(in);
+		long TIMEOUT = (long)(1000e9);
 		in.close();
 		
 		CircDesigNAConfig config = new CircDesigNAConfig();
-
 		
 		DomainDefinitions dsd = new DomainDefinitions(config);
 		DomainDefinitions.readDomainDefs(Domains, dsd);
@@ -88,30 +86,36 @@ public class DesignMultipleTimes {
 			new File(targetDir).mkdir();
 			System.out.println("Entering design mode");
 			for(int i = 1; i <= numTimesToRun; i++){
-				SequenceDesigner<CircDesigNAOptions> defaultDesigner = CircDesigNA.getDefaultDesigner(Molecules, Domains, config);
-				CircDesigNAOptions options = defaultDesigner.getOptions();
-				options.rule_ccend_option.setState(false);
-				options.population_size.setState(popSize);
-				//options.selfSimilarityPenalty.setState(selfSimilarOpt);
-				options.resourcePerMember.setState(tournamentInterval);
-				options.standardUseGA.setState(runGA);
-
-				File out2 = new File(targetDir+File.separator+prefix+i+".des");
-				System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream(out2))));
-				designUsingCircDesigNA(defaultDesigner,numSecondsEach);
-				System.err.println("Designed "+i);
-				System.err.flush();
-				System.out.close();
+				{
+					SequenceDesigner<CircDesigNAOptions> defaultDesigner = CircDesigNA.getDefaultDesigner(Molecules, Domains, config);
+					CircDesigNAOptions options = defaultDesigner.getOptions();
+					options.population_size.setState(popSize);
+					File out2 = new File(targetDir+File.separator+prefix+i+".des");
+					System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream(out2))));
+					designUsingCircDesigNA(defaultDesigner,TIMEOUT,maxIteration);
+					System.err.println("Designed "+i);
+					System.err.flush();
+					System.out.close();
+				}
+				if (false){
+					SequenceDesigner<CircDesigNAOptions> defaultDesigner = CircDesigNA.getDefaultDesigner(Molecules, Domains, config);
+					CircDesigNAOptions options = defaultDesigner.getOptions();
+					options.population_size.setState(popSize);
+					options.random_design.setState(true);
+					File out2 = new File(targetDir+File.separator+prefix+i+"-rnd.des");
+					System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream(out2))));
+					designUsingCircDesigNA(defaultDesigner,TIMEOUT,maxIteration);
+					System.err.println("Designed (randomly) "+i);
+					System.err.flush();
+					System.out.close();
+				}
 			}
-			File out2 = new File(targetDir+File.separator+prefix+"rnd"+1+".des");
-			System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream(out2))));
-			outputRandomDesigns(dsd);
-			System.out.close();
-			
-			out2 = new File(targetDir+File.separator+prefix+"ra"+1+".des");
+			/*
+			File out2 = new File(targetDir+File.separator+prefix+"ra"+1+".des");
 			System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream(out2))));
 			outputRationalDesign(dsd);
 			System.out.close();
+			*/
 		} else {
 			System.out.println("Entering Evaluate mode");
 			if (args[0].equals("-evaluate")){
@@ -130,7 +134,7 @@ public class DesignMultipleTimes {
 						}
 						File out3 = new File(targetDir+File.separator+rprefix+i+".eval");
 						System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream(out3))));
-						RunEvaluation(out2,Molecules,dsd,maximumComplexSize, goNupack);
+						//RunEvaluation(out2,Molecules,dsd,maximumComplexSize, goNupack);
 						System.err.println("Evaluated "+i);
 						System.out.close();
 					}
@@ -237,21 +241,6 @@ public class DesignMultipleTimes {
 		System.out.println();
 		
 	}
-
-	private static void outputRandomDesigns(DomainDefinitions dsd) {
-		for(int itr = 1; itr <= 100; itr++){
-			System.out.println("Iteration "+itr+" Score 0");
-			for(int i = 0; i < dsd.domainLengths.length; i++){
-				int len = dsd.domainLengths[i];
-				System.out.println(dsd.getDomainName(i)+">");
-				for(int j = 0; j < len; j++){
-					System.out.print(dsd.Std.monomer.displayBase(1+(int)(Math.random()*4)));
-				}
-				System.out.println();
-			}
-			System.out.println();
-		}
-	}
 	
 	private static final String[] shortReedWords2005 = new String[]{
 	     "CACATCACCAATATA", "TCCTCCAATTAATTA", "TCAATCTTTTTCAAT", "TATCTTTCCAATCTA", "TCATTCTTCTCTTAT", "ACTACAATCTCAATA", "TCCTAACCAAAAATT", "TTTACCTTTTCAAAT", "CAACTACATTTTCTA", "TCATCTTATCTCTCT", "TCATTAAATCCATCT", "CATAATACCTTCCTA", "ACTACTTACATTTCA", "TCTTCAATCTACTTA", "TTTACCTCTCTAATC", "ATCTCTTTTCTTTTC", "CTCTTTCACAAAAAT", "AACAAAACAACAAAT", "ACAAAATCTCTTACA", "ACCATTTTTTCACTA", "CTTAATTCTCTCACT", "CTCTCCTCAAATATT", "ATCATCCACATATTT", "TTCCACACTAAAATT", "ACCATCATTTATCTT", "TCTCCTTATTCATTT", "TACCATACCAATTTT", "AAACCACCATAATTA", "TCCTAATCCTCTTAA", "TCCTACTCATAACTA", "CTCAACTTTCAAATT", "AACTTTACTATCCAT", "ATTCACCAAACTTTA", "TATACCATCTTTCAA", "TCCACTAATAAAACT", "CAATAATCCAACATT", "CTCTAATTTCTTCCT", "CACCTACATCAAATA", "AACAAACCATAACTA", "TCTACCTATTCACTA",  
@@ -276,7 +265,7 @@ public class DesignMultipleTimes {
 	}
 	
 	private static void designUsingCircDesigNA(
-			SequenceDesigner<CircDesigNAOptions> defaultDesigner, double numSecondsEach) {
+			SequenceDesigner<CircDesigNAOptions> defaultDesigner, long timeoutNS, int maxIteration) {
 		long diff = 0;
 		defaultDesigner.resume();
 		long now = System.nanoTime();
@@ -286,7 +275,10 @@ public class DesignMultipleTimes {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			if ((diff=System.nanoTime()-now) > numSecondsEach*1e9){
+			if ((diff=System.nanoTime()-now) > timeoutNS){
+				break;
+			}
+			if (defaultDesigner.getCurrentIteration() > maxIteration){
 				break;
 			}
 		}
@@ -302,7 +294,6 @@ public class DesignMultipleTimes {
 		//System.err.println("Y!");
 		System.out.println("END. TIME:");
 		System.out.println(String.format("%.3f",diff/1e9));
-		
 	}
 
 	public static void RunEvaluation(File out3, String molecules, DomainDefinitions dsd, int maximumComplexSize, boolean goNupack) throws IOException {
