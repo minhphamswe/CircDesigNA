@@ -46,7 +46,7 @@ public class CircDesigNAOptions {
 			rule_ccend = !rule_ccend;
 		}
 		public boolean getDefaultState() {
-			return true;
+			return false;
 		}
 		public void setState(boolean state) {
 			rule_ccend = state;

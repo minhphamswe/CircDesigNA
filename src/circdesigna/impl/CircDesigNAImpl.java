@@ -314,9 +314,6 @@ public class CircDesigNAImpl extends CircDesigNA{
 		public DomainSequence[] getSeqs() {
 			return ds;
 		}
-		public int getNumDomainsInvolved() {
-			return ds[0].numDomains;
-		}
 	}
 	
 	/**

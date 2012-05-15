@@ -327,13 +327,13 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		private void printSequence(StringBuffer sb, CircDesigNA r2, DomainSequence ds, boolean withSeperator, String[] domains) {
 			if (withSeperator)
 				sb.append("[");
-			for(int k = 0; k < ds.numDomains; k++){
+			for(int k = 0; k < ds.domainList.length; k++){
 				String domain = domains[ds.domainList[k] & NA_COMPLEMENT_FLAGINV];
 				if ((ds.domainList[k] & NA_COMPLEMENT_FLAG)!=0){
 					domain = revComp(domain);
 				}
 				sb.append(domain);
-				if (withSeperator && k + 1 < ds.numDomains){
+				if (withSeperator && k + 1 < ds.domainList.length){
 					sb.append(" ");
 				}
 			}
@@ -581,13 +581,6 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			return false;
 		}
 		public abstract DomainSequence[] getSeqs();
-		public int getNumDomainsInvolved(){
-			int sum = 0;
-			for(DomainSequence q : getSeqs()){
-				sum += q.numDomains;
-			}
-			return sum;
-		}
 		public abstract int getPriority();
 		public String toString(DomainDefinitions dsd) {
 			String myString = getClass().getSimpleName();
@@ -812,6 +805,9 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			//Score the original
 			scorePopulation(new CircDesigNAPMemberImpl[]{initialSeed}, 0, 0);
 			selectPhaseAndUpdateScore(new CircDesigNAPMemberImpl[]{initialSeed});
+			
+			System.out.println("Seed score (population member 0's initial score): " + bestScore);
+			iteration_history.append(String.format("Seed %.3f", bestScore)+"\n");
 			
 			//Create block designer, which will produce a certain initial population from the initial sequences we chose.
 			CircDesigNAPMemberImpl tempMember = initialSeed.designerCopyConstructor(-1); //needed for "reverting" mutations

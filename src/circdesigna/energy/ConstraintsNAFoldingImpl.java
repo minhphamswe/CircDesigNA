@@ -85,18 +85,6 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 			seq2 = tmp;
 		}
 		
-		DomainSequence together = new DomainSequence();
-		{
-			ArrayList<Integer> domains = new ArrayList<Integer>();
-			for(int q : seq1.domainList){
-				domains.add(q);
-			}
-			for(int q : seq2.domainList){
-				domains.add(q);
-			}
-			together.setDomains(domains, null);
-		}
-		
 		int N1 = seq1.length(domain);
 		int N2 = seq2.length(domain);
 		int N = N1 + N2;
@@ -122,8 +110,9 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 			int[] seq = getSeq(N);
 			int[][] seq_origin = getSeqOrigin(N);
 			int[][][] memo2 = getMemo(N);
-			FoldingConstraints constraints = new FoldingConstraints(0); 
-
+			FoldingConstraints constraints = new FoldingConstraints(0);
+			SequenceMarker marker = new SequenceMarker(N, seq_origin, domain_markings);
+			
 			for(int k = 0; k < N1; k++){
 				seq[k] = seq1.base(k, domain, Std.monomer);
 				seq_origin[k][0] = seq1.domainAt(k, domain);
@@ -150,7 +139,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 				}
 			}  
 
-			NXFold(memo2, seq, N, nicks, true, constraints, together, domain, domain_markings);
+			NXFold(memo2, seq, N, nicks, true, constraints, marker);
 
 			int nStrands = 2;
 			double toRet = getQe(memo2, 0, N-1, 0, 0) / 100.0 - .51 * (nStrands - 1);			
@@ -179,20 +168,20 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		int[][] seq_origin = getSeqOrigin(N);
 		int[][][] memo2 = getMemo(N);
 		FoldingConstraints constraints = new FoldingConstraints(0);
+		SequenceMarker marker = new SequenceMarker(N, seq_origin, domain_markings);
 		for(int k = 0; k < N; k++){
 			seq[k] = domainSequence.base(k, domain, Std.monomer);
 			seq_origin[k][0] = domainSequence.domainAt(k, domain);
 			seq_origin[k][1] = domainSequence.offsetInto(k, domain, true);
 		}
 
-
 		if (onlyIllegalPairing){
 			if (CircDesigNA_SharedUtils.checkComplementary(domainSequence, domainSequence)){
 				constraints = getConstraints(N);
-
 				for(int i = 0; i < N; i++){
 					for(int j = 0; j < N; j++){
-						constraints.preventPairing[i][j] = Arrays.equals(seq_origin[i], seq_origin[j]);
+						constraints.preventPairing[i][j] = (seq_origin[i][1] == seq_origin[j][1]) && 
+								CircDesigNA_SharedUtils.checkComplementary(seq_origin[i][0], seq_origin[j][0]);
 					}
 				}
 			}
@@ -201,7 +190,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		double toRet;
 
 		if (domainSequence.isCircular()){
-			NXFold(memo2, seq, N, nicks, false, constraints, domainSequence, domain, domain_markings);
+			NXFold(memo2, seq, N, nicks, false, constraints, marker);
 			int[][] Qb = memo2[PAIRED];
 			//If the circular DNA has no pairs
 			int best = 0;
@@ -213,7 +202,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 			}
 			toRet = best / 100.0;
 		} else {
-			NXFold(memo2, seq, N, nicks, true, constraints, domainSequence, domain, domain_markings);
+			NXFold(memo2, seq, N, nicks, true, constraints, marker);
 			toRet = getQe(memo2, 0, N-1, 0, 0) / 100.0;
 		}
 		
@@ -221,15 +210,15 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		return toRet;
 	}
 	
-	private void NXFold(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, DomainSequence ds, int[][] domain, int[][] domain_markings) {
+	private void NXFold(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
 		switch(scoringModel){
 		//3: Finds the MFE over all unpseudoknotted structures, implemented in O(n^3) time.
 		case 3:
-			N3Fold(memo2, seq, N, nicks, onlyUpperTriangle, constraints, ds, domain, domain_markings);
+			N3Fold(memo2, seq, N, nicks, onlyUpperTriangle, constraints, marker);
 			return;
 		//2: Finds the MFE over all unpseudoknotted structures with no multiloops, scoring interior loops with a linear overapproximation
 		case 2:
-			N2Fold(memo2, seq, N, nicks, onlyUpperTriangle, constraints, ds, domain, domain_markings);
+			N2Fold(memo2, seq, N, nicks, onlyUpperTriangle, constraints, marker);
 			/* Refinement is incorrect, does not take into account coaxial stacking on external helixes
 			//Refinement: Improve the values of Qe[0][x] for x going from 1 to N-1.
 			int[][] Qe00 = memo2[EXTERNAL_00];
@@ -248,7 +237,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 			return;
 		//1: Finds the MFE over all unpseudoknotted structures with no interior loops or bulges
 		case 1:
-			N2Fold_NoLoops(memo2, seq, N, nicks, onlyUpperTriangle, constraints, ds, domain, domain_markings);
+			N2Fold_NoLoops(memo2, seq, N, nicks, onlyUpperTriangle, constraints, marker);
 			return;
 		}
 		throw new RuntimeException("Not a valid scoring model: "+scoringModel);
@@ -303,7 +292,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 	 * @param domain 
 	 * @param ds 
 	 */
-	private void N3Fold(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, DomainSequence ds, int[][] domain, int[][] domain_markings) {
+	private void N3Fold(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
 		//Initialization: all is impossible.
 		deepFill3(memo2, N, N, Integer.MAX_VALUE);
 
@@ -619,8 +608,8 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 				}
 				
 				if (Qb[i][j] < 0){
-					ds.mark(i, domain, domain_markings);
-					ds.mark(j, domain, domain_markings);
+					marker.mark(i);
+					marker.mark(j);
 				}
 
 				//002) If [i,j] is in a multiloop or is external
@@ -791,7 +780,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 	 * @param domain 
 	 * @param ds 
 	 */
-	private void N2Fold(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, DomainSequence ds, int[][] domain, int[][] domain_markings) {
+	private void N2Fold(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
 		//Initialization: all is impossible.
 		int maxLoopLen = 30;
 		deepFill3(memo2, 1, N, Integer.MAX_VALUE, 
@@ -1077,8 +1066,8 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 					//Qb[i][j] = alt(QbNoStk[i][j], QbStk[i][j]);
 					
 					if (Qb[i][j] < 0){
-						ds.mark(i, domain, domain_markings);
-						ds.mark(j, domain, domain_markings);
+						marker.mark(i);
+						marker.mark(j);
 					}
 				} //end i, j are paired.
 			}//End scoring for [i,j].
@@ -1134,8 +1123,8 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 	 * @param domain 
 	 * @param ds 
 	 */
-	private void N2Fold_NoLoops(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, DomainSequence ds, int[][] domain, int[][] domain_markings) {
-		//No pairs = 0 free energy.
+	private void N2Fold_NoLoops(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
+		//Initialization: All structures are impossible.
 		deepFill3(memo2, 1, N, Integer.MAX_VALUE, 
 				EXTERNAL_00,
 				EXTERNAL_01,
@@ -1159,8 +1148,14 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 			Qe00[N-1] = 0; //No pairs, allowed only if folding a single strand.
 		}
 		
-		//Build up to larger subproblems:
-		for( int i = N-1; i >= 0; i--){
+		int maxI = N-1; //Maximum possible value of i, trivially.
+		if (nicks.length >= 2 && onlyUpperTriangle){
+			//Then, the outermost pair must have as its left base a base in the first strand 
+			maxI = nicks[0];
+			swap(Qb, 0, (maxI + 1)%N);
+			swap(Qb, 1%N, (maxI + 2)%N);
+		}
+		for( int i = maxI; i >= 0; i--){
 			if (onlyUpperTriangle){
 				//Memory saving trick: Qb[i][xxx] depends only on Qb[i+1][xxx], so drop all but 2 rows of Qb.
 				//Collect row i+2 to use as row i
@@ -1168,7 +1163,15 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 			}
 			int[] Qbi = Qb[i];
 			int[] Qbip1 = Qb[(i+1)%N];
-			for( int L = 2; L <= N; L++ ){
+			
+			int minL = 2; //Minimum possible value of L so that i and j are different bases, trivially.
+			if (nicks.length >= 2 && onlyUpperTriangle){
+				//Then, the outermost pair must have as its right base a base in the last strand 
+				int minJ = nicks[nicks.length-2]+1;
+				//It holds that minJ > maxI.
+				minL = minJ - maxI + 1;
+			}
+			for( int L = minL; L <= N; L++ ){
 				int j = (i + L - 1) % N;
 				if (onlyUpperTriangle && j < i){
 					break;
@@ -1230,8 +1233,8 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 					}
 					
 					if (Qbi[j] < 0){
-						ds.mark(i, domain, domain_markings);
-						ds.mark(j, domain, domain_markings);
+						marker.mark(i);
+						marker.mark(j);
 					}
 
 					if (onlyUpperTriangle){

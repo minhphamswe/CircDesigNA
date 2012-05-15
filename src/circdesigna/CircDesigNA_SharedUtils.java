@@ -218,8 +218,8 @@ public class CircDesigNA_SharedUtils {
 
 	
 	public static boolean checkComplementary(DomainSequence a, DomainSequence b){
-		for(int k = 0; k < a.numDomains; k++){
-			for(int y = 0; y < b.numDomains; y++){
+		for(int k = 0; k < a.domainList.length; k++){
+			for(int y = 0; y < b.domainList.length; y++){
 				int abase = a.domainList[k];
 				int bbase = b.domainList[y];
 				if (checkComplementary(abase, bbase)){

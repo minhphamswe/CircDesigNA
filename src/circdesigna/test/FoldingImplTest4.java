@@ -63,15 +63,15 @@ public class FoldingImplTest4 {
 			//double resultLocal = fl.mfe(ds1, domain, domain_markings);
 			long now = System.nanoTime();
 			fl.setScoringModel(3);
-			double resultLocal3 = fl.mfe(ds1, domain, domain_markings, true);
+			double resultLocal3 = fl.mfe(ds1, ds2, domain, domain_markings, true);
 			double dt3 = (System.nanoTime()-now)/1e9;
 			now = System.nanoTime();
 			fl.setScoringModel(2);
-			double resultLocal2 = fl.mfe(ds1, domain, domain_markings, true);
+			double resultLocal2 = fl.mfe(ds1, ds2, domain, domain_markings, true);
 			double dt2 = (System.nanoTime()-now)/1e9;
 			now = System.nanoTime();
 			fl.setScoringModel(1);
-			double resultLocal1 = fl.mfe(ds1, domain, domain_markings, true);
+			double resultLocal1 = fl.mfe(ds1, ds2, domain, domain_markings, true);
 			double dt1 = (System.nanoTime()-now)/1e9;
 			System.out.println(String.format("%d M3 %.2f %.3e M2 %.2f %.3e M1 %.2f %.3e",ds1.length(domain), resultLocal3, dt3, resultLocal2, dt2, resultLocal1, dt1));
 			if (line.length > 3){

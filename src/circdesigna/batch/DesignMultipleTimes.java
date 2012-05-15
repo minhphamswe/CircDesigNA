@@ -40,6 +40,7 @@ import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
 import circdesigna.SequenceDesigner;
 import circdesigna.CircDesigNA.ScorePenalty;
+import circdesigna.SequenceDesigner.AlternativeResult;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.energy.ConstraintsNAFoldingImpl;
 import circdesigna.impl.CircDesigNAImpl;
@@ -56,8 +57,9 @@ public class DesignMultipleTimes {
 	/**
 	 * Input is a path to a file of the form
 	 * NumTimesToRun
-	 * MaxIteration
 	 * PopulationSize
+	 * MaxIteration
+	 * MaxTime
 	 * TargetDirectory
 	 * Prefix
 	 * (Domain definitions)
@@ -69,13 +71,13 @@ public class DesignMultipleTimes {
 	public static void main(String[] args) throws IOException{
 		Scanner in = new Scanner(System.in);
 		int numTimesToRun = new Integer(readToken(in));
-		int maxIteration = new Integer(readToken(in));
 		int popSize = new Integer(readToken(in));
+		int maxIteration = new Integer(readToken(in));
+		long TIMEOUT = new Long(readToken(in))*1000000000L; //timeout in nanoseconds from timeout in seconds
 		String targetDir = in.nextLine();
 		String prefix = in.nextLine();
 		String Domains = readToEnd(in);
 		String Molecules = readToEnd(in);
-		long TIMEOUT = (long)(1000e9);
 		in.close();
 		
 		CircDesigNAConfig config = new CircDesigNAConfig();
@@ -90,12 +92,17 @@ public class DesignMultipleTimes {
 					SequenceDesigner<CircDesigNAOptions> defaultDesigner = CircDesigNA.getDefaultDesigner(Molecules, Domains, config);
 					CircDesigNAOptions options = defaultDesigner.getOptions();
 					options.population_size.setState(popSize);
-					File out2 = new File(targetDir+File.separator+prefix+i+".des");
-					System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream(out2))));
+					setOutToFile(targetDir+File.separator+prefix+i+".des");
 					designUsingCircDesigNA(defaultDesigner,TIMEOUT,maxIteration);
+					System.out.close();
+					setOutToFile(targetDir+File.separator+prefix+i+"-log.txt");
+					System.out.println(defaultDesigner.getResult(defaultDesigner.getAlternativeResults()[AlternativeResult.LOG]));
+					System.out.close();
+					setOutToFile(targetDir+File.separator+prefix+i+"-best.txt");
+					System.out.println(defaultDesigner.getResult(defaultDesigner.getAlternativeResults()[AlternativeResult.BEST]));
+					System.out.close();
 					System.err.println("Designed "+i);
 					System.err.flush();
-					System.out.close();
 				}
 				if (false){
 					SequenceDesigner<CircDesigNAOptions> defaultDesigner = CircDesigNA.getDefaultDesigner(Molecules, Domains, config);
@@ -158,6 +165,11 @@ public class DesignMultipleTimes {
 				}
 			}
 		}
+	}
+
+	private static void setOutToFile(String path) throws IOException {
+		File out2 = new File(path);
+		System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream(out2))));
 	}
 
 	private static void RunSelfEvaluation(File out2, String molecules, DomainDefinitions dsd, CircDesigNAOptions options) throws FileNotFoundException {
