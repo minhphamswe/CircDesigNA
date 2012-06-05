@@ -12,7 +12,6 @@ public class SequenceMarker {
 		this.domain_markings = domain_markings;
 	}
 	public void mark(int i){
-		if (true) return;
 		if (i < 0 || i >= N){
 			throw new ArrayIndexOutOfBoundsException();
 		}

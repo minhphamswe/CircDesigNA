@@ -366,7 +366,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 				//001) i and j are paired with eachother
 					//001) They form an interior structure
 					//001.5) They form an exterior structure
-				//002) [i,j] is inside a multiloop (or exterior)
+				//002) [i,j] is inside a multiloop (or exterior, as the calculation is highly similar)
 					//002) [i,j] contains exactly one pair
 					//002.25) [i,j] contains 2 pairs exactly, coaxially stacked, and j is paired or j unpaired and j-1 paired
 					//002.5) External loop general case (>= 0 pairs)

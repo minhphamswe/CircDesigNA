@@ -106,7 +106,6 @@ public class CircDesigNA_SharedUtils {
 		
 	}
 
-
 	public static void utilRemoveDuplicateSequences(
 			ArrayList<DuplexClosingTarget> hairpinClosings) {
 		ListIterator<DuplexClosingTarget> itr = hairpinClosings.listIterator();
