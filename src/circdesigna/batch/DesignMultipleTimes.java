@@ -147,7 +147,7 @@ public class DesignMultipleTimes {
 					}
 				}
 			} else if (args[0].equals("-evaluate_self")){
-				CircDesigNAOptions options = CircDesigNAOptions.getDefaultOptions();
+				CircDesigNAOptions options = CircDesigNAOptions.getDefaultOptions(config);
 				//options.selfSimilarityPenalty.setState(selfSimilarOpt);
 				
 				for(int i = 1; i <= numTimesToRun; i++){

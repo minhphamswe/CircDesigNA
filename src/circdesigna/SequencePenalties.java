@@ -24,5 +24,5 @@ package circdesigna;
  * @author Benjamin
  */
 public interface SequencePenalties {
-	public double getSynthesizabilityScore(DomainSequence seq, int[][] domain, int[][] domain_markings);
+	public double getSequenceScore(DomainSequence seq, int[][] domain, int[][] domain_markings);
 }

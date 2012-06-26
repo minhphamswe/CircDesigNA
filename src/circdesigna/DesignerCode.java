@@ -55,5 +55,5 @@ public interface DesignerCode {
 	/**
 	 * Invalidates any cache information this code has. Call before calling mutateToOther   
 	 */
-	public void reset();
+	public void init();
 }

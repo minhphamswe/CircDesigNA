@@ -21,6 +21,7 @@ package circdesigna.geometry;
 
 import java.util.Arrays;
 
+
 /**
  * Given an irregular polygon with side lengths specified (and ordered), this class calculates
  * the radius of a circle, R, and a set of Theta_i where the Theta_i are the exterior angles of the
@@ -40,7 +41,6 @@ public class CircumscribedPolygonTool {
 		public float[] S;
 		public float[] theta;
 		public float[] interiorTheta;
-		public float[] dIThetaDR;
 		public float R;
 		public float Rhi;
 		public float f, fprime;
@@ -49,6 +49,9 @@ public class CircumscribedPolygonTool {
 				return 0;
 			}
 			return theta[count++];
+		}
+		public float nextArc(){
+			return interiorTheta[count++];
 		}
 	}
 	/**
@@ -67,15 +70,17 @@ public class CircumscribedPolygonTool {
 		
 		float avgS = 0;
 		for(float k : input.S){
-			avgS += k;
+			avgS += Math.abs(k);
 		}
 		avgS /= n;
 		input.R = (float) (avgS/Math.sqrt(2*(1-Math.cos(2*Math.PI/n))));
 		
+		/*
 		float maxS = 0;
 		for(float k : input.S){
-			maxS = Math.max(maxS,k);
+			maxS = Math.max(maxS,Math.abs(k));
 		}
+		*/
 		//input.R = (float) maxS / 2 + 0.01f;
 		
 		/*
@@ -90,13 +95,13 @@ public class CircumscribedPolygonTool {
 		*/
 
 		input.interiorTheta = new float[n];
-		input.dIThetaDR = new float[n]; //For newton raphson.
 		input.theta = new float[n];
 		for(int i = 0; i < 8; i++){
-			input.R = Math.max(input.R,maxS / 2);
+			//input.R = Math.max(input.R,maxS / 2);
 			iterateNewtonRaphson(input);
 			//R at this point DISAGREES with the theta / interiorTheta.
 		}
+		//System.out.println(Arrays.toString(input.interiorTheta));
 		
 		for(int k = 0; k < n; k++){
 			input.theta[k] = (input.interiorTheta[k]+input.interiorTheta[(k+1)%n])/2;
@@ -105,7 +110,6 @@ public class CircumscribedPolygonTool {
 		//System.out.println(Arrays.toString(input.theta));
 	}
 	private static void iterateNewtonRaphson(CircumscribedPolygon input) {
-		int n = input.S.length;
 		/*
 		float mid = (input.Rhi+input.R)/2;
 		compute(input, mid);
@@ -134,16 +138,25 @@ public class CircumscribedPolygonTool {
 	private static void compute(CircumscribedPolygon input, float r) {
 		input.f = -(float) (2*Math.PI);
 		input.fprime = 0;
-		int n = input.S.length;
-		for(int k = 0; k < n; k++){
-			float a = (float) (1-Math.pow(input.S[k]/r,2)/2);
-			float dA = -1/2f*input.S[k]*input.S[k];
-			dA *= -2/(r*r*r);
-			input.interiorTheta[k] = (float) Math.acos(a);
-			input.dIThetaDR[k] = (float)(-1/(Math.sqrt(1-a*a)) * dA);
-			
-			input.f += input.interiorTheta[k];
-			input.fprime += input.dIThetaDR[k];
+		for(int k = 0; k < input.S.length; k++){
+			if (input.S[k] > 0){ //Polygon edge length
+				float a = (float) (1-Math.pow(input.S[k]/r,2)/2);
+				float dA = -input.S[k]*input.S[k];
+				dA *= 4/(r*r*r);
+				dA *= -1;
+				input.interiorTheta[k] = (float) Math.acos(a);
+				float dIThetaDR = (float)(-1/(Math.sqrt(1-a*a)) * dA);
+
+				input.f += input.interiorTheta[k];
+				input.fprime += dIThetaDR;
+			} else { //Arclength
+				float rad = -input.S[k];
+				input.interiorTheta[k] = rad / r;
+				float dIThetaDR = -rad / (r*r);
+				
+				input.f += input.interiorTheta[k];
+				input.fprime += dIThetaDR;
+			}
 		}
 	}
 }

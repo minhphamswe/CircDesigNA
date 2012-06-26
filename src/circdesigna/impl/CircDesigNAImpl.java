@@ -32,6 +32,7 @@ import circdesigna.CircDesigNA_SharedUtils;
 import circdesigna.DesignIntermediateReporter;
 import circdesigna.DomainDefinitions;
 import circdesigna.DomainSequence;
+import circdesigna.GeneralizedInteractiveRegion;
 import circdesigna.SequencePenalties;
 import circdesigna.abstractDesigner.ParetoSort;
 import circdesigna.config.CircDesigNAConfig;
@@ -67,7 +68,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 	}
 	public int countPhases() {
 		if (flI instanceof ConstraintsNAFoldingImpl){
-			return 3;
+			return 1;
 		}
 		return 1;
 	}
@@ -79,42 +80,43 @@ public class CircDesigNAImpl extends CircDesigNA{
 			AbstractDomainDesignTarget designTarget,
 			DesignIntermediateReporter DIR, int[][] domain2, CircDesigNAOptions options, DomainDefinitions dsd) {
 
-		ArrayList<DomainSequence> rawStrands = designTarget.wholeStrands;
-		ArrayList<DomainSequence> makeSS = new ArrayList();
-		makeSS.addAll(designTarget.generalizedSingleStranded);
-		//makeSS.addAll(designTarget.singleDomains);
-		ArrayList<DuplexClosingTarget> duplexClosings = designTarget.duplexClosings;
+		ArrayList<DomainSequence> rawStrands = new ArrayList();
+		rawStrands.addAll(designTarget.wholeStrands);
+		ArrayList<GeneralizedInteractiveRegion> girs = new ArrayList();
+		girs.addAll(designTarget.generalizedInteractiveRegions);
+		ArrayList<DuplexClosingTarget> duplexClosings = new ArrayList();
+		duplexClosings.addAll(designTarget.duplexClosings);
 
+		//Remove duplicates.
 		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(rawStrands);
-		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(makeSS);
-
+		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(girs);
 		CircDesigNA_SharedUtils.utilRemoveDuplicateSequences(duplexClosings);
 
 		List<ScorePenalty> allScores = new LinkedList<ScorePenalty>();
-		//Only add this penalty if the system contains at least one base.
-		int totalBases = 0;
-		for(int[] row : domain2){
-			totalBases += row.length;
-		}
-		if (totalBases>0){
-			allScores.add(new VariousSequencePenalties(rawStrands,DIR));	
-		}
-
+		
+		//Sequence penalties
+		allScores.add(new VariousSequencePenalties(rawStrands,DIR));	
+		
+		//Structural penalties
 		ArrayList<MFEHybridNonlegalScore> hybridScorings = new ArrayList<MFEHybridNonlegalScore>();
-		for(int i = 0; i < makeSS.size(); i++){
-			DomainSequence ds = makeSS.get(i);
+		for(int i = 0; i < girs.size(); i++){
+			GeneralizedInteractiveRegion ds = girs.get(i);
 			//Secondary Structure Formation
 			allScores.add(new SelfFoldNonlegalScore(ds, DIR));
 			hybridScorings.add(new MFEHybridNonlegalScore(ds, ds, DIR, false));
 
 			//Hybridization
-			for(int k = i+1; k < makeSS.size(); k++){ //Do only upper triangle
-				DomainSequence ds2 = makeSS.get(k);
+			for(int k = i+1; k < girs.size(); k++){ //Do only upper triangle
+				GeneralizedInteractiveRegion ds2 = girs.get(k);
 				boolean sameMol = ds.getMoleculeName().equals(ds2.getMoleculeName());
 				hybridScorings.add(new MFEHybridNonlegalScore(ds, ds2, DIR, sameMol));
 			}
 		}
 
+		/*
+		This reasoning is probably not valid. A structure may behave differently than a structure that contains it as a substructure.
+		Plus it doesn't save us any asymptotic time order.
+		
 		for(int i = 0; i < hybridScorings.size(); i++){
 			MFEHybridNonlegalScore target = hybridScorings.get(i);
 			for(int j = i+1; j < hybridScorings.size(); j++){
@@ -124,6 +126,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 				}
 			}
 		}
+		*/
 
 		allScores.addAll(hybridScorings);
 
@@ -132,6 +135,8 @@ public class CircDesigNAImpl extends CircDesigNA{
 		}
 		
 		/*
+		No longer necessary, because we are doing purely-not-legal folding
+		
 		if (options.selfSimilarityPenalty.getState() >= 0){
 			//Only do each domain once.
 			List<DomainSequence> domainsOnceApiece = new ArrayList();
@@ -186,16 +191,16 @@ public class CircDesigNAImpl extends CircDesigNA{
 	public class MFEHybridNonlegalScore extends ScorePenalty {
 		//True for intermolecular interactions
 		private boolean entropicPenalty = false;
-		public MFEHybridNonlegalScore(DomainSequence ds, DomainSequence ds2, DesignIntermediateReporter dir, boolean sameMolecule){
+		public MFEHybridNonlegalScore(GeneralizedInteractiveRegion ds, GeneralizedInteractiveRegion ds2, DesignIntermediateReporter dir, boolean sameMolecule){
 			super(dir);
-			this.ds = new DomainSequence[]{ds,ds2};
+			this.ds = new GeneralizedInteractiveRegion[]{ds,ds2};
 			chooseScore(dir);
 			entropicPenalty = !sameMolecule;
 		}		
 		public int getPriority(){
 			return 2;
 		}
-		private DomainSequence[] ds;
+		private GeneralizedInteractiveRegion[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			double BIMOLECULAR = options.bimolecularPenalty.getState();
 			double deltaG = (flI.mfe(ds[0],ds[1],domain,domain_markings,true))+(entropicPenalty?BIMOLECULAR:0);
@@ -209,7 +214,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 		public boolean isIntramolecular(){
 			return !entropicPenalty;
 		}
-		public DomainSequence[] getSeqs() {
+		public GeneralizedInteractiveRegion[] getSeqs() {
 			return ds;
 		}
 		public ScorePenalty clone() {
@@ -347,7 +352,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 		public double evalScoreSub(int[][] domain, int[][] domain_markings) {
 			double sum = 0;
 			for(DomainSequence seq : seqs){
-				sum += sp.getSynthesizabilityScore(seq, domain,domain_markings);
+				sum += sp.getSequenceScore(seq, domain,domain_markings);
 			}
 			return sum;
 		}
@@ -366,9 +371,9 @@ public class CircDesigNAImpl extends CircDesigNA{
 	}
 	
 	public class SelfFoldNonlegalScore extends ScorePenalty { 
-		public SelfFoldNonlegalScore(DomainSequence ds, DesignIntermediateReporter dir){
+		public SelfFoldNonlegalScore(GeneralizedInteractiveRegion ds, DesignIntermediateReporter dir){
 			super(dir);
-			this.ds = new DomainSequence[]{ds};
+			this.ds = new GeneralizedInteractiveRegion[]{ds};
 			chooseScore(dir);
 		}
 		public ScorePenalty clone() {
@@ -377,7 +382,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 			ci.cur_score = cur_score;
 			return ci;
 		}
-		private DomainSequence[] ds;
+		private GeneralizedInteractiveRegion[] ds;
 		public double evalScoreSub(int[][] domain, int[][] domain_markings){
 			double deltaG = (flI.mfe(ds[0],domain,domain_markings,true));
 			return Math.max(0,-deltaG);
@@ -389,7 +394,7 @@ public class CircDesigNAImpl extends CircDesigNA{
 		public int getPriority(){
 			return 1;
 		}
-		public DomainSequence[] getSeqs() {
+		public GeneralizedInteractiveRegion[] getSeqs() {
 			return ds;
 		}
 	}

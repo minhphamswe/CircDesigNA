@@ -27,7 +27,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.Scanner;
 
-import circdesigna.DomainSequence;
+import circdesigna.GeneralizedInteractiveRegion;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.config.CircDesigNASystemElement;
 
@@ -41,24 +41,24 @@ public class NupackFolder extends CircDesigNASystemElement implements NAFolding{
 		super(System);
 	}
 
-	public double mfe(DomainSequence seq1, DomainSequence seq2, int[][] domain,
+	public double mfe(GeneralizedInteractiveRegion seq1, GeneralizedInteractiveRegion seq2, int[][] domain,
 			int[][] problemAreas) {
 		throw new RuntimeException("Not available with this folding tool.");
 	}
 
-	public double mfe(DomainSequence domainSequence, int[][] domain,
+	public double mfe(GeneralizedInteractiveRegion GeneralizedInteractiveRegion, int[][] domain,
 			int[][] domain_markings) {
 		throw new RuntimeException("Not available with this folding tool.");
 	}
 
-	public double mfeNoDiag(DomainSequence domainSequence,
-			DomainSequence domainSequence2, int[][] domain,
+	public double mfeNoDiag(GeneralizedInteractiveRegion GeneralizedInteractiveRegion,
+			GeneralizedInteractiveRegion GeneralizedInteractiveRegion2, int[][] domain,
 			int[][] domain_markings) {
 		throw new RuntimeException("Not available with this folding tool.");
 	}
 
-	public double mfeStraight(DomainSequence domainSequence,
-			DomainSequence domainSequence2, int[][] domain,
+	public double mfeStraight(GeneralizedInteractiveRegion GeneralizedInteractiveRegion,
+			GeneralizedInteractiveRegion GeneralizedInteractiveRegion2, int[][] domain,
 			int[][] domain_markings, int markLeft, int markRight, int joffset) {
 		throw new RuntimeException("Not available with this folding tool.");
 	}
@@ -68,12 +68,12 @@ public class NupackFolder extends CircDesigNASystemElement implements NAFolding{
 //// Pair Probability functions - Warning, not maintained
 ////////////////////////////////
 	
-	public void pairPr(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain) {
-		pairPr_viaNUPACK(pairsOut, new DomainSequence[]{seq1,seq2}, domain);
+	public void pairPr(double[][] pairsOut, GeneralizedInteractiveRegion seq1, GeneralizedInteractiveRegion seq2, int[][] domain) {
+		pairPr_viaNUPACK(pairsOut, new GeneralizedInteractiveRegion[]{seq1,seq2}, domain);
 	}
 
-	public void pairPr(double[][] pairsOut, DomainSequence seq, int[][] domain) {
-		pairPr_viaNUPACK(pairsOut, new DomainSequence[]{seq}, domain);
+	public void pairPr(double[][] pairsOut, GeneralizedInteractiveRegion seq, int[][] domain) {
+		pairPr_viaNUPACK(pairsOut, new GeneralizedInteractiveRegion[]{seq}, domain);
 	}
 	private static int ct = 0;
 	private NupackRuntime NUPACKLINK = null;
@@ -87,7 +87,7 @@ public class NupackFolder extends CircDesigNASystemElement implements NAFolding{
 			out.close();
 		}
 	}
-	private void pairPr_viaNUPACK(double[][] pairsOut, DomainSequence[] seqs, int[][] domain) {
+	private void pairPr_viaNUPACK(double[][] pairsOut, GeneralizedInteractiveRegion[] seqs, int[][] domain) {
 		try {
 			System.out.println("Going to nupack"+ct++);
 			

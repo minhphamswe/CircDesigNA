@@ -3,9 +3,11 @@ package circdesigna.energy;
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import circdesigna.CircDesigNA_SharedUtils;
-import circdesigna.DomainSequence;
+import circdesigna.Connector;
+import circdesigna.GeneralizedInteractiveRegion;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.config.CircDesigNASystemElement;
 
@@ -18,6 +20,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 	private int[][][] memo_shared;
 	private int[] seq_shared;
 	private int[][] seq_origin_shared;
+	private ConnectorFold[] connectors_shared;
 	private FoldingConstraints constraints_shared;
 	private int scoringModel;
 
@@ -49,6 +52,16 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		}
 		return seq_origin_shared;
 	}
+	private ConnectorFold[] getConnectors(int N){
+		if (connectors_shared == null || connectors_shared.length < N){
+			connectors_shared = new ConnectorFold[N];
+			for(int k = 0; k < N; k++){
+				connectors_shared[k] = new ConnectorFold();
+			}
+		}
+		return connectors_shared;
+		
+	}
 	private int[][][] getMemo(int N){
 		if (memo_shared == null){
 			memo_shared = new int[EXTERNAL_EQ1_0S+1][][];
@@ -61,13 +74,127 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		}
 		return constraints_shared;
 	}
+	private class ConnectorFold {
+		public void init(GeneralizedInteractiveRegion gir, int i, int[][] domain) {
+			leftN = 0;
+			rightN = 0;
+			//Scoring a set of connectors involves entirely coaxial stacking
+			//which in turn is entirely made up of dangle penalties
+			{
+				List<Connector> connectors = gir.getConnectorsTo5Of(i, domain);
+				if (connectors!=null && !connectors.isEmpty()){
+					int N = connectors.size();
+					leftN = N;
+					leftPairBase0 = base(connectors.get(N-1), 0, domain);
+					leftPairBase1 = base(connectors.get(N-1), 1, domain);
+					leftScore00 = scoreConnectors(connectors,0,N-1,domain);
+					leftScore01 = scoreConnectors(connectors,0,N-2,domain);
+					leftScore10 = scoreConnectors(connectors,1,N-1,domain);
+					leftScore11 = scoreConnectors(connectors,1,N-2,domain);
+				}
+			}
+			{
+				List<Connector> connectors = gir.getConnectorsTo3Of(i, domain);
+				if (connectors!=null && !connectors.isEmpty()){
+					int N = connectors.size();
+					rightN = N;
+					rightPairBase0 = base(connectors.get(0), 0, domain);
+					rightPairBase1 = base(connectors.get(0), 1, domain);
+					rightScore00 = scoreConnectors(connectors,0,N-1,domain);
+					rightScore01 = scoreConnectors(connectors,0,N-2,domain);
+					rightScore10 = scoreConnectors(connectors,1,N-1,domain);
+					rightScore11 = scoreConnectors(connectors,1,N-2,domain);
+				}
+			}
+		}
+		/**
+		 * Dynamic programming folding algorithm which finds the minimum free energy of coaxial stacking of the sequence of connectors
+		 * i through j.
+		 */
+		private int scoreConnectors(List<Connector> connectors, int i, int j, int[][] domain) {
+			int bestKmin2 = 0;
+			int bestKmin1 = 0;
+			for(int k = 1; k <= j; k++){
+				//Either connector k is coaxially stacked to k-1,
+				//or it isn't
+				int bestK = alt(combine(bestKmin2,
+							getCoaxialStackBonus(
+												base(connectors.get(k-1),1,domain),
+												base(connectors.get(k-1),0,domain),
+												base(connectors.get(k),0,domain),
+												base(connectors.get(k),1,domain))
+						),
+						bestKmin1);
+				//Move ahead
+				bestKmin2 = bestKmin1;
+				bestKmin1 = bestK;
+			}
+			return bestKmin1;
+		}
+		public int leftN, rightN;
+		public int leftPairBase0, leftPairBase1, rightPairBase0, rightPairBase1;
+		//Free energy of the connectors on the left, due to coaxial stacking. 10 means that the leftmost pair in the left connectors
+		//is engaged with coaxial stacking with a pair external to the set of connectors.
+		//01 means that the rightmost pair in the left connectors is engaged with coaxial stacking with a pair external to the set of connectors.
+		public int leftScore00, leftScore01, leftScore10, leftScore11;
+		//See description of leftScore, but apply to the set of connectors on the right of this base.
+		public int rightScore00, rightScore01, rightScore10, rightScore11;
+	}
+	public class ConnectorSummary {
+		/**
+		 * Extends the interval of bases this summary represents one to the right
+		 * Note that the bases i and j are excluded from the interval itself (in terms of "unpaired bases", etc)
+		 */
+		public void extendInterval(int basei, ConnectorFold i, int baseip1, ConnectorFold ip1, int baseip2, ConnectorFold ip2){
+			if (i.rightN != ip1.leftN || ip1.rightN != ip2.leftN){
+				throw new RuntimeException("Assertion error");
+			}
+			unpairedBases++;
+			
+			//Add loops between i and ip1
+			if (i.rightN > 0){
+				if (numConnectors == 0){
+					leftPairBase0 = i.rightPairBase0;
+					leftPairBase1 = i.rightPairBase1;
+				}
+				rightPairBase0 = ip1.leftPairBase0;
+				rightPairBase1 = ip1.leftPairBase1;
+				numConnectors += i.rightN;
+				//add dangle on left of i+1
+				//interiorDangles = combine(interiorDangles, eParams.getDangleTop_deci(ip1.leftPairBase1, ip1.leftPairBase0, baseip1));
+			}
+			if (i.rightN == 0 && numConnectors == 0){
+				unpairedBasesLeft++;
+			}
+			
+			//Add loops between ip1 and ip2
+			if (ip1.rightN > 0){
+				if (numConnectors == 0){
+					leftPairBase0 = ip1.rightPairBase0;
+					leftPairBase1 = ip1.rightPairBase1;
+				}
+				rightPairBase0 = ip2.leftPairBase0;
+				rightPairBase1 = ip2.leftPairBase1;
+				numConnectors += ip1.rightN;
+				//add dangle on right of i+1
+				//interiorDangles = combine(interiorDangles, eParams.getDangleBottom_deci(ip1.rightPairBase1, ip1.rightPairBase0, baseip1));
+			}
+			if (ip1.rightN == 0 && numConnectors > 0){
+				unpairedBasesRight++;
+			}
+		}
+		public int unpairedBases = 0; 
+		public int unpairedBasesLeft = 0, unpairedBasesRight = 0;
+		public int leftPairBase0, leftPairBase1, rightPairBase0, rightPairBase1;
+		public int numConnectors = 0;
+	}
 	
 	public void setScoringModel(int i) {
 		scoringModel = i;
 	}
 	
 
-	public double mfe(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings) {
+	public double mfe(GeneralizedInteractiveRegion seq1, GeneralizedInteractiveRegion seq2, int[][] domain, int[][] domain_markings) {
 		return mfe(seq1, seq2, domain, domain_markings, false);
 	}
 	/**
@@ -77,10 +204,10 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 	 * If order is 2, the optimization searches only over all structures which have the nested loops property.
 	 * (So, if a is paired to b, c is paired to d, either a < c < d < b or c < a < b < d.)
 	 */
-	public double mfe(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings, boolean onlyIllegalPairing) {		
+	public double mfe(GeneralizedInteractiveRegion seq1, GeneralizedInteractiveRegion seq2, int[][] domain, int[][] domain_markings, boolean onlyIllegalPairing) {		
 		if (!seq1.isCircular() && seq2.isCircular()){
 			//swap the sequences so that 1 is circular and 2 is not.
-			DomainSequence tmp = seq1;
+			GeneralizedInteractiveRegion tmp = seq1;
 			seq1 = seq2;
 			seq2 = tmp;
 		}
@@ -104,11 +231,12 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 				nicks = new int[]{N1-1,N-1};
 			}
 		}
-		
-		{
-			claimLock();
+
+		claimLock();
+		try {
 			int[] seq = getSeq(N);
 			int[][] seq_origin = getSeqOrigin(N);
+			ConnectorFold[] connectors = getConnectors(N);
 			int[][][] memo2 = getMemo(N);
 			FoldingConstraints constraints = new FoldingConstraints(0);
 			SequenceMarker marker = new SequenceMarker(N, seq_origin, domain_markings);
@@ -117,11 +245,13 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 				seq[k] = seq1.base(k, domain, Std.monomer);
 				seq_origin[k][0] = seq1.domainAt(k, domain);
 				seq_origin[k][1] = seq1.offsetInto(k, domain, true);
+				connectors[k].init(seq1, k, domain);
 			}
 			for(int k = 0; k < N2; k++){
 				seq[N1+k] = seq2.base(k, domain, Std.monomer);
 				seq_origin[N1+k][0] = seq2.domainAt(k, domain);
 				seq_origin[N1+k][1] = seq2.offsetInto(k, domain, true);
+				connectors[N1+k].init(seq2, k, domain);
 			}
 
 			if (onlyIllegalPairing){
@@ -139,78 +269,84 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 				}
 			}  
 
-			NXFold(memo2, seq, N, nicks, true, constraints, marker);
-
+			NXFold(memo2, seq, N, nicks, connectors, true, constraints, marker);
+			//.51 is bimolecular penalty (TODO for DNA? RNA?)
 			int nStrands = 2;
-			double toRet = getQe(memo2, 0, N-1, 0, 0) / 100.0 - .51 * (nStrands - 1);			
+			double toRet = getQe(memo2, 0, N-1, 0, 0) / 100.0 - .51 * (nStrands - 1);
 
-			returnLock();
 			return toRet;
+		} finally {
+			returnLock();
 		}
 	}
-	public double mfe(DomainSequence domainSequence, int[][] domain, int[][] domain_markings) {
-		return mfe(domainSequence, domain, domain_markings, false);
+	public double mfe(GeneralizedInteractiveRegion GeneralizedInteractiveRegion, int[][] domain, int[][] domain_markings) {
+		return mfe(GeneralizedInteractiveRegion, domain, domain_markings, false);
 	}
 
-	public double mfe(DomainSequence domainSequence, int[][] domain, int[][] domain_markings, boolean onlyIllegalPairing) {
+	public double mfe(GeneralizedInteractiveRegion gir, int[][] domain, int[][] domain_markings, boolean onlyIllegalPairing) {
 		claimLock();
-		
-		int N = domainSequence.length(domain);
-		int[] nicks;
-		if (domainSequence.isCircular()){
-			nicks = new int[]{};
-		} else {
-			nicks = new int[]{N-1};
-		}	
-		
-			
-		int[] seq = getSeq(N);
-		int[][] seq_origin = getSeqOrigin(N);
-		int[][][] memo2 = getMemo(N);
-		FoldingConstraints constraints = new FoldingConstraints(0);
-		SequenceMarker marker = new SequenceMarker(N, seq_origin, domain_markings);
-		for(int k = 0; k < N; k++){
-			seq[k] = domainSequence.base(k, domain, Std.monomer);
-			seq_origin[k][0] = domainSequence.domainAt(k, domain);
-			seq_origin[k][1] = domainSequence.offsetInto(k, domain, true);
-		}
+		try {
 
-		if (onlyIllegalPairing){
-			if (CircDesigNA_SharedUtils.checkComplementary(domainSequence, domainSequence)){
-				constraints = getConstraints(N);
-				for(int i = 0; i < N; i++){
-					for(int j = 0; j < N; j++){
-						constraints.preventPairing[i][j] = (seq_origin[i][1] == seq_origin[j][1]) && 
-								CircDesigNA_SharedUtils.checkComplementary(seq_origin[i][0], seq_origin[j][0]);
+			int N = gir.length(domain);
+			int[] nicks;
+			if (gir.isCircular()){
+				nicks = new int[]{};
+			} else {
+				nicks = new int[]{N-1};
+			}	
+
+
+			int[] seq = getSeq(N);
+			int[][] seq_origin = getSeqOrigin(N);
+			ConnectorFold[] connectors = getConnectors(N);
+			int[][][] memo2 = getMemo(N);
+			FoldingConstraints constraints = new FoldingConstraints(0);
+			SequenceMarker marker = new SequenceMarker(N, seq_origin, domain_markings);
+			for(int k = 0; k < N; k++){
+				seq[k] = gir.base(k, domain, Std.monomer);
+				seq_origin[k][0] = gir.domainAt(k, domain);
+				seq_origin[k][1] = gir.offsetInto(k, domain, true);
+				connectors[k].init(gir, k, domain);
+			}
+
+			if (onlyIllegalPairing){
+				if (CircDesigNA_SharedUtils.checkComplementary(gir, gir)){
+					constraints = getConstraints(N);
+					for(int i = 0; i < N; i++){
+						for(int j = 0; j < N; j++){
+							constraints.preventPairing[i][j] = (seq_origin[i][1] == seq_origin[j][1]) && 
+									CircDesigNA_SharedUtils.checkComplementary(seq_origin[i][0], seq_origin[j][0]);
+						}
 					}
 				}
-			}
-		}  
-		
-		double toRet;
+			}  
 
-		if (domainSequence.isCircular()){
-			NXFold(memo2, seq, N, nicks, false, constraints, marker);
-			int[][] Qb = memo2[PAIRED];
-			//If the circular DNA has no pairs
-			int best = 0;
-			//If the circular DNA has one pair 
-			for(int i = 0; i <= N-2; i++){
-				for(int j = i+1; j <= N-1; j++){
-					best = alt(best, combine(Qb[i][j],Qb[j][i]));
+			double toRet;
+
+			if (gir.isCircular()){
+				NXFold(memo2, seq, N, nicks, connectors, false, constraints, marker);
+				int[][] Qb = memo2[PAIRED];
+				//If the circular DNA has no pairs
+				int best = 0;
+				//If the circular DNA has one pair 
+				for(int i = 0; i <= N-2; i++){
+					for(int j = i+1; j <= N-1; j++){
+						best = alt(best, combine(Qb[i][j],Qb[j][i]));
+					}
 				}
+				toRet = best / 100.0;
+			} else {
+				NXFold(memo2, seq, N, nicks, connectors, true, constraints, marker);
+				toRet = getQe(memo2, 0, N-1, 0, 0) / 100.0;
 			}
-			toRet = best / 100.0;
-		} else {
-			NXFold(memo2, seq, N, nicks, true, constraints, marker);
-			toRet = getQe(memo2, 0, N-1, 0, 0) / 100.0;
+			return toRet;
+			
+		} finally {
+			returnLock();
 		}
-		
-		returnLock();
-		return toRet;
 	}
 	
-	private void NXFold(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
+	private void NXFold(int[][][] memo2, int[] seq, int N, int[] nicks, ConnectorFold[] connectors, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
 		switch(scoringModel){
 		//3: Finds the MFE over all unpseudoknotted structures, implemented in O(n^3) time.
 		case 3:
@@ -237,13 +373,13 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 			return;
 		//1: Finds the MFE over all unpseudoknotted structures with no interior loops or bulges
 		case 1:
-			N2Fold_NoLoops(memo2, seq, N, nicks, onlyUpperTriangle, constraints, marker);
+			N2Fold_NoLoops(memo2, seq, N, nicks, connectors, onlyUpperTriangle, constraints, marker);
 			return;
 		}
 		throw new RuntimeException("Not a valid scoring model: "+scoringModel);
 	}
 
-	//Indeces in n^2 memo
+	//Indeces in memo
 	private static final int 
 	EXTERNAL_00 = 0,
 	EXTERNAL_01 = EXTERNAL_00+1,
@@ -293,6 +429,8 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 	 * @param ds 
 	 */
 	private void N3Fold(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
+		if (true) throw new RuntimeException("Phase 3 not yet written to fold GIR's");
+		
 		//Initialization: all is impossible.
 		deepFill3(memo2, N, N, Integer.MAX_VALUE);
 
@@ -781,6 +919,8 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 	 * @param ds 
 	 */
 	private void N2Fold(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
+		if (true) throw new RuntimeException("Phase 2 not yet written to fold GIR's");
+		
 		//Initialization: all is impossible.
 		int maxLoopLen = 30;
 		deepFill3(memo2, 1, N, Integer.MAX_VALUE, 
@@ -1116,6 +1256,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 	 * Performs the recursion to compute the MFE energy over all foldings of the given strands which are
 	 * connected foldings and which do not contain any of the pairs in the constraint matrix and which do
 	 * not contain any interior loops, bulge loops, or multiloops (what remains is really just stems and hairpins)
+	 * Furthermore, any introduced pairs are assumed to NOT engage in coaxial stacking with other helixes.
 	 * 
 	 * If onlyUpperTriangle is true, then only recursions on subsequences [i,j], where i <= j, are computed.
 	 * This is essentially always on, with the exception of circular folding.
@@ -1123,7 +1264,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 	 * @param domain 
 	 * @param ds 
 	 */
-	private void N2Fold_NoLoops(int[][][] memo2, int[] seq, int N, int[] nicks, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
+	private void N2Fold_NoLoops(int[][][] memo2, int[] seq, int N, int[] nicks, ConnectorFold[] connectors, boolean onlyUpperTriangle, FoldingConstraints constraints, SequenceMarker marker) {
 		//Initialization: All structures are impossible.
 		deepFill3(memo2, 1, N, Integer.MAX_VALUE, 
 				EXTERNAL_00,
@@ -1131,10 +1272,12 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 				EXTERNAL_10,
 				EXTERNAL_11);
 		
+		int QbMemory = 4; //Remember 4 rows of the Qb matrix (i through i+3)
+		
 		if (memo2[PAIRED] == null || memo2[PAIRED].length < N){
-			memo2[PAIRED] = new int[N][];
+			memo2[PAIRED] = new int[Math.max(N, QbMemory)][];
 		}
-		deepFill3(memo2, onlyUpperTriangle?2:N, N, Integer.MAX_VALUE, 
+		deepFill3(memo2, onlyUpperTriangle?QbMemory:N, N, Integer.MAX_VALUE, 
 				PAIRED);
 		int[][] Qb = memo2[PAIRED];
 
@@ -1144,25 +1287,29 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		int[] Qe10 = memo2[EXTERNAL_10][0];
 		int[] Qe11 = memo2[EXTERNAL_11][0];			
 		
+		//Zero free energy is defined to be the free energy of the structure with no pairing of the numbered bases of the GIR
+		//However, we only measure the free energy of connected structures.
 		if (!containsNick(0, N-1, nicks)){
-			Qe00[N-1] = 0; //No pairs, allowed only if folding a single strand.
+			Qe00[N-1] = 0; //No pairs defined to have 0 delta G (connected structure only if a single strand (no nicks in [0, N-1]).
 		}
-		
+
 		int maxI = N-1; //Maximum possible value of i, trivially.
 		if (nicks.length >= 2 && onlyUpperTriangle){
 			//Then, the outermost pair must have as its left base a base in the first strand 
 			maxI = nicks[0];
-			swap(Qb, 0, (maxI + 1)%N);
-			swap(Qb, 1%N, (maxI + 2)%N);
+			//So that when we enter the loop, we fill Qb[maxI].
+			for(int k = 0; k < QbMemory; k++){
+				swap(Qb, k%N, (maxI + 1 + k)%N);
+			}
 		}
+
 		for( int i = maxI; i >= 0; i--){
 			if (onlyUpperTriangle){
 				//Memory saving trick: Qb[i][xxx] depends only on Qb[i+1][xxx], so drop all but 2 rows of Qb.
-				//Collect row i+2 to use as row i
-				swap(Qb, (i + 2)%N, i);
+				//Collect row i+QbMemory to use as row i
+				swap(Qb, (i + QbMemory)%N, i);
 			}
 			int[] Qbi = Qb[i];
-			int[] Qbip1 = Qb[(i+1)%N];
 			
 			int minL = 2; //Minimum possible value of L so that i and j are different bases, trivially.
 			if (nicks.length >= 2 && onlyUpperTriangle){
@@ -1171,63 +1318,55 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 				//It holds that minJ > maxI.
 				minL = minJ - maxI + 1;
 			}
+			
+			ConnectorSummary conSum_ij = new ConnectorSummary();
 			for( int L = minL; L <= N; L++ ){
 				int j = (i + L - 1) % N;
 				if (onlyUpperTriangle && j < i){
 					break;
 				}
+				int countNicks = countNicks(i,j,nicks);
+				boolean hasTopNick = containsNick(i, (i+1)%N, nicks);
+				boolean hasBottomNick = containsNick((j-1+N)%N,j,nicks);
+			
+				if (countNicks > 0){
+					conSum_ij = null;
+				} else {
+					if (L >= 3){
+						conSum_ij.extendInterval(seq[(j-2+N)%N], connectors[(j-2+N)%N], 
+								seq[(j-1+N)%N], connectors[(j - 1 + N)%N], 
+								seq[j], connectors[j]);
+					}
+				}
 				Qbi[j] = Integer.MAX_VALUE;
 				
-				//Structure of the recursion:
-				//001-Prelim) There is one top level pair in the interval i+1, j-1.
-				//001) i and j are paired with eachother
-					//001) They form an interior structure
-					//001.5) They form an exterior structure
-				//002) [i,j] is inside a multiloop (or exterior)
-					//002) [i,j] contains exactly one pair
-					//002.25) [i,j] contains 2 pairs exactly, coaxially stacked, and j is paired or j unpaired and j-1 paired
-					//002.5) External loop general case (>= 0 pairs)
-					//002.75) Multibranch general case (>=2 pairs)
-				
-				//001) i and j are paired with eachother, and they form an interior structure
+				//i and j are paired with eachother
 				if (!constraints.preventPairing(i,j) && !(Std.monomer.bindScore(seq[i], seq[j]) == 0)){
-					int countNicks = countNicks(i,j,nicks);
-					boolean hasTopNick = containsNick(i, (i+1)%N, nicks);
-					boolean hasBottomNick = containsNick((j-1+N)%N,j,nicks);
-					
-					//001) i and j pair, and bases i+1 through j-1 form a hairpin loop
+					//i and j pair, enclose an interior region, and all bases between i and j are unpaired
 					if (L >= 4 && (countNicks==0)){
-						Qbi[j] = eParams.getHairpinLoopDeltaG_deci(seq, N, i, L);
+						Qbi[j] = alt(Qbi[j], intLoopDG_1pair(seq, N, i, L, conSum_ij));
 					}
-					//i and j pair, i+1 and j-1 are paired 
-					if (L >= 4 && !(hasTopNick && hasBottomNick)){
-						int stack = eParams.getNN_deci(seq[i], seq[j], seq[(i+1)%N], seq[(j-1+N)%N]);
-						Qbi[j] = alt(Qbi[j], combine(Qbip1[(j-1+N)%N], stack));
-					}
-
-					//001.5) i and j are paired with eachother, and they form an exterior structure
+					//i and j pair, enclose a nicked region, and all bases between i and j are unpaired
 					if (countNicks > 0){
-						if (L == 2){
-							//Blunt end
-							int ATPenalty = eParams.getATPenalty_deci(seq[i], seq[j]);
-							Qbi[j] = ATPenalty;  
-						} else {
-							//Exterior loops. We must ban the case where a disconnected structure is formed.
-							if (countNicks > 2){
-								//Not possible.
-							} else {
-								int score = 0;
-								if (!hasTopNick){
-									//We have a top dangle
-									score = combine(score, eParams.getDangleTop_deci(seq[i], seq[j], seq[(i+1)%N]));
+						if (countNicks >= 2){
+							throw new RuntimeException("Folding of >=2 strands not yet implemented");
+						}
+						Qbi[j] =  alt(Qbi[j], extLoopDG_1pair(seq, N, i, L, nicks, connectors));
+					}
+					
+					//i and j pair, and [i,j] contains one non-connector pair, [d,e]. 
+					//The region formed between these two pairs may be interior or exterior. 
+					//Recall that no disconnected structures are allowed.
+					for(int L1 = 0; L1 <= QbMemory - 2; L1++){
+						for(int L2 = 0; L2 <= QbMemory - 2; L2++){
+							if (L1 + L2 + 4 <= L){
+								int d = (i+L1+1)%N;
+								int e = (j-L2-1+N)%N;
+								int score = Qb[d][e];
+								if (score != Integer.MAX_VALUE){
+									score = combine(score, loopDG_2pair(seq, N, nicks, i, L, L1, L2, connectors));
+									Qbi[j] =  alt(Qbi[j], score);		
 								}
-								if (!hasBottomNick){
-									//We have a bottom dangle
-									score = combine(score, eParams.getDangleBottom_deci(seq[i], seq[j], seq[(j-1+N)%N]));
-								}
-								score = combine(score, eParams.getATPenalty_deci(seq[i], seq[j]));
-
-								Qbi[j] = alt(Qbi[j], score);
 							}
 						}
 					}
@@ -1238,24 +1377,21 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 					}
 
 					if (onlyUpperTriangle){
+						//Outermost pair is i,j
 						int score = Qbi[j];
-						if (i != 0){
-							if (containsNick(0, i, nicks)){
-								score = Integer.MAX_VALUE;
-							} else {
-								score = combine(score, eParams.getDangleBottom_deci(seq[j], seq[i], seq[(i-1+N)%N]));
-							}
+						//Add score of external loop j to i
+						if (containsNick(0, i, nicks)){
+							//Disconnected!
+							score = Integer.MAX_VALUE;
+						} else
+						if (containsNick(j, N-1, nicks)){
+							//Disconnected!
+							score = Integer.MAX_VALUE;
+						} else
+						{
+							score =  combine(score, extLoopDG_1pair(seq, N, j, N - L + 2, nicks, connectors));
 						}
-						if (j != N-1){
-							if (containsNick(j, N-1, nicks)){
-								score = Integer.MAX_VALUE;
-							} else {
-								score = combine(score, eParams.getDangleTop_deci(seq[j], seq[i], seq[(j+1)%N]));
-							}
-						}
-						score = combine(score, eParams.getATPenalty_deci(seq[i], seq[j]));
 						
-						//External scores
 						if (i == 0){
 							if (j == N-1){
 								//11
@@ -1279,7 +1415,269 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		}
 	}	
 
+	/**
+	 * Method assumes the interval described contains no nicks
+	 */
+	private int intLoopDG_1pair(int[] seq, int N, int i, int L, ConnectorSummary interval) {
+		int a1 = eParams.getMultibranchBase_deci();
+		int a2 = eParams.getMultibranchBranch_deci();
+		int a3 = eParams.getMultibranchUnpairedBase_deci();
+		int j = (i + L - 1)%N;
+		if (interval.numConnectors == 0){
+			//Hairpin
+			int score = eParams.getHairpinLoopDeltaG_deci(seq, N, i, L);
+			return score;
+		}
+		
+		if (interval.numConnectors == 1){
+			//Interior loop scoring uses no dangles, so we lose all dangles!
+			int lostDangles = 0;
+			if (interval.numConnectors > 0){
+				//we lose the leftmost connector's left dangle
+				lostDangles -= eParams.getDangleBottom_deci(interval.leftPairBase1, interval.leftPairBase0, seq[(i + interval.unpairedBasesLeft)%N]);
+			}
+			if (interval.numConnectors > 0){
+				//we lose the rightmost connector's right dangle
+				lostDangles -= eParams.getDangleTop_deci(interval.rightPairBase1, interval.rightPairBase0, seq[(j - interval.unpairedBasesRight + N)%N]);
+			}
+			
+			//Internal loop
+			int L1 = interval.unpairedBasesLeft;
+			int L2 = interval.unpairedBasesRight;
 
+			int based = interval.leftPairBase0;
+			int basee = interval.leftPairBase1;
+			
+			int loopScore = intLoopDG_2pair_noConnectors(seq, N, i, j, based, basee, L1, L2);
+			return combine(loopScore, lostDangles);
+		}
+
+		if (interval.numConnectors >= 2){
+			int lostDangles = 0;
+			if (interval.numConnectors > 0 && interval.unpairedBasesLeft == 0){
+				//we lose the leftmost connector's left dangle because i,j are paired
+				lostDangles -= eParams.getDangleBottom_deci(interval.leftPairBase1, interval.leftPairBase0, seq[i]);
+			}
+			if (interval.numConnectors > 0 && interval.unpairedBasesRight == 0){
+				//we lose the rightmost connector's right dangle because i,j are paired
+				lostDangles -= eParams.getDangleTop_deci(interval.rightPairBase1, interval.rightPairBase0, seq[j]);
+			}
+			
+			//Multiloop
+			int score = a1;
+			score += a2*(interval.numConnectors + 1);
+			score += a3*interval.unpairedBases; //which are unpaired
+			
+			//two new dangles
+			if (interval.unpairedBasesLeft > 0){
+				score = combine(score, eParams.getDangleTop_deci(seq[i], seq[j], seq[(i+1)%N]));
+			}
+			if (interval.unpairedBasesRight > 0){
+				score = combine(score, eParams.getDangleBottom_deci(seq[i], seq[j], seq[(j-1+N)%N]));
+			}
+			score = combine(lostDangles, score);
+
+			//AT penalty added for the new closing of one new stack
+			score = combine(score, eParams.getATPenalty_deci(seq[i], seq[j]));
+			
+			return score;
+		}
+		throw new RuntimeException("Assertion error");
+	}
+
+	/**
+	 * Method assumes the region described contains no nicks
+	 */
+	private int intLoopDG_2pair_noConnectors(int[] seq, int N, int i, int j, int based, int basee, int L1, int L2) {
+		int stack = eParams.getNN_deci(seq[i], seq[j], based, basee);
+		if (L1 == 0 && L2 == 0){
+			return stack;
+		} 
+		//In the standard model, bulge loops have no sequence dependence on the unpaired bases. 
+		if (L1 == 0 && L2 > 0){
+			int bulge = eParams.getBulgeLoop_deci(L2); 
+			//For L2 == 1 we consider that the stack is not terminated
+			if (L2 == 1){
+				return combine(bulge, stack);
+			} else {
+				int ATPenalty = eParams.getATPenalty_deci(based, basee) + eParams.getATPenalty_deci(seq[i], seq[j]);
+				return combine(bulge, ATPenalty);
+			}
+		}
+		if (L2 == 0 && L1 > 0){
+			//For L1 == 1 we consider that the stack is not terminated
+			int bulge = eParams.getBulgeLoop_deci(L1);
+			if (L1 == 1){
+				return combine(bulge, stack);
+			} else {
+				int ATPenalty = eParams.getATPenalty_deci(based, basee) + eParams.getATPenalty_deci(seq[i], seq[j]);
+				return combine(bulge, ATPenalty);
+			}
+		}
+		//true interior loops
+		if (L1 > 0 && L2 > 0){
+			if (L1 == 1 && L2 == 1){
+				return eParams.get1x1InteriorLoop_deci(seq[i], seq[j], seq[(i+1)%N], seq[(j-1+N)%N], based, basee);
+			} else if (L1 == 1 && L2 == 2){
+				return eParams.get1x2InteriorLoop_deci(seq[i], seq[j], seq[(i+1)%N], seq[(j-1+N)%N], seq[(j-2+N)%N], based, basee);
+			} else if (L1 == 2 && L2 == 1){
+				return eParams.get2x1InteriorLoop_deci(seq[i], seq[j], seq[(i+1)%N], seq[(j-1+N)%N], seq[(i+2)%N], based, basee);
+			} else if (L1 == 2 && L2 == 2){
+				return eParams.get2x2InteriorLoop_deci(seq[i], seq[j], seq[(i+1)%N], seq[(j-1+N)%N], seq[(i+2)%N], seq[(j-2+N)%N], based, basee);
+			} else {
+				int NINIOAssym = eParams.getNINIOAssymetry(L1, L2);
+				int leftTerminator = eParams.getInteriorNNTerminal_deci(seq[i], seq[j], seq[(i+1)%N], seq[(j-1+N)%N]);
+				if (leftTerminator == Integer.MAX_VALUE){
+					return Integer.MAX_VALUE;
+				}
+				int ep1 = (j - L2)%N;
+				int dm1 = (i + L1)%N;
+				int rightTerminator = eParams.getInteriorNNTerminal_deci(basee, based, seq[ep1], seq[dm1]);
+				if (rightTerminator == Integer.MAX_VALUE){
+					return Integer.MAX_VALUE;
+				}
+				return combine(
+						combine(
+							combine(eParams.getInteriorLoopSizeTerm_deci(L1 + L2), NINIOAssym), 
+							leftTerminator), rightTerminator);
+			}
+		}
+		throw new RuntimeException("Assertion error");
+	}
+	
+	/**
+	 * Generic (can contain nicks) 2-pair defined region scorer.
+	 */
+	private int loopDG_2pair(int[] seq, int N, int[] nicks, int i, int L, int L1, int L2, ConnectorFold[] connectors) {
+		int j = (i + L - 1)%N;
+		int d = (i + L1 + 1)%N;
+		int e = (j - L2 - 1 + N)%N;
+		
+		int lostDangles = 0;
+		int addedDangles = 0; //added to multiloop or exterior loop scores
+		
+		if (connectors[i].rightN > 0){
+			//we lose the dangle from i
+			lostDangles -= eParams.getDangleBottom_deci(connectors[i].rightPairBase1, connectors[i].rightPairBase0, seq[i]);
+		} else if (L1 > 0){
+			//we gain the dangle from i+1
+			addedDangles += eParams.getDangleTop_deci(seq[i], seq[j], seq[(i+1)%N]);
+		}
+		if (connectors[d].leftN > 0){
+			//we lose the dangle from d
+			lostDangles -= eParams.getDangleTop_deci(connectors[d].leftPairBase1, connectors[d].leftPairBase0, seq[d]);
+		} else if (L1 > 0){
+			//we gain the dangle from d-1
+			addedDangles += eParams.getDangleBottom_deci(seq[e], seq[d], seq[(d-1+N)%N]);
+		}
+		if (connectors[j].leftN > 0){
+			//we lose the dangle from j
+			lostDangles -= eParams.getDangleTop_deci(connectors[j].leftPairBase1, connectors[j].leftPairBase0, seq[j]);
+		} else if (L2 > 0){
+			//we gain the dangle from j-1
+			addedDangles += eParams.getDangleBottom_deci(seq[i], seq[j], seq[(j-1+N)%N]);
+		}
+		if (connectors[e].rightN > 0){
+			//we lose the dangle from e
+			lostDangles -= eParams.getDangleBottom_deci(connectors[e].rightPairBase1, connectors[e].rightPairBase0, seq[e]);
+		} else if (L2 > 0){
+			//we gain the dangle from e+1
+			addedDangles += eParams.getDangleTop_deci(seq[e], seq[d], seq[(e+1)%N]);
+		}
+
+		boolean leftNicked = containsNick(i,d,nicks);
+		boolean rightNicked = containsNick(e,j,nicks);
+		
+		if (leftNicked && rightNicked){
+			//Disconnected!
+			return Integer.MAX_VALUE;
+		} else if (leftNicked && !rightNicked){
+			//Loop is exterior, but we may be able to coaxially stack the two stems
+			if (L2 <= 1){ //one intermediate base is O.K.
+				return combine(lostDangles, addedDangles, eParams.getNN_deci(seq[i], seq[j], seq[d], seq[e]));
+			} else {
+				//Two stacks
+				int score = eParams.getATPenalty_deci(seq[i], seq[j]);
+				score = combine(score, eParams.getATPenalty_deci(seq[d], seq[e]));
+				return combine(lostDangles, addedDangles, score);
+			}
+		} else if (rightNicked && !leftNicked){
+			//Loop is exterior, but we may be able to coaxially stack the two stems
+			if (L1 <= 1){ //one intermediate base is O.K.
+				return combine(lostDangles, addedDangles, eParams.getNN_deci(seq[i], seq[j], seq[d], seq[e]));
+			} else {
+				//Two stacks
+				int score = eParams.getATPenalty_deci(seq[i], seq[j]);
+				score = combine(score, eParams.getATPenalty_deci(seq[d], seq[e]));
+				return combine(lostDangles, addedDangles, score);
+			}
+		} else {
+			//Interior region.
+			int numLoops = 2; //For the two introduced pairs
+			for(int u = 0; u < L1; u++){
+				numLoops += connectors[(i+u)%N].rightN;
+			}
+			for(int u = 0; u < L2; u++){
+				numLoops += connectors[(e+u)%N].rightN;
+			}
+
+			if (numLoops >= 3){	
+				int a1 = eParams.getMultibranchBase_deci();
+				int a2 = eParams.getMultibranchBranch_deci();
+				int a3 = eParams.getMultibranchUnpairedBase_deci();
+				//Interior multiloop
+				int loop = a1;
+				loop += a2*(numLoops);
+				loop += a3*(L1 + L2);
+				//AT penalty added for the new closing of two new stacks
+				int score = combine(loop, eParams.getATPenalty_deci(seq[i], seq[j]));
+				score = combine(score, eParams.getATPenalty_deci(seq[d], seq[e]));
+				return combine(lostDangles, addedDangles, score);
+			} else {
+				if (lostDangles != 0){
+					throw new RuntimeException("Assertion error");
+				}
+				//Interior, non-multiloop
+				int score = intLoopDG_2pair_noConnectors(seq, N, i, j, seq[d], seq[e], L1, L2);
+				return score;
+			}
+		}
+	}
+
+	/**
+	 * Method assumes there is precisely one nick in [i, i+L].
+	 */
+	private int extLoopDG_1pair(int[] seq,  int N, int i, int L, int[] nicks, ConnectorFold[] connectors) {
+		int j = (i + L - 1)%N;
+		boolean hasTopNick = containsNick(i, (i+1)%N, nicks);
+		boolean hasBottomNick = containsNick((j-1+N)%N,j,nicks);
+		//AT penalty
+		int score = eParams.getATPenalty_deci(seq[i], seq[j]);
+		int lostDangles = 0;
+		
+		if (connectors[i].rightN > 0){
+			//we lose i's dangle
+			lostDangles -= eParams.getDangleBottom_deci(connectors[i].rightPairBase1, connectors[i].rightPairBase0, seq[i]);
+		} else {
+			//we gain a dangle on i
+			if (L > 2 && !hasTopNick){
+				score = combine(score, eParams.getDangleTop_deci(seq[i], seq[j], seq[(i+1)%N]));
+			}
+		}
+		
+		if (connectors[j].leftN > 0){
+			//we lose j's dangle
+			lostDangles -= eParams.getDangleTop_deci(connectors[j].leftPairBase1, connectors[j].leftPairBase0, seq[j]);
+		} else {
+			//we gain a dangle on j
+			if (L > 2 && !hasBottomNick){
+				score = combine(score, eParams.getDangleBottom_deci(seq[i], seq[j], seq[(j-1+N)%N]));
+			}
+		}
+		
+		return combine(lostDangles, score);
+	}
+	
 	private int getQmGe1(int[][][] memo2, int[] seq, int N, int[] nicks, int i, int j, int bonusIfIUnpaired, int bonusIfJUnpaired) {
 		int best = combine(getQmGe1_00(memo2, seq, N, nicks, i, j), bonusIfIUnpaired, bonusIfJUnpaired);
 		best = alt(best, combine(getQmGe1_01(memo2, seq, N, nicks, i, j), bonusIfIUnpaired));
@@ -1424,7 +1822,7 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 
 	/**
 	 * [d,e] is coaxial to [i,j], with y bases on the continuous backbone of the coaxial stack, and the left backbone of [i,j] is continuous to d.
-	 * In other words, d = (i+y)%N. 
+	 * In other words, d = (i+y+1)%N. 
 	 */
 	private int getCoaxialStackBonus(int[][][] memo2, int[] seq, int N, int[] nicks, int i, int j, int d, int e, int y) {
 		if (containsNick(i, d, nicks)){
@@ -1441,7 +1839,18 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		}
 		return dangles;
 	}
-
+	/**
+	 * [d,e] is coaxial to [i,j], with y bases on the continuous backbone of the coaxial stack, and the left backbone of [i,j] is continuous to d.
+	 * In other words, d = (i+y)%N. 
+	 * 
+	 * This is a special case of getCoaxialStackBonus, where the bases are provided and y = 0.
+	 */
+	private int getCoaxialStackBonus(int basei, int basej, int based, int basee) {
+		int dangles = combine(eParams.getDangleBottom_deci(basei, basej, basee), 
+					eParams.getDangleTop_deci(basee, based, basej));
+		return dangles;
+	}
+	
 	private int countNicks(int i, int j, int[] nicks){
 		int count = 0;
 		for(int nick = 0; nick < nicks.length; nick++){
@@ -1565,13 +1974,13 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		return j;
 	}
 
-	public double mfeNoDiag(DomainSequence domainSequence,
-			DomainSequence domainSequence2, int[][] domain,
+	public double mfeNoDiag(GeneralizedInteractiveRegion GeneralizedInteractiveRegion,
+			GeneralizedInteractiveRegion GeneralizedInteractiveRegion2, int[][] domain,
 			int[][] domain_markings) {
 		throw new RuntimeException("TODO");
 	}
 
-	public double mfeStraight(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset) {
+	public double mfeStraight(GeneralizedInteractiveRegion seq1, GeneralizedInteractiveRegion seq2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset) {
 		int score = 0;
 		int N1 = seq1.length(domain);
 		int N2 = seq2.length(domain);

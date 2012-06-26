@@ -19,15 +19,15 @@
 */
 package circdesigna.impl;
 
-import static circdesigna.CircDesigNA.int_urn;
-import static circdesigna.DomainSequence.DNAMARKER_DONTMUTATE;
+import static circdesigna.GeneralizedInteractiveRegion.DNAMARKER_DONTMUTATE;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
-import circdesigna.DesignerCode;
-import circdesigna.DomainDefinitions;
 import circdesigna.CircDesigNA;
 import circdesigna.CircDesigNA.ScorePenalty;
+import circdesigna.DesignerCode;
+import circdesigna.DomainDefinitions;
 import circdesigna.abstractDesigner.SingleMemberDesigner;
 
 
@@ -44,6 +44,9 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 		this.dd = domainDesigner;
 		this.mutableDomains = mutableDomains;
 		mutation_shared = new Mutation();
+		
+		PROB_MUT_DOMAIN = .9;
+		PROB_MUT_BASE = .9; 
 	}
 	private DesignerCode[] mutators;
 	private CircDesigNAPMemberImpl defaultBackupCache;
@@ -51,7 +54,13 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 	int[] mutableDomains;
 	private CircDesigNA dd;
 	private DomainDefinitions dsd;
-
+	private double PROB_MUT_BASE;
+	private double PROB_MUT_DOMAIN;
+	
+	public void setMutationProbabilities(double PROB_MUT_DOMAIN, double PROB_MUT_BASE) {
+		this.PROB_MUT_BASE = PROB_MUT_BASE;
+		this.PROB_MUT_DOMAIN = PROB_MUT_DOMAIN;
+	}
 	public double getOverallScore(CircDesigNAPMemberImpl q) {
 		double current_score = 0;
 		for(ScorePenalty s : q.penalties){
@@ -65,83 +74,50 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 	}
 	
 	private class Mutation {
-		public int[] mut_domains = new int[dd.MAX_MUTATION_DOMAINS];
-		boolean[] domain_mutated;
-		int num_domains_mut;
-		boolean revert_mutation, newPointReached;
+		private ArrayList<Integer> mut_domains = new ArrayList();
+		private boolean revert_mutation, newPointReached;
 		
 		public void Mutate(CircDesigNAPMemberImpl q, CircDesigNAPMemberImpl backup, boolean fullBackup){
-			domain_mutated = new boolean[q.domain.length];
-			Arrays.fill(domain_mutated,false);
-			num_domains_mut = int_urn(1,Math.min(dd.MAX_MUTATION_DOMAINS,mutableDomains.length));
+			mut_domains.clear();
 			
-			//Select random domains to mutate
-			for(int k = 0; k < num_domains_mut; k++){
-				int mut_domain_search = int_urn(0, mutableDomains.length-1);
-				int mut_domain = 0;
-				for(int o = 0; o < mutableDomains.length; o++){
-					mut_domain = mutableDomains[(mut_domain_search+o)%mutableDomains.length];
-					if (domain_mutated[mut_domain]){
-						continue;
-					}
-					break;
-				}
-				if(domain_mutated[mut_domain]){
-					//num_domains_mut--;
-					k--;
-					continue;
-				}
-				
-				/*
-				if (timesSameCount > 0){
-					max_mutations = Math.max(MAX_MUTATIONS_LIMIT/timesSameCount,min_mutations);
-				}
-				*/
-
-				mut_domains[k] = mut_domain;
-				domain_mutated[mut_domain] = true;
-			}
-
 			if (fullBackup){
 				backup.seedFromOther(q);
 			}
 			
 			//System.out.print("#ds="+num_domains_mut+" ");
-			
+
 			int total_mutated = 0;
-			
-			for(int i = 0; i < num_domains_mut; i++){
-				int min_mutations = 1;
-				int max_mutations = dd.MAX_MUTATIONS_LIMIT;
-				int mut_domain = mut_domains[i];
-				if (!fullBackup){
-					//Backup
-					System.arraycopy(q.domain[mut_domain],0,backup.domain[mut_domain],0,q.domain[mut_domain].length);
-					System.arraycopy(q.domain_markings[mut_domain],0,backup.domain_markings[mut_domain],0,q.domain[mut_domain].length);
+			while(total_mutated == 0) { //mutate at least one base
+				for(int mut_domain : mutableDomains){
+					//Mutate this domain?
+					if (Math.random() < PROB_MUT_DOMAIN){
+						if (!fullBackup){
+							//Backup
+							System.arraycopy(q.domain[mut_domain],0,backup.domain[mut_domain],0,q.domain[mut_domain].length);
+							System.arraycopy(q.domain_markings[mut_domain],0,backup.domain_markings[mut_domain],0,q.domain[mut_domain].length);
+						}
+						//Mutate
+						int mutated = dd.mutateDomain(mut_domain, q.domain, q.domain_markings, mutators[mut_domain], PROB_MUT_BASE);
+						total_mutated += mutated;
+						if (mutated > 0){
+							mut_domains.add(mut_domain);
+						}						
+					}
 				}
-				//Mutate
-				int mutated = dd.mutateUntilValid(mut_domain, q.domain, q.domain_markings, mutators[mut_domain], min_mutations, max_mutations);
-				if (mutated==0 && q.domain[mut_domain].length > 4){
-					//Do nothing.
-				}
-				total_mutated += mutated;
 			}
-			
 			//System.out.print("#ns="+total_mutated+" ");
 		}
 		
 		public void Evaluate(CircDesigNAPMemberImpl q, boolean ShortcircuitOnRegression){
 			//Reset markers.
-			for(int k = 0; k < num_domains_mut; k++){
-				int mut_domain = mut_domains[k];
+			for(int mut_domain : mut_domains){
 				Arrays.fill(q.domain_markings[mut_domain], DNAMARKER_DONTMUTATE);
 			}
 			double deltaScoreSum = 0;
 			
 			int priority;
 			priorityLoop: for(priority = 0; priority <= 2; priority++){
-				for(int k = 0; k < num_domains_mut; k++){
-					int mut_domain = mut_domains[k];
+				for(int mut_domain : mut_domains){
 					for(int sd : q.scoredElements[mut_domain]){
 						ScorePenalty s = q.penalties.get(sd);
 						if (s.in_intermediate_state){
@@ -210,8 +186,7 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 		}
 
 		public void Revert(CircDesigNAPMemberImpl q) {
-			for(int k = 0; k < num_domains_mut; k++){
-				int mut_domain = mut_domains[k];
+			for(int mut_domain : mut_domains){
 				//Revert ALL scores.
 				for(int sd : q.scoredElements[mut_domain]){
 					ScorePenalty s = q.penalties.get(sd);
@@ -338,7 +313,7 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 	 * Copies q into into, and then mutates into, evaluating its new penalties.
 	 * Allows into to be a regression of q.
 	 */
-	public boolean mutateAndTest(CircDesigNAPMemberImpl q, CircDesigNAPMemberImpl into) {
+	public boolean mutateAndEval(CircDesigNAPMemberImpl q, CircDesigNAPMemberImpl into) {
 		into.seedFromOther(q);
 		mutation_shared.Mutate(into, defaultBackupCache, true);
 		mutation_shared.Evaluate(into, false);
@@ -353,7 +328,7 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 	 * Chromosomal-style crossover of solutions. Creates a new member (into) which is
 	 * still inside the search space, assuming a and b were.
 	 */
-	public boolean fourPtCrossoverAndTest(CircDesigNAPMemberImpl a,
+	public boolean fourPtCrossoverAndEval(CircDesigNAPMemberImpl a,
 			CircDesigNAPMemberImpl b, CircDesigNAPMemberImpl into) {
 		
 		into.seedFromOther(a);
@@ -377,7 +352,7 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 		//	System.arraycopy(a.domain[domain], 0, into.domain[domain], 0, a.domain[domain].length);
 		//}
 		//Keep track of which domains were mutated:
-		mutation_shared.num_domains_mut = 0;
+		mutation_shared.mut_domains.clear();
 		
 		//0..ptA from a :: ptC..ptD from b :: ptB to totalBits from b
 		//copy2d(a.domain,0,into.domain,0,ptA);
@@ -456,12 +431,12 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 		copy2d_ay = y;
 		int sucessful = 0;
 		for(int mut_domain = 0; mut_domain < bits.length; mut_domain++){
-			mutators[mut_domain].reset();
+			mutators[mut_domain].init();
 		}
 		for(i = 0; i < num; i++){
 			//Record that we're writing to a domain:
-			if (recorder.num_domains_mut==0 || recorder.mut_domains[recorder.num_domains_mut-1]!=copy2d_bi){
-				recorder.mut_domains[recorder.num_domains_mut++] = copy2d_bi;
+			if (recorder.mut_domains.isEmpty() || recorder.mut_domains.get(recorder.mut_domains.size()-1)!=copy2d_bi){
+				recorder.mut_domains.add(copy2d_bi);
 			}
 			if (bits2[copy2d_bi][copy2d_by] == bits[copy2d_ai][copy2d_ay]){
 				sucessful++;
@@ -475,4 +450,6 @@ public class SequenceDesignBlockDesignerImpl extends SingleMemberDesigner<CircDe
 		}
 		//System.out.printf("%d of %d crossover bases successfully transferred.\n",sucessful,num);
 	}
+
+	
 }

@@ -401,7 +401,7 @@ public class DomainStructureBNFTree extends AbstractComplex{
 		}
 	}
 	public static class HairpinStem extends DomainStructure {
-		public float openingSize = 2;
+		public static final float openingSize = 1.5f;
 		public float hydrogenBondStrength = 1; //Maximum alpha at 1
 		
 		public HairpinStem(int ... whichDomain) {
@@ -496,7 +496,7 @@ public class DomainStructureBNFTree extends AbstractComplex{
 		}
 	}
 	public static class ThreePFivePOpenJunc extends DomainStructure{
-		public float size = 1.2f;
+		public static float size = 1.2f;
 
 		public ThreePFivePOpenJunc() {
 			super();

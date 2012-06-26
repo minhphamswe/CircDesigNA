@@ -29,7 +29,7 @@ public class SequenceCode implements DesignerCode{
 	public void setConstraints(DesignSequenceConstraints dsc){
 		this.dsc = dsc;
 	}
-	public void reset() {
+	public void init() {
 		dsc.eraseBaseCounts();
 	}
 	public boolean mutateToOther(int[][] domain, int mut_domain, int j, int newbase){

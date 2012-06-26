@@ -144,7 +144,6 @@ public class CodonCode extends CircDesigNASystemElement implements DesignerCode{
 		try {
 			amino = forwardTable[pow8];
 
-			//k.
 			possible = reverseTable[amino];
 			if (possible.length==0){
 				throw new RuntimeException();
@@ -366,7 +365,7 @@ public class CodonCode extends CircDesigNASystemElement implements DesignerCode{
 	public boolean mutateToOther(int[][] domain, int whichDomain, int i, int newbase) {
 		throw new RuntimeException("Do not use the crossover operator when doing protein design.");
 	}
-	public void reset() {
+	public void init() {
 	
 	}
 }

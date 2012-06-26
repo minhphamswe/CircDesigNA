@@ -20,7 +20,6 @@
 package circdesigna;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Scanner;
 
 import circdesigna.config.CircDesigNAConfig;

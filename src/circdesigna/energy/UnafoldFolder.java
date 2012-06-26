@@ -21,7 +21,7 @@ package circdesigna.energy;
 
 import java.io.PrintWriter;
 
-import circdesigna.DomainSequence;
+import circdesigna.GeneralizedInteractiveRegion;
 import circdesigna.config.CircDesigNAConfig;
 import circdesigna.config.CircDesigNASystemElement;
 import circdesigna.plugins.RunUnafoldTool.UnafoldFoldEntry;
@@ -50,7 +50,7 @@ public class UnafoldFolder extends CircDesigNASystemElement implements NAFolding
 	/**
 	 * UNAFOLD extension: send a request out to unafold.
 	 */
-	public double mfe(DomainSequence ds, DomainSequence ds2, int[][] domain, int[][] domain_markings) {
+	public double mfe(GeneralizedInteractiveRegion ds, GeneralizedInteractiveRegion ds2, int[][] domain, int[][] domain_markings) {
 		UnafoldRunner ufr = new UnafoldRunner(Std.isDNAMode()?"DNA":"RNA");
 
 		int len = ds.length(domain);
@@ -106,7 +106,7 @@ public class UnafoldFolder extends CircDesigNASystemElement implements NAFolding
 	/**
 	 * Unafold extension: send a request out to unafold
 	 */
-	public double mfe(DomainSequence seq, int[][] domain, int[][] domain_markings) {
+	public double mfe(GeneralizedInteractiveRegion seq, int[][] domain, int[][] domain_markings) {
 		UnafoldRunner ufr = new UnafoldRunner(Std.isDNAMode()?"DNA":"RNA");
 
 		int len = seq.length(domain);
@@ -198,20 +198,20 @@ public class UnafoldFolder extends CircDesigNASystemElement implements NAFolding
 		throw new RuntimeException();
 		*/
 	}
-	public double mfeNoDiag(DomainSequence domainSequence,
-			DomainSequence domainSequence2, int[][] domain,
+	public double mfeNoDiag(GeneralizedInteractiveRegion GeneralizedInteractiveRegion,
+			GeneralizedInteractiveRegion GeneralizedInteractiveRegion2, int[][] domain,
 			int[][] domain_markings) {
 		throw new RuntimeException("Not available with this folding tool.");
 	}
-	public double mfeStraight(DomainSequence domainSequence,
-			DomainSequence domainSequence2, int[][] domain,
+	public double mfeStraight(GeneralizedInteractiveRegion GeneralizedInteractiveRegion,
+			GeneralizedInteractiveRegion GeneralizedInteractiveRegion2, int[][] domain,
 			int[][] domain_markings, int markLeft, int markRight, int joffset) {
 		throw new RuntimeException("Not available with this folding tool.");
 	}
-	public void pairPr(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain) {
+	public void pairPr(double[][] pairsOut, GeneralizedInteractiveRegion seq1, GeneralizedInteractiveRegion seq2, int[][] domain) {
 		throw new RuntimeException("Not available with this folding tool.");
 	}
-	public void pairPr(double[][] pairsOut, DomainSequence seq1, int[][] domain) {
+	public void pairPr(double[][] pairsOut, GeneralizedInteractiveRegion seq1, int[][] domain) {
 		throw new RuntimeException("Not available with this folding tool.");
 	}
 }

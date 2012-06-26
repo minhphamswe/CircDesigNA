@@ -32,26 +32,20 @@ import circdesigna.CircDesigNA;
 public class StandardTournament <T extends PopulationDesignMember<T>>  extends TournamentDesigner <T> {
 	public StandardTournament(SingleMemberDesigner<T> SingleDesigner, double d) {
 		super(SingleDesigner);
-		designTime = (long) (d*1e9);
+		SingleDesigner.setMutationProbabilities(.1, .01);
 	}
 	private int numElites = 1;
-	private long designTime;
 	public void runBlockIteration_(CircDesigNA runner, double endThreshold) {
-		long now = System.nanoTime();
-		while(true){
-			for(int i = 0; i < populationSize; i++){
-				boolean mutationSuccessful = SingleDesigner.mutateAndTestAndBackup(population_mutable[i]);
-				//System.out.println(mutationSuccessful);
-				if(runner!=null && runner.abort){
-					return; //Abort
-				}	
+		for(int i = 0; i < populationSize; i++){
+			boolean mutationSuccessful = SingleDesigner.mutateAndTestAndBackup(population_mutable[i]);
+			runner.evaluated_strings++;
+			//System.out.println(mutationSuccessful);
+			if(runner!=null && runner.abort){
+				return; //Abort
+			}	
 
-				setProgress((i+1), populationSize);
-			}
-			tournamentSelect(numElites);
-			if (System.nanoTime()-now > designTime){
-				break; //Timeup
-			}
+			setProgress((i+1), populationSize);
 		}
+		tournamentSelect(numElites);
 	}
 }

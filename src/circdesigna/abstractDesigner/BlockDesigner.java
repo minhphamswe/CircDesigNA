@@ -74,7 +74,7 @@ public abstract class BlockDesigner <T extends PopulationDesignMember<T>>{
 	public void runBlockIteration(CircDesigNA runner, double endThreshold){
 		iterations++;
 		System.out.print("Iteration "+iterations+" ");
-		
+	
 		runBlockIteration_(runner,endThreshold);
 	
 		if (ASSERT_SCOREFUNC_ISOLATION){

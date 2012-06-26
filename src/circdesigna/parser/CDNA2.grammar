@@ -1,7 +1,7 @@
 %package "circdesigna.parser";
 %class "CDNA2Parser";
 
-%init {:	
+%init {:
 		report = new Parser.Events(){
 			public void scannerError(Scanner.Exception e)
 			{
@@ -27,15 +27,21 @@
 
 %typeof DOMAINNAME = "String";
 %typeof molecule = "ArrayList";
+%typeof options = "ArrayList";
 
 %goal molecule;
 
+options
+	= options.o? DOMAINNAME.n {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Option neu = new CDNA2Token.Option(n); p.add(neu); return new Symbol(p); :}
+	;
+
 molecule	
-	= molecule.b? DOMAINNAME.n  {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Domain neu = new CDNA2Token.Domain(n); p.add(neu); return new Symbol(p); :}
+	= molecule.b? DOMAINNAME.n {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Domain neu = new CDNA2Token.Domain(n); p.add(neu); return new Symbol(p); :}
     | molecule.a LPAREN {: ((CDNA2Token.Domain)a.get(a.size()-1)).setOpen(parenStack); return new Symbol(a); :}
 	| molecule.a RPAREN {: ((CDNA2Token.Domain)a.get(a.size()-1)).setClosed(parenStack); return new Symbol(a); :}
 	| molecule.a MULT {: ((CDNA2Token.Domain)a.get(a.size()-1)).setComplement(); return new Symbol(a); :}
 	| molecule.a DOT {: ((CDNA2Token.Domain)a.get(a.size()-1)).setSingleStranded(); return new Symbol(a); :}
 	| molecule.b? LSQBRACE {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.add(new CDNA2Token.FivePrimeEnd(braceStack)); return new Symbol(p); :}
-	| molecule.a RCBRACE {: a.add(new CDNA2Token.ThreePrimeEnd(braceStack)); return new Symbol(a); :} 
+	| molecule.a RCBRACE {: a.add(new CDNA2Token.ThreePrimeEnd(braceStack)); return new Symbol(a); :}
+	| molecule.b? DSIGN options.o DSIGN {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.addAll(o); return new Symbol(p); :} 
 	;

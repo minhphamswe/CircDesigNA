@@ -242,7 +242,7 @@ public class ExperimentalDuplexParams extends CircDesigNASystemElement {
 	/**
 	 * Loop of 5'-A X1 C-3' over 3'-B X2 D-5'
 	 */
-	private int get1x1InteriorLoop_deci(int A, int B, int X1, int X2, int C, int D) {
+	public int get1x1InteriorLoop_deci(int A, int B, int X1, int X2, int C, int D) {
 		A = getNormalBase(A);
 		B = getNormalBase(B);
 		X1 = getNormalBase(X1);
@@ -255,7 +255,7 @@ public class ExperimentalDuplexParams extends CircDesigNASystemElement {
 	/**
 	 * Loop of 5'-A X1 C-3' over 3'-B X2 Y2 D-5'
 	 */
-	private int get1x2InteriorLoop_deci(int A, int B, int X1, int X2, int Y2, int C, int D) {
+	public int get1x2InteriorLoop_deci(int A, int B, int X1, int X2, int Y2, int C, int D) {
 		A = getNormalBase(A);
 		B = getNormalBase(B);
 		X1 = getNormalBase(X1);
@@ -268,7 +268,7 @@ public class ExperimentalDuplexParams extends CircDesigNASystemElement {
 	/**
 	 * Loop of 5'-A X1 Y1 C-3' over 3'-B X2 D-5'
 	 */
-	private int get2x1InteriorLoop_deci(int A, int B, int X1, int X2, int Y1, int C, int D) {
+	public int get2x1InteriorLoop_deci(int A, int B, int X1, int X2, int Y1, int C, int D) {
 		A = getNormalBase(A);
 		B = getNormalBase(B);
 		X1 = getNormalBase(X1);
@@ -283,7 +283,7 @@ public class ExperimentalDuplexParams extends CircDesigNASystemElement {
 	/**
 	 * Loop of 5'-A X1 Y1 C-3' over 3'-B X2 Y2 D-5'
 	 */
-	private int get2x2InteriorLoop_deci(int A, int B, int X1, int X2, int Y1, int Y2, int C, int D) {
+	public int get2x2InteriorLoop_deci(int A, int B, int X1, int X2, int Y1, int Y2, int C, int D) {
 		A = getNormalBase(A);
 		B = getNormalBase(B);
 		X1 = getNormalBase(X1);

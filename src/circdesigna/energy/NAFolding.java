@@ -19,7 +19,7 @@
 */
 package circdesigna.energy;
 
-import circdesigna.DomainSequence;
+import circdesigna.GeneralizedInteractiveRegion;
 
 /**
  * Describes objects which support many useful nucleic acid folding routines
@@ -46,8 +46,8 @@ import circdesigna.DomainSequence;
  * The one argument version does the same, but for pair probabilities of single stranded structures (a strand folding on itself)
  */
 public interface NAFolding {
-	public double mfe(DomainSequence seq1, DomainSequence seq2, int[][] domain, int[][] domain_markings);
-	public double mfe(DomainSequence domainSequence, int[][] domain, int[][] domain_markings);
+	public double mfe(GeneralizedInteractiveRegion seq1, GeneralizedInteractiveRegion seq2, int[][] domain, int[][] domain_markings);
+	public double mfe(GeneralizedInteractiveRegion domainSequence, int[][] domain, int[][] domain_markings);
 	/**
 	 * Unlike the other MFE prediction functions, this returns a value which is offset by an appropriate
 	 * baseline for 50% G/C strand of the same length and type (DNA / RNA). 
@@ -55,8 +55,8 @@ public interface NAFolding {
 	 * That is, a negative value here means that there exists an more-than-expected misaligned pairing
 	 * between the two equal length  
 	 */
-	public double mfeNoDiag(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings);
-	public double mfeStraight(DomainSequence domainSequence, DomainSequence domainSequence2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset);
+	public double mfeNoDiag(GeneralizedInteractiveRegion domainSequence, GeneralizedInteractiveRegion domainSequence2, int[][] domain, int[][] domain_markings);
+	public double mfeStraight(GeneralizedInteractiveRegion domainSequence, GeneralizedInteractiveRegion domainSequence2, int[][] domain, int[][] domain_markings, int markLeft, int markRight, int joffset);
 	
 	//public void pairPr(double[][] pairsOut, DomainSequence seq1, DomainSequence seq2, int[][] domain);
 	//public void pairPr(double[][] pairsOut, DomainSequence seq1, int[][] domain);

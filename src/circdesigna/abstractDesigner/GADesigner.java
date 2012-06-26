@@ -65,7 +65,7 @@ public class GADesigner <T extends PopulationDesignMember<T>>  extends BlockDesi
 		for(int i = 0; i < populationSize; i++){
 			T toMutate = population_mutable[i];
 			T backup = population_backups[i];
-			SingleDesigner.mutateAndTest(toMutate,backup);
+			SingleDesigner.mutateAndEval(toMutate,backup);
 			redist[i*2].myKey=toMutate;
 			redist[i*2].myScore=SingleDesigner.getOverallScore(toMutate);
 			redist[i*2+1].myKey=backup;

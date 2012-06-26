@@ -19,9 +19,8 @@
 */
 package circdesigna;
 
-import static circdesigna.DomainSequence.DNAMARKER_DONTMUTATE;
-import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAG;
-import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAGINV;
+import static circdesigna.GeneralizedInteractiveRegion.NA_COMPLEMENT_FLAG;
+import static circdesigna.GeneralizedInteractiveRegion.NA_COMPLEMENT_FLAGINV;
 import static circdesigna.abstractpolymer.DnaDefinition.C;
 
 import java.awt.event.ActionEvent;
@@ -37,9 +36,8 @@ import java.util.TreeMap;
 import circdesigna.DesignIntermediateReporter.DesignIntermediateScore;
 import circdesigna.SequenceDesigner.AlternativeResult;
 import circdesigna.abstractDesigner.BlockDesigner;
-import circdesigna.abstractDesigner.InfiniteResourceTournament;
+import circdesigna.abstractDesigner.HillClimbingDesigner;
 import circdesigna.abstractDesigner.PopulationDesignMember;
-import circdesigna.abstractDesigner.StandardTournament;
 import circdesigna.abstractDesigner.TinyGADesigner;
 import circdesigna.abstractpolymer.MonomerDefinition;
 import circdesigna.config.CircDesigNAConfig;
@@ -471,9 +469,10 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		}
 	}
 	
-	public CircDesigNAOptions options = CircDesigNAOptions.getDefaultOptions();
+	public CircDesigNAOptions options = CircDesigNAOptions.getDefaultOptions(Std);
 	
 	private int design_iteration = 0, design_phase = 0;
+	public int evaluated_strings = 0;
 	private StringBuffer iteration_history = new StringBuffer();
 	private ActionListener runOnIteration = null;
 	private double bestScore = -1;
@@ -493,21 +492,16 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	
 	/**
 	 * Use the evaluator to determine where the problem spots are, 
-	 * and mutate them. Recommended, otherwise you're merely randomly mutating.
+	 * and mutate them. 
+	 * 
+	 * I discovered that the whole marking idea usually led to slightly worse performance.
 	 */
-	private boolean ENABLE_MARKINGS = true;
+	private boolean ENABLE_MARKINGS = false;
 	
 	/**
 	 * Use to add probability of mutation to bases involved in many penalties. 
 	 */
 	private boolean SORT_MARKINGS = true;
-	
-	/**
-	 * Take the evaluators word as absolute, and never mutate bases that
-	 * aren't directly involved in the "current worst penalty". (Otherwise, occasionally
-	 * mutate random bases at a low frequency)
-	 */
-	private boolean MARKINGS_ENABLESTRICT = true;
 	
 	public int MAX_MUTATION_DOMAINS = 999;
 	public int MAX_MUTATIONS_LIMIT = 9999; // maximum number of simultaneous mutations
@@ -559,7 +553,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			if (dir==null){
 				return;
 			}
-			DomainSequence[] ds = getSeqs();
+			GeneralizedInteractiveRegion[] ds = getSeqs();
 			if (ds.length==0){
 				return;
 			} else
@@ -573,18 +567,18 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		public abstract ScorePenalty clone();
 		public abstract double evalScoreSub(int[][] domain, int[][] domain_markings);
 		public boolean affectedBy(int domain){
-			for(DomainSequence q : getSeqs()){
+			for(GeneralizedInteractiveRegion q : getSeqs()){
 				if (q.contains(domain)){
 					return true;
 				}
 			}
 			return false;
 		}
-		public abstract DomainSequence[] getSeqs();
+		public abstract GeneralizedInteractiveRegion[] getSeqs();
 		public abstract int getPriority();
 		public String toString(DomainDefinitions dsd) {
 			String myString = getClass().getSimpleName();
-			DomainSequence[] seqs = getSeqs();
+			GeneralizedInteractiveRegion[] seqs = getSeqs();
 			if (seqs.length>0){
 				myString += " : ";
 				for(int k = 0; k < seqs.length; k++){
@@ -601,7 +595,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	}
 	
 	private void fullScoreReport(PopulationDesignMember<CircDesigNAPMemberImpl>[] population, DesignIntermediateReporter DIR, AbstractDomainDesignTarget designTarget, DomainDefinitions dsd){
-		iteration_history.append(String.format("%d %.3f",design_iteration, bestScore)+"\n");
+		iteration_history.append(String.format("%d\t%d\t%.3f",design_iteration, evaluated_strings, bestScore)+"\n");
 		
 		CircDesigNAPMemberImpl best = CircDesigNA_SharedUtils.getBestMember(population);
 		
@@ -650,11 +644,12 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		System.out.println("           CircDesigNA");
 		System.out.println("----------------------------------");
 		System.out.println("Designer started on "+new Date());
+		iteration_history.append("Iters\tEvals\tScore\n");
 		
 		//Initialization
 		design_phase = 1;
 		setPhase(design_phase);
-		iteration_history.append("Phase "+design_phase+"\n");
+		//iteration_history.append("Phase "+design_phase+"\n"); TODO remove phase system.
 		
 		//Domains to be designed. The integer type is being used to hold DNA bases,
 		//with additional metadata (multiples of 10 are added to mean certain things)
@@ -814,18 +809,20 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			SequenceDesignBlockDesignerImpl dbesignSingle = new SequenceDesignBlockDesignerImpl(mutableDomains,mutate,dsd,this,tempMember);
 			dbesign = null;
 			
-			if (options.standardUseGA.getState()){
-				dbesign = new TinyGADesigner(dbesignSingle, new CircDesigNAImpl.DParetoSort(), true);
+			if (options.globalSearch.getState()){
+				dbesign = new TinyGADesigner<CircDesigNAPMemberImpl>(dbesignSingle, new CircDesigNAImpl.DParetoSort(), true);
+				dbesign.initialize(initialSeed, options.population_size.getState());	
 			} else {
+				//dbesign = new StochasticOptDesigner<CircDesigNAPMemberImpl>(dbesignSingle);
+				/*
 				if (options.resourcePerMember.getState() < 0){
 					dbesign = new InfiniteResourceTournament(dbesignSingle);
 				} else {
 					dbesign = new StandardTournament(dbesignSingle, options.resourcePerMember.getState());
 				}
-			}
-			
-			{
-				dbesign.initialize(initialSeed, options.population_size.getState());	
+				*/
+				dbesign = new HillClimbingDesigner<CircDesigNAPMemberImpl>(dbesignSingle);
+				dbesign.initialize(initialSeed, 1);	
 			}
 
 			//Randomize the clones?
@@ -838,7 +835,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 					CircDesigNAPMemberImpl r = (CircDesigNAPMemberImpl)a[i];
 					
 					for(int k = 0; k < r.domain.length; k++){
-						mutate[k].reset();
+						mutate[k].init();
 						for(int j = 0; j < r.domain[k].length; j++){
 							mutate[k].mutateToOther(r.domain,k,j);
 						}
@@ -871,6 +868,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			fullScoreReport(dbesign.getPopulation(),DIR,designTarget,dsd);			
 		
 			design_iteration = 0;
+			evaluated_strings = 0;
 
 			double endingScore = options.end_score_threshold.getState();
 			
@@ -909,7 +907,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 					updateBestScore(dbesign.getPopulation());
 				}
 				System.out.flush();
-
+				
 				//Iteration complete.
 				resetDebugPenalty();
 				//Report the status of the best member.
@@ -959,6 +957,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			for(ScorePenalty s : r.penalties){
 				s.getScore(r.domain, r.domain_markings);
 			}
+			evaluated_strings++;
 		}
 		updateBestScore(pop);
 	}
@@ -978,7 +977,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		double endingScore = options.end_score_threshold.getState();
 		while (bestScore <= endingScore && design_phase < countPhases()){
 			design_phase++;
-			iteration_history.append("Phase "+design_phase+"\n");
+			//iteration_history.append("Phase "+design_phase+"\n");
 			System.out.println("Entering Phase "+design_phase);
 			setPhase(design_phase);
 			//Need complete rescore because score function probably changed
@@ -1002,7 +1001,7 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	 * @param designerCode 
 	 */
 	private void pickInitialSequence(int[][] domain, int mut_domain, DesignerCode mutator) {
-		mutator.reset();
+		mutator.init();
 		
 		boolean[] preserveInitial = new boolean[domain[mut_domain].length];
 		boolean allowModifyInitialSpecifiedSequence = false;
@@ -1117,24 +1116,22 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 		}
 	}
 	/**
-	 * Mutates mut_domain such that it is changed at the nucleic acid sequence level. If cc is nonnull, the changes will conserve amino acid sequence. 
+	 * Mutates mut_domain such that it is changed at the nucleic acid sequence level. If cc is nonnull, the changes will conserve amino acid sequence.
+	 * The result is a valid domain sequence (i.e. it falls within any GC constraints imposed) 
 	 * @param seqToSynthesize 
 	 * @param domain_markings 
 	 * @param mutators 
 	 * @param max_mutations 
 	 */
-	public int mutateUntilValid(int mut_domain, int[][] domain,
-			int[][] domain_markings, DesignerCode mutator, int min_mutations, int max_mutations) {
-		int len = domain[mut_domain].length;
-
-		//Count the bases to mutate (1's in the "markings" array)
+	public int mutateDomain(int mut_domain, int[][] domain,
+			int[][] domain_markings, DesignerCode mutator, double PROB_MUT_BASE) {
 		int oneC = 0;
-		
-		//How many mutations will we try now?
-		int num_mut;
-		//Count the reccomended bases to mutate
+		int successful = 0;
+		int len = domain[mut_domain].length;
 		
 		if (ENABLE_MARKINGS){
+			throw new RuntimeException("Markings not implemented");
+			/*
 			if (inplacePrioritySort_shared==null || inplacePrioritySort_shared.length<len){
 				inplacePrioritySort_shared = new Priority_int_int[len]; 
 				for(int k = 0; k < inplacePrioritySort_shared.length; k++){
@@ -1156,73 +1153,69 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 				num_mut = oneC;
 			}
 			//Post condition: num_mut <= oneC
-		} else {
-			 num_mut = len*2;
+			 */
 		}
-		num_mut = Math.min(num_mut,max_mutations);
 		
 		//Randomize number to mutate:
+		/*
 		if (num_mut > 0){
 			num_mut = int_urn(min_mutations,num_mut);
 		} else {
 			//Was not able to mutate.
 			return 0;
 		}
-		
+		*/
 		//System.out.println(num_mut+" "+min_mutations);
 
-		int successful = 0;
 		//int timesInLoop = 0;
 		ArrayList<Integer> positions = new ArrayList();
 		
-		mutator.reset();
-		mutloop: for (int k = 0; k < num_mut; k++) {
-			// Attempt a mutation
-			int j;
-			if (ENABLE_MARKINGS){
-				if (SORT_MARKINGS){
-					if (k >= oneC){
-						break mutloop;
+		//Mutation state machine (tries possibilities in a random sequence until one takes)
+		mutator.init();
+		for (int k = 0; k < len; k++) {
+			//Do we make a mutation?
+			if (Math.random() < PROB_MUT_BASE){
+				int j = k;
+				/*
+				// Perform a random point mutation
+				int j;
+				if (ENABLE_MARKINGS){
+					if (SORT_MARKINGS){
+						if (k >= oneC){
+							break mutloop;
+						}
+						j = inplacePrioritySort_shared[k].a;
+					} else {
+						j = inplacePrioritySort_shared[int_urn(0, oneC-1)].a;
 					}
-					j = inplacePrioritySort_shared[k].a;
 				} else {
-					j = inplacePrioritySort_shared[int_urn(0, oneC-1)].a;
-					/*
-					if (domain_markings[mut_domain][j]==DNAMARKER_DONTMUTATE){
-						throw new RuntimeException("Assertion error");
+					j = int_urn(0, len-1);
+				}
+				*/
+				/*
+				timesInLoop++;
+				if (timesInLoop > 1000){
+					System.err.println("Warning. Could not mutate in 1000 guesses. Breaking");
+					break;
+				}
+				*/
+				if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
+					if (!mutator.mutateToOther(domain, mut_domain, j)){
+						continue;
 					}
-					*/
-				}
-			} else {
-				j = int_urn(0, len-1);
-			}
-			/*
-			timesInLoop++;
-			if (timesInLoop > 1000){
-				System.err.println("Warning. Could not mutate in 1000 guesses. Breaking");
-				break;
-			}
-			*/
-			if (!(mutator instanceof CodonCode)){ //no codon table: single base modifications
-				if (!mutator.mutateToOther(domain, mut_domain, j)){
-					num_mut++;
-					continue;
-				}
-				successful ++;
-			} else { //Codon table: 3 mutation points = 1 amino swap.
-				//Round to codon
-				j -= j%3;
+					successful ++;
+				} else { //Codon table: 3 mutation points = 1 amino swap.
+					//Round to codon
+					j -= j%3;
 
-				//Protein domains are multiples of 3 long, so this is fine.
-				//Mutate codon!
-				if (!mutator.mutateToOther(domain, mut_domain, j)){
-					num_mut++;
-					continue;
+					//Protein domains are multiples of 3 long, so this is fine.
+					//Mutate codon!
+					if (!mutator.mutateToOther(domain, mut_domain, j)){
+						continue;
+					}
+					
+					successful += 3;
 				}
-				
-				//+3.
-				k+=2;
-				successful += 3;
 			}
 		}
 		return successful;
@@ -1245,26 +1238,6 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 	private double[] debug_keepMessages = new double[debugOutTopScores];
 	private String[] debug_messages = new String[debugOutTopScores];
 
-
-	public void debugPenalty(ScorePenalty s, int[][] domain, DomainDefinitions dsd) {
-		double val = s.cur_score;
-		for(int k = 0; k < debug_keepMessages.length; k++){
-			if (k == debug_keepMessages.length-1 || val < debug_keepMessages[k+1]){
-				for(int y = 0; y < k; y++){
-					debug_keepMessages[y] = debug_keepMessages[y+1];
-					debug_messages[y] = debug_messages[y+1];
-				}
-				debug_messages[k] = s.toString();
-				for(DomainSequence q : s.getSeqs()){
-					debug_messages[k] += " "+displaySequence(q,domain,dsd);
-				}
-				debug_keepMessages[k] = val;
-				break;
-			}
-		}
-	}
-
-	
 	//x1: locked. x2: GCLG / GCLC flag.
 	
 	public int getLockedBase(char charAt) {
@@ -1303,18 +1276,6 @@ public abstract class CircDesigNA extends CircDesigNASystemElement{
 			}
 		}
 		return out.toString();
-	}
-	private String displaySequence(DomainSequence sequence, int[][] domain, DomainDefinitions dsd) {
-		StringBuffer sb = new StringBuffer();
-		sb.append(sequence.toString(dsd));
-		
-		int len = sequence.length(domain);
-		sb.append(" = ");
-		for(int i = 0; i < len; i++){
-			sb.append(Std.monomer.displayBase(sequence.base(i, domain, Std.monomer)));
-		}
-		
-		return sb.toString();
 	}
 	public static int int_urn(int from, int to) {
 		return (int)(Math.random()*(to-from+1)+from);

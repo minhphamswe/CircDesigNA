@@ -26,12 +26,14 @@ import java.util.Scanner;
 
 import circdesigna.DomainSequence;
 import circdesigna.config.CircDesigNAConfig;
+import circdesigna.energy.ConstraintsNAFoldingImpl;
 import circdesigna.energy.NAFolding;
 import circdesigna.energy.UnafoldFolder;
-import circdesigna.energy.ConstraintsNAFoldingImpl;
 
 public class FoldingImplTest4 {
 	public static void main(String[] args) throws FileNotFoundException{
+		boolean doCorrelation = true;
+		
 		File outFile = new File(System.getProperty("inFile")+".out");
 		CircDesigNAConfig config = new CircDesigNAConfig();
 		System.out.println(outFile.getAbsolutePath());
@@ -49,6 +51,11 @@ public class FoldingImplTest4 {
 		ds1.setDomains(0, null);
 		DomainSequence ds2 = new DomainSequence();
 		ds2.setDomains(1, null);
+		if (doCorrelation){
+			System.out.printf("Nupack\tFoldNoLoops\n");
+		}
+		
+		
 		while(in.hasNextLine()){
 			String line2 = in.nextLine();
 			String[] line = line2.trim().split(" ");
@@ -63,22 +70,44 @@ public class FoldingImplTest4 {
 			//double resultLocal = fl.mfe(ds1, domain, domain_markings);
 			long now = System.nanoTime();
 			fl.setScoringModel(3);
-			double resultLocal3 = fl.mfe(ds1, ds2, domain, domain_markings, true);
+			double resultLocal3 = 0;
+			try {
+				resultLocal3 = fl.mfe(ds1, domain, domain_markings, true);
+			} catch (Throwable e){
+				//e.printStackTrace();
+			}
 			double dt3 = (System.nanoTime()-now)/1e9;
 			now = System.nanoTime();
 			fl.setScoringModel(2);
-			double resultLocal2 = fl.mfe(ds1, ds2, domain, domain_markings, true);
+			double resultLocal2 = 0;
+			try {
+				resultLocal2 = fl.mfe(ds1, domain, domain_markings, true);
+			} catch (Throwable e){
+				//e.printStackTrace();
+			}
 			double dt2 = (System.nanoTime()-now)/1e9;
 			now = System.nanoTime();
 			fl.setScoringModel(1);
-			double resultLocal1 = fl.mfe(ds1, ds2, domain, domain_markings, true);
+			double resultLocal1 = 0;
+			try {
+				resultLocal1 = fl.mfe(ds1, domain, domain_markings, true);
+			} catch (Throwable e){
+				//e.printStackTrace();
+			}
 			double dt1 = (System.nanoTime()-now)/1e9;
-			System.out.println(String.format("%d M3 %.2f %.3e M2 %.2f %.3e M1 %.2f %.3e",ds1.length(domain), resultLocal3, dt3, resultLocal2, dt2, resultLocal1, dt1));
+			//System.out.println(String.format("%d M3 %.2f %.3e M2 %.2f %.3e M1 %.2f %.3e",ds1.length(domain), resultLocal3, dt3, resultLocal2, dt2, resultLocal1, dt1));
 			if (line.length > 3){
-				double error3 = (resultLocal3 - new Double(line[3]));
-				double error2 = (resultLocal2 - new Double(line[3]));
-				double error1 = (resultLocal1 - new Double(line[3]));
-				System.out.printf("Nupack: %.2f errN^3: %.2f errN^2: %.2f errN^1: %.2f\n", new Double(line[3]), error3, error2, error1);
+				Double nupackResult = new Double(line[3]);
+				double error3 = (resultLocal3 - nupackResult);
+				double error2 = (resultLocal2 - nupackResult);
+				double error1 = (resultLocal1 - nupackResult);
+				//System.out.printf("Nupack: %.2f errN^3: %.2f errN^2: %.2f errN^1: %.2f\n", new Double(line[3]), error3, error2, error1);
+				if (doCorrelation){
+					if (error1 < 0){
+						throw new RuntimeException("Assertion error");
+					}
+					System.out.printf("%.3f\t%.3f\n",nupackResult, resultLocal1);
+				}
 			} else {
 				//System.out.println(line2+" "+resultLocal3);
 			}

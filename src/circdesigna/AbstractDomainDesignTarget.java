@@ -44,7 +44,7 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 	}
 	
 	public ArrayList<DomainSequence> wholeStrands = new ArrayList();
-	public ArrayList<DomainSequence> generalizedSingleStranded = new ArrayList();
+	public ArrayList<GeneralizedInteractiveRegion> generalizedInteractiveRegions = new ArrayList();
 	public ArrayList<DomainSequence> singleDomains = new ArrayList();
 	public ArrayList<DomainSequence> pairsOfDomains = new ArrayList();
 	private TreeSet<String> targetMoleculeNames = new TreeSet();
@@ -107,7 +107,7 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 	public ArrayList<DomainSequence> singleDomainsWithOverlap = new ArrayList();
 	
 	public void clear(){
-		generalizedSingleStranded.clear();
+		generalizedInteractiveRegions.clear();
 		pairsOfDomains.clear();
 		duplexClosings.clear();
 		wholeStrands.clear();
@@ -131,7 +131,7 @@ public class AbstractDomainDesignTarget extends CircDesigNASystemElement{
 			throw new RuntimeException("Target molecule "+dpg.moleculeName+" did not end with a 3' end.");
 		}
 		
-		CircDesigNA_SharedUtils.utilSingleStrandedFinder(dpg, generalizedSingleStranded);
+		CircDesigNA_SharedUtils.utilGIRFinder(dpg, generalizedInteractiveRegions);
 		CircDesigNA_SharedUtils.utilDuplexClosingFinder(this, dpg, duplexClosings);
 		CircDesigNA_SharedUtils.utilPairsOfDomainsFinder(dpg, pairsOfDomains);
 		CircDesigNA_SharedUtils.utilSingleDomainsFinder(dpg, singleDomains);

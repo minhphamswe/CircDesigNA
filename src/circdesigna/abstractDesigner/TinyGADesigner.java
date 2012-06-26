@@ -32,9 +32,7 @@ public class TinyGADesigner <T extends PopulationDesignMember<T>>  extends Block
 	//Parameters used in Tiny-GA
 	private int POPSIZE;
 	private int TSIZE;
-	private int NUM_CHILDREN_PER_GENERATION;
-	private double PMUT_PER_NODE; 
-	private double CROSSOVER_PROB; 
+	private int NUM_CHILDREN_PER_GENERATION; 
 	
 	public TinyGADesigner(SingleMemberDesigner<T> SingleDesigner, ParetoSort<T> psort, boolean isMOGA) {
 		super(SingleDesigner);
@@ -42,20 +40,23 @@ public class TinyGADesigner <T extends PopulationDesignMember<T>>  extends Block
 		this.isMOGA = isMOGA;
 		
 		//Settings used in the sin(x) example from the same book.
-		CROSSOVER_PROB = .1;//.9; //Arbitrary!
-		//PMUT_PER_NODE = .95;//.05; //Arbitrary!
 		TSIZE = 2; //Arbitrary!
+		CROSSOVER_PROB = .9;
+		SingleDesigner.setMutationProbabilities(1, 1);
 	}
+	private double CROSSOVER_PROB;
 	private boolean isMOGA;
 	private ParetoSort psort;
 	private T tempOffspring;
+	private T persistentBest;
 	
 	@Override
 	public void initialize(T init, int numCopies) {
 		POPSIZE = numCopies;
-		NUM_CHILDREN_PER_GENERATION = POPSIZE; //ARBITRARY!!!
-		tempOffspring = init.designerCopyConstructor(numCopies+1);
-		super.initialize(init, numCopies);
+		NUM_CHILDREN_PER_GENERATION = POPSIZE; //Arbitrary
+		tempOffspring = init.designerCopyConstructor(numCopies+2);
+		super.initialize(init, numCopies+1);
+		persistentBest = population_mutable[numCopies];
 	}
 	private int rnegtourn(int tsize) {
 		return rtourn_(tsize,true);
@@ -76,42 +77,33 @@ public class TinyGADesigner <T extends PopulationDesignMember<T>>  extends Block
 		}
 		return toRet;
 	}
+	/**
+	 * Returns how many strings were evaluated in this iteration.
+	 */
 	public void runBlockIteration_ (CircDesigNA runner, double endThreshold) {
-		double maxFitness = 0;
 		updateBestChild(); //Make sure bestChild is current.
+		
 		for(int i = 0; i < NUM_CHILDREN_PER_GENERATION; i++){
 			//A new child will be born, by either SEXUAL or ASEXUAL reproduction.
 			//This child will immediately knock out a randomly selected member of the population.
-			if (Math.random() > CROSSOVER_PROB){ //Strange use of the word "Probability"
+			if (Math.random() < CROSSOVER_PROB){ //Strange use of the word "Probability"
 				//SEXUAL
 				int parent1 = rtourn(TSIZE);
 				int parent2 = rtourn(TSIZE);
-				//On-the-fly crossover:
-				SingleDesigner.fourPtCrossoverAndTest(population_mutable[parent1],population_mutable[parent2],tempOffspring);
+				//Crossover:
+				SingleDesigner.fourPtCrossoverAndEval(population_mutable[parent1],population_mutable[parent2],tempOffspring);
+				runner.evaluated_strings++;
 			} else {
 				//ASEXUAL
 				int parent1 = rtourn(TSIZE);
-				SingleDesigner.mutateAndTest(population_mutable[parent1], tempOffspring);
-			}
-			//Dedicate all penalties:
-			
-			//Knock out a random member. Note that the mutated member ALWAYS enters the population!
-			int child = rnegtourn(TSIZE);
-			
-			if (population_mutable[child] == getBestPerformingChild() 
-					&& SingleDesigner.getOverallScore(population_mutable[child]) < SingleDesigner.getOverallScore(tempOffspring)){
-				//throw new RuntimeException("!");
-				continue;
+				SingleDesigner.mutateAndEval(population_mutable[parent1], tempOffspring);
+				runner.evaluated_strings++;
 			}
 			
-			//Swap it out.
-			T temp = tempOffspring;
-			tempOffspring = population_mutable[child];
-			population_mutable[child] = temp;
-
+			//Kick out the result of a negative tournament with tempoffspring
+			AddToPopulation(rnegtourn(TSIZE));
 			setProgress((i+1), NUM_CHILDREN_PER_GENERATION);
 		}
-		updateBestChild();
 		/*
 		//Adjust for pareto fitness
 		if (isMOGA){
@@ -126,16 +118,43 @@ public class TinyGADesigner <T extends PopulationDesignMember<T>>  extends Block
 		}
 		*/
 	}
+	private void AddToPopulation(int victim) {
+
+		//Dedicate all penalties:
+		//Knock out a random member. Note that the mutated member ALWAYS enters the population!
+		int knockout = victim;
+
+		double nScore = SingleDesigner.getOverallScore(tempOffspring);
+		double bestScore = SingleDesigner.getOverallScore(getBestPerformingChild());
+		
+		//Don't kick out the best population member unless the new guy is better
+		if (population_mutable[knockout] == getBestPerformingChild() 
+				&& nScore >= bestScore){
+			return;
+		}
+		
+		//Swap it out.
+		T temp = tempOffspring;
+		tempOffspring = population_mutable[knockout];
+		population_mutable[knockout] = temp;
+		
+		//Does the introduced member beat the old best?
+		if (nScore < bestScore){
+			setBestChild(population_mutable[knockout]);
+		}
+
+	}
 	private void updateBestChild() {
-		int best = 0; double bestScore = Double.MAX_VALUE;
+		T best = null; double bestScore = Double.MAX_VALUE;
 		for(int i = 0; i < population_mutable.length; i++){
 			double score = SingleDesigner.getOverallScore(population_mutable[i]);
 			//System.out.println(i+" "+score+" "+population_mutable[i]);
 			if (score < bestScore){
-				best = i;
+				best = population_mutable[i];
 				bestScore = score;
 			}
 		}
-		setBestChild(population_mutable[best]);
+		
+		setBestChild(best);
 	}
 }

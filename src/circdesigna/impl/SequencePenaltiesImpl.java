@@ -42,7 +42,7 @@ public class SequencePenaltiesImpl extends CircDesigNASystemElement implements S
 	 * 
 	 * @param domain_markings 
 	 */
-	public double getSynthesizabilityScore(DomainSequence seq, int[][] domain, int[][] domain_markings) {
+	public double getSequenceScore(DomainSequence seq, int[][] domain, int[][] domain_markings) {
 		int n = seq.length(domain_markings);
 		double sumResult = 0;
 		for(int i = 0; i < n; i++){

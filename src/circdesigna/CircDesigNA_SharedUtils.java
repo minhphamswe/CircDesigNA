@@ -182,11 +182,11 @@ public class CircDesigNA_SharedUtils {
 	}
 
 
-	public static void utilRemoveDuplicateSequences(List<DomainSequence> seqToSynthesize) {
-		ListIterator<DomainSequence> itr = seqToSynthesize.listIterator();
+	public static void utilRemoveDuplicateSequences(List<? extends GeneralizedInteractiveRegion> girs) {
+		ListIterator<? extends GeneralizedInteractiveRegion> itr = girs.listIterator();
 		big: while(itr.hasNext()){
-			DomainSequence seq = itr.next();
-			for(DomainSequence q : seqToSynthesize){
+			GeneralizedInteractiveRegion seq = itr.next();
+			for(GeneralizedInteractiveRegion q : girs){
 				if (q!=seq && q.equals(seq)){
 					q.appendMoleculeNames(seq);
 					itr.remove();
@@ -216,7 +216,7 @@ public class CircDesigNA_SharedUtils {
 	}
 
 	
-	public static boolean checkComplementary(DomainSequence a, DomainSequence b){
+	public static boolean checkComplementary(GeneralizedInteractiveRegion a, GeneralizedInteractiveRegion b){
 		for(int k = 0; k < a.domainList.length; k++){
 			for(int y = 0; y < b.domainList.length; y++){
 				int abase = a.domainList[k];
@@ -481,6 +481,89 @@ public class CircDesigNA_SharedUtils {
 					throw new RuntimeException("Assertion error. addSingleStrandedClosedLoop");
 				}
 			}
+		}
+	}
+
+	
+	public static void utilGIRFinder(DomainPolymerGraph dsg, ArrayList<GeneralizedInteractiveRegion> girs) {
+		LinkedList<ArrayList<Object>> stack = new LinkedList();
+		stack.push(new ArrayList()); //outermost walk along the structure
+		for(int k = 0; k < dsg.length(); k++){
+			int domain = dsg.getDomain(k);
+			int pair = dsg.getDomainPair(k);
+			if (pair<0){
+				stack.peek().add(domain); //unpaired
+			} else {
+				if (pair < k){
+					//Loop finished. pop stack.
+					ArrayList<Object> closedCircuit = stack.pop();
+					addGIRStructureWalk(closedCircuit,girs, dsg);
+					//Add a connector to the current stack top
+					int pairDomain = dsg.getDomain(pair);
+					stack.peek().add(new Connector(pairDomain, 0, domain, -1));
+				} else {
+					//Loop beginning. recursively walk along the inside of the loop
+					stack.push(new ArrayList());
+				}
+			}
+		}
+		//final structure walk
+		addGIRStructureWalk(stack.pop(),girs, dsg);
+		if (!stack.isEmpty()){
+			throw new RuntimeException("Assertion error girfinder polymergraph");
+		}
+	}
+
+	private static void addGIRStructureWalk(ArrayList<Object> walk, ArrayList<GeneralizedInteractiveRegion> girs, AbstractComplex dsd) {
+		//Rotate the walk so that it starts at the beginning of a strand, if the walk is not circular
+		int startOffset = 0; 
+		for (int i = 0; i < walk.size(); i++){
+			Object o = walk.get(i);
+			if (o instanceof Integer && (Integer)o < 0){
+				startOffset = (i+1)%walk.size();
+				break;
+			}
+		}
+		
+		//Split the walk by its three prime ends
+		ArrayList<ArrayList<Object>> split = new ArrayList(); 
+		split.add(new ArrayList());
+		for(int i_ = 0; i_ < walk.size(); i_++){
+			int i = (i_ + startOffset)%walk.size();
+			Object o = walk.get(i);
+			if (o instanceof Integer){
+				int domain = (Integer)o;
+				if (domain < 0){
+					split.add(new ArrayList());
+				} else {
+					split.get(split.size()-1).add(domain);
+				}
+			} else {
+				split.get(split.size()-1).add(o);
+			}
+		}
+		
+		boolean isCircular = split.size() == 1;
+		for(ArrayList<Object> subwalk : split){
+			if (subwalk.isEmpty()){
+				continue;
+			}
+			//Throw out regions which are entirely formed from connectors
+			boolean allConnectors = true;
+			for(Object o : subwalk){
+				if (!(o instanceof Connector)){
+					allConnectors = false;
+					break;
+				}
+			}
+			if (allConnectors){
+				continue;
+			}
+			
+			GeneralizedInteractiveRegion made = new GeneralizedInteractiveRegion();
+			made.setDomainsAndConnectors(subwalk, dsd);
+			made.setCircular(isCircular);
+			girs.add(made);
 		}
 	}
 
