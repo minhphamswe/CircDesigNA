@@ -53,4 +53,12 @@ public class Connector {
 		}
 		return false;
 	}
+	
+	public boolean equals(Object other){
+		if (!(other instanceof Connector)){
+			return super.equals(other);
+		}
+		Connector o = (Connector)other;
+		return o.baseA == baseA && o.baseB == baseB && o.domainA == domainA && o.domainB == domainB;
+	}
 }

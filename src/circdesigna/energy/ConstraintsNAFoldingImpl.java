@@ -1614,11 +1614,11 @@ public class ConstraintsNAFoldingImpl extends CircDesigNASystemElement implement
 		} else {
 			//Interior region.
 			int numLoops = 2; //For the two introduced pairs
-			for(int u = 0; u < L1; u++){
-				numLoops += connectors[(i+u)%N].rightN;
+			for(int k = i; k != d; k = (k+1)%N){
+				numLoops += connectors[k].rightN;
 			}
-			for(int u = 0; u < L2; u++){
-				numLoops += connectors[(e+u)%N].rightN;
+			for(int k = e; k != j; k = (k+1)%N){
+				numLoops += connectors[k].rightN;
 			}
 
 			if (numLoops >= 3){	

@@ -19,15 +19,17 @@
 */
 package circdesigna;
 
-import static circdesigna.DomainSequence.NA_COMPLEMENT_FLAG;
+import static circdesigna.GeneralizedInteractiveRegion.NA_COMPLEMENT_FLAG;
 
+import java.awt.Color;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
 import circdesigna.parser.CDNA2PublicParser;
-import circdesigna.parser.CDNA2Token;
 import circdesigna.parser.CDNA2PublicParser.ParseResult;
+import circdesigna.parser.CDNA2Token;
 
 /**
  * A data structure for representing DNA complexes. This one is based on the circular polymer graph.
@@ -59,6 +61,9 @@ public class DomainPolymerGraph extends AbstractComplex{
 	}
 	public int getDomainPair(int position){
 		return data.getDomainPair(position);
+	}
+	public CircDesigNAStyle getStyle(int position){
+		return data.getStyle(position);
 	}
 	public boolean setDomainPair(int i, int j){
 		return data.setDomainPair(i,j);
@@ -126,12 +131,16 @@ public class DomainPolymerGraph extends AbstractComplex{
 		 * -1 if not paired
 		 */
 		public abstract int getDomainPair(int position);
+		
+		public abstract CircDesigNAStyle getStyle(int position);
+		
 		public abstract boolean setDomainPair(int i, int j);
 	}
 	public class BasePolymerGraph extends AbstractPolymerGraph{
 		//Indexed by position in the string.
 		//Domain -1 is a 3' end.
 		private int[] domains;
+		private CircDesigNAStyle[] styles;
 		//-1 means "not paired".
 		private int[] domain_pairs;
 		public BasePolymerGraph getCyclicIndependentForm() {
@@ -142,6 +151,9 @@ public class DomainPolymerGraph extends AbstractComplex{
 		}
 		public int getDomainPair(int position) {
 			return domain_pairs[position];
+		}
+		public CircDesigNAStyle getStyle(int position) {
+			return styles[position];
 		}
 		public int length() {
 			return domains.length;
@@ -211,6 +223,9 @@ public class DomainPolymerGraph extends AbstractComplex{
 		public int getDomain(int position) {
 			return base.domains[wrap(position+rotation,base.domains.length)];
 		}
+		public CircDesigNAStyle getStyle(int position){
+			return base.styles[wrap(position+rotation,base.domains.length)];
+		}
 		private int wrap(int i, int length) {
 			while (i < 0){
 				i += length;
@@ -252,10 +267,35 @@ public class DomainPolymerGraph extends AbstractComplex{
 		out2.moleculeName = t.moleculeName;
 		
 		ArrayList<Integer> domains_tmp = new ArrayList();
+		ArrayList<CircDesigNAStyle> styles_tmp = new ArrayList();
 		ArrayList<Integer> domain_pairs_tmp = new ArrayList();
 		LinkedList<Integer> stack = new LinkedList();
-		
+
+		CircDesigNAStyle style = CircDesigNAStyle.getDefaultStyle();
 		for(Object token : t.parse){
+			if (token instanceof CDNA2Token.Option){
+				{
+					CircDesigNAStyle newStyle = new CircDesigNAStyle();
+					newStyle.color = style.color;
+					//Swap pointers
+					style = newStyle;
+				}
+				
+				CDNA2Token.Option d = (CDNA2Token.Option)token;
+				try {
+				    Field field = Color.class.getField(d.optionWord);
+				    style.color = (Color)field.get(null);
+				} catch (Exception e) {
+				    // Not defined
+				}
+				try {
+				    Field field = CircDesigNAStyle.Colors.class.getField(d.optionWord);
+				    style.color = (Color)field.get(null);
+				} catch (Exception e) {
+				    // Not defined
+				}
+			}
+			
 			if (token instanceof CDNA2Token.Domain){
 				CDNA2Token.Domain d = (CDNA2Token.Domain)token;
 				String domainName = d.name;
@@ -279,6 +319,7 @@ public class DomainPolymerGraph extends AbstractComplex{
 
 					int thisIndex = domains_tmp.size();
 					domains_tmp.add(numberDomain2);
+					styles_tmp.add(style);
 					domain_pairs_tmp.add(-1); //fill with -1s, overwrite if adding pair.
 					if (d.open){
 						stack.push(thisIndex);
@@ -297,6 +338,7 @@ public class DomainPolymerGraph extends AbstractComplex{
 					//Empty strand.
 				} else {
 					//3- end.
+					styles_tmp.add(style);
 					domains_tmp.add(-1);
 					domain_pairs_tmp.add(-1); //fill with -1s, overwrite if adding pair.
 				}
@@ -306,9 +348,11 @@ public class DomainPolymerGraph extends AbstractComplex{
 		//This is dependent on the input sequence. Not on Domain Definitions.
 		out.domains = new int[domains_tmp.size()];
 		out.domain_pairs = new int[domains_tmp.size()];
+		out.styles = new CircDesigNAStyle[domains_tmp.size()];
 		for(int k = 0; k < out.domains.length; k++){
 			out.domains[k] = domains_tmp.get(k);
 			out.domain_pairs[k] = domain_pairs_tmp.get(k);
+			out.styles[k] = styles_tmp.get(k);
 		}
 		
 		//Erase rotation afterwards.

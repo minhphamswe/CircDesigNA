@@ -132,4 +132,13 @@ public class CDNA2Token {
 			return "}";
 		}
 	}
+	public static class Option{
+		public String optionWord;
+		public Option(String optionWord){
+			this.optionWord = optionWord;
+		}	
+		public String toString() {
+			return "% " +optionWord+" %";
+		}
+	}
 }

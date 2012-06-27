@@ -47,7 +47,7 @@ DomainName = [:jletterdigit:] [:jletterdigit:]*
 	"["			{ return newToken(Terminals.LSQBRACE,   yytext()); }
 	"}"			{ return newToken(Terminals.RCBRACE,   yytext()); }
 	"."			{ return newToken(Terminals.DOT,   yytext()); }
-	"$"			{ return newToken(Terminals.DSIGN,   yytext()); }
+	"%"			{ return newToken(Terminals.PERCENT,   yytext()); }
 }
 
 .|\n            { throw new Scanner.Exception("unexpected character '" + yytext() + "'"); }

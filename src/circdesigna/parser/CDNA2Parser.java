@@ -12,17 +12,19 @@ public class CDNA2Parser extends Parser {
 	static public class Terminals {
 		static public final short EOF = 0;
 		static public final short DOMAINNAME = 1;
-		static public final short LPAREN = 2;
-		static public final short RPAREN = 3;
-		static public final short MULT = 4;
-		static public final short DOT = 5;
-		static public final short LSQBRACE = 6;
-		static public final short RCBRACE = 7;
+		static public final short PERCENT = 2;
+		static public final short LPAREN = 3;
+		static public final short RPAREN = 4;
+		static public final short MULT = 5;
+		static public final short DOT = 6;
+		static public final short LSQBRACE = 7;
+		static public final short RCBRACE = 8;
 	}
 
 	static final ParsingTables PARSING_TABLES = new ParsingTables(
-		"U9nrZb4EWp0CGr$BoahBeRaqC3OspqZzGf38YHmxIe1H0ZeU97e6daIoPWfOYKq9dcUhnHw" +
-		"eayi1MZ$3aKxyqdUnLtttfwy#UclJIulvhjLASGR$W17yJRn5$GD1NI8$");
+		"U9nrZuaEWZ0GH1#8OYaeCV5$$MNlct5Aq1Y3JLvtTZlTx09h2TGneM3AZ3abEKjj2KHgO64" +
+		"gFMdi4zd76UoDpXkJso5gK$OPj1jV2ORuYq$yqfbP3JgywvAwiRyZlOgHMkiETzrqqLad7R" +
+		"LtVjKXFMbd7lrsQVwqP#rOUVQG9h2ErlyfMBm0LN0ryW==");
 
 	public ArrayList parenStack = new ArrayList();
 	public ArrayList braceStack = new ArrayList();
@@ -37,9 +39,20 @@ public class CDNA2Parser extends Parser {
 		super(PARSING_TABLES);
 		actions = new Action[] {
 			Action.RETURN,	// [0] $goal = molecule
-			Action.NONE,  	// [1] opt$molecule = 
-			Action.RETURN,	// [2] opt$molecule = molecule
-			new Action() {	// [3] molecule = opt$molecule.b DOMAINNAME.n
+			Action.NONE,  	// [1] opt$options = 
+			Action.RETURN,	// [2] opt$options = options
+			new Action() {	// [3] options = opt$options.b DOMAINNAME.n
+				public Symbol reduce(Symbol[] _symbols, int offset) {
+					final Symbol _symbol_b = _symbols[offset + 1];
+					final ArrayList b = (ArrayList) _symbol_b.value;
+					final Symbol _symbol_n = _symbols[offset + 2];
+					final String n = (String) _symbol_n.value;
+					 ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Option neu = new CDNA2Token.Option(n); p.add(neu); return new Symbol(p);
+				}
+			},
+			Action.NONE,  	// [4] opt$molecule = 
+			Action.RETURN,	// [5] opt$molecule = molecule
+			new Action() {	// [6] molecule = opt$molecule.b DOMAINNAME.n
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_b = _symbols[offset + 1];
 					final ArrayList b = (ArrayList) _symbol_b.value;
@@ -48,51 +61,60 @@ public class CDNA2Parser extends Parser {
 					 ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Domain neu = new CDNA2Token.Domain(n); p.add(neu); return new Symbol(p);
 				}
 			},
-			new Action() {	// [4] molecule = molecule.a LPAREN
+			new Action() {	// [7] molecule = molecule.a LPAREN
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 ((CDNA2Token.Domain)a.get(a.size()-1)).setOpen(parenStack); return new Symbol(a);
 				}
 			},
-			new Action() {	// [5] molecule = molecule.a RPAREN
+			new Action() {	// [8] molecule = molecule.a RPAREN
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 ((CDNA2Token.Domain)a.get(a.size()-1)).setClosed(parenStack); return new Symbol(a);
 				}
 			},
-			new Action() {	// [6] molecule = molecule.a MULT
+			new Action() {	// [9] molecule = molecule.a MULT
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 ((CDNA2Token.Domain)a.get(a.size()-1)).setComplement(); return new Symbol(a);
 				}
 			},
-			new Action() {	// [7] molecule = molecule.a DOT
+			new Action() {	// [10] molecule = molecule.a DOT
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 ((CDNA2Token.Domain)a.get(a.size()-1)).setSingleStranded(); return new Symbol(a);
 				}
 			},
-			new Action() {	// [8] molecule = opt$molecule.b LSQBRACE
+			new Action() {	// [11] molecule = opt$molecule.b LSQBRACE
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_b = _symbols[offset + 1];
 					final ArrayList b = (ArrayList) _symbol_b.value;
 					 ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.add(new CDNA2Token.FivePrimeEnd(braceStack)); return new Symbol(p);
 				}
 			},
-			new Action() {	// [9] molecule = molecule.a RCBRACE
+			new Action() {	// [12] molecule = molecule.a RCBRACE
 				public Symbol reduce(Symbol[] _symbols, int offset) {
 					final Symbol _symbol_a = _symbols[offset + 1];
 					final ArrayList a = (ArrayList) _symbol_a.value;
 					 a.add(new CDNA2Token.ThreePrimeEnd(braceStack)); return new Symbol(a);
 				}
+			},
+			new Action() {	// [13] molecule = opt$molecule.b PERCENT options.o PERCENT
+				public Symbol reduce(Symbol[] _symbols, int offset) {
+					final Symbol _symbol_b = _symbols[offset + 1];
+					final ArrayList b = (ArrayList) _symbol_b.value;
+					final Symbol _symbol_o = _symbols[offset + 3];
+					final ArrayList o = (ArrayList) _symbol_o.value;
+					 ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.addAll(o); return new Symbol(p);
+				}
 			}
 		};
 
-	
+
 		report = new Parser.Events(){
 			public void scannerError(Scanner.Exception e)
 			{

@@ -23,7 +23,7 @@
 	}
 	:};
 
-%terminals DOMAINNAME, LPAREN, RPAREN, MULT, LSQBRACE, RCBRACE, DOT;
+%terminals DOMAINNAME, LPAREN, RPAREN, MULT, LSQBRACE, RCBRACE, DOT, PERCENT;
 
 %typeof DOMAINNAME = "String";
 %typeof molecule = "ArrayList";
@@ -32,7 +32,7 @@
 %goal molecule;
 
 options
-	= options.o? DOMAINNAME.n {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Option neu = new CDNA2Token.Option(n); p.add(neu); return new Symbol(p); :}
+	= options.b? DOMAINNAME.n {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; CDNA2Token.Option neu = new CDNA2Token.Option(n); p.add(neu); return new Symbol(p); :}
 	;
 
 molecule	
@@ -43,5 +43,5 @@ molecule
 	| molecule.a DOT {: ((CDNA2Token.Domain)a.get(a.size()-1)).setSingleStranded(); return new Symbol(a); :}
 	| molecule.b? LSQBRACE {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.add(new CDNA2Token.FivePrimeEnd(braceStack)); return new Symbol(p); :}
 	| molecule.a RCBRACE {: a.add(new CDNA2Token.ThreePrimeEnd(braceStack)); return new Symbol(a); :}
-	| molecule.b? DSIGN options.o DSIGN {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.addAll(o); return new Symbol(p); :} 
+	| molecule.b? PERCENT options.o PERCENT {: ArrayList p; if (b==null) p = new ArrayList(); else p = b; p.addAll(o); return new Symbol(p); :} 
 	;
